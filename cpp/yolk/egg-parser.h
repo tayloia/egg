@@ -64,7 +64,8 @@ namespace egg::yolk {
         TypeFunctionSignature,
         TypeFunctionSignatureParameter,
         Literal,
-        Named
+        Named,
+        Missing
       };
       enum class FunctionOp {
         Function,

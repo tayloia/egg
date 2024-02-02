@@ -828,7 +828,7 @@ namespace {
       case ValueMutationOp::IfFalse:
       case ValueMutationOp::IfTrue:
         // The condition was already tested in 'precheckMutationOp()'
-        return rhs;
+        return lhs->mutate(ValueMutationOp::Assign, rhs.get());
       case ValueMutationOp::Assign:
       case ValueMutationOp::Add:
       case ValueMutationOp::Subtract:
@@ -1141,7 +1141,7 @@ namespace {
       case ValueUnaryOp::LogicalNot:
         return Type::Bool;
       }
-      return this->fail(range, "TODO: Cannot deduce type for unary operator");
+      return this->fail(range, "TODO: Cannot deduce type for unary operator: ", op);
     }
     Type deduceBinaryOp(ValueBinaryOp op, Node& lhs, Node& rhs, const SourceRange& range) {
       switch (op) {
@@ -1155,17 +1155,12 @@ namespace {
         }
         return Type::Int;
       case ValueBinaryOp::LessThan: // a < b
-        break;
       case ValueBinaryOp::LessThanOrEqual: // a <= b
-        break;
       case ValueBinaryOp::Equal: // a == b
-        break;
       case ValueBinaryOp::NotEqual: // a != b
-        break;
       case ValueBinaryOp::GreaterThanOrEqual: // a >= b
-        break;
       case ValueBinaryOp::GreaterThan: // a > b
-        break;
+        return Type::Bool;
       case ValueBinaryOp::BitwiseAnd: // a & b
         break;
       case ValueBinaryOp::BitwiseOr: // a | b
@@ -1185,11 +1180,11 @@ namespace {
       case ValueBinaryOp::IfTrue: // a && b
         break;
       }
-      return this->fail(range, "TODO: Cannot deduce type for binary operator");
+      return this->fail(range, "TODO: Cannot deduce type for binary operator: ", op);
     }
     Type deduceTernaryOp(ValueTernaryOp op, Node&, Node& lhs, Node& rhs, const SourceRange& range) {
       if (op != ValueTernaryOp::IfThenElse) {
-        return this->fail(range, "TODO: Cannot deduce type for ternary operator");
+        return this->fail(range, "TODO: Cannot deduce type for ternary operator: ", op);
       }
       auto ltype = this->deduce(lhs);
       if (ltype == nullptr) {
@@ -1419,13 +1414,9 @@ namespace {
       node.defaultIndex = defaultIndex;
       return node;
     }
-    virtual Node& stmtCase(Node& expression, const SourceRange& range) override {
+    virtual Node& stmtCase(Node& block, const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::StmtCase, range);
-      node.addChild(expression);
-      return node;
-    }
-    virtual Node& stmtDefault(const SourceRange& range) override {
-      auto& node = this->module->createNode(Node::Kind::StmtCase, range);
+      node.addChild(block);
       return node;
     }
     virtual Node& stmtBreak(const SourceRange& range) override {
@@ -2596,7 +2587,7 @@ bool VMRunner::stepNode(HardValue& retval) {
         assert(latest->getVoid());
         top.deque.clear();
         // Evaluate the condition
-        this->push(*top.node->children[0]);
+        this->push(*top.node->children.front());
         top.index = 1;
       }
     }
@@ -2631,7 +2622,7 @@ bool VMRunner::stepNode(HardValue& retval) {
         top.deque.clear();
         if (condition) {
           // Perform the controlled block again
-          this->push(*top.node->children[0]);
+          this->push(*top.node->children.front());
           top.index = 1;
         } else {
           // The condition failed
@@ -2733,10 +2724,19 @@ bool VMRunner::stepNode(HardValue& retval) {
       assert(top.deque.size() == 1);
       auto& latest = top.deque.back();
       if (latest.hasFlowControl()) {
-        // TODO break and continue
-        return this->pop(latest);
-      }
-      if (top.index == 1) {
+        if (latest->getPrimitiveFlag() == ValueFlags::Break) {
+          // Terminate the for loop
+          return this->pop(HardValue::Void);
+        }
+        if (latest->getPrimitiveFlag() != ValueFlags::Continue) {
+          // Propagate theflow control
+          return this->pop(latest);
+        }
+        // Restart the loop at 'advance'
+        top.index = 3;
+        top.deque.clear();
+        this->push(*top.node->children[top.index++]);
+      } else if (top.index == 1) {
         // Evaluate the condition
         assert(latest->getVoid());
         top.deque.clear();
@@ -2775,7 +2775,7 @@ bool VMRunner::stepNode(HardValue& retval) {
     if (top.index == 0) {
       if (top.deque.empty()) {
         // Evaluate the switch expression
-        this->push(*top.node->children[0]);
+        this->push(*top.node->children.front());
         assert(top.index == 0);
       } else {
         // Test the switch expression evaluation
@@ -2889,7 +2889,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       if (Operation::areEqual(top.value, latest, true, false)) { // TODO: promote?
         // Got a match, so execute the block
         top.deque.clear();
-        this->push(*top.node->children[0]);
+        this->push(*top.node->children.front());
         top.index = top.node->children.size();
       } else {
         // Step to the next case expression

@@ -210,6 +210,9 @@ namespace {
     case Node::Kind::Named:
       assert(node.children.size() == 1);
       return printNodeExtra(os, "named", node.value, node, ranges);
+    case Node::Kind::Missing:
+      assert(node.children.empty());
+      return os << "<missing>";
     }
     return os;
   }
@@ -751,6 +754,15 @@ TEST(TestEggParser, StatementDiscard) {
     "void(123);"
     });
   std::string expected = "(expr-call (type-void) 123)\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementBlock) {
+  std::string actual = outputFromLines({
+    "{ var i = 1; }",
+    "{ var i = 2; }"
+    });
+  std::string expected = "(stmt-block (stmt-define-variable 'i' (type-infer) 1))\n(stmt-block (stmt-define-variable 'i' (type-infer) 2))\n";
   ASSERT_EQ(expected, actual);
 }
 

@@ -202,7 +202,7 @@
     }
     assert(false);
   } catch (any ex) {
-    // TODO assert(ex == "thrown");
+    assert(ex == "thrown");
     state = "caught";
   } finally {
     final = true;

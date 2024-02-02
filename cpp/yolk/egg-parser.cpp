@@ -557,21 +557,21 @@ namespace {
       Context context(*this, tokidx);
       assert(context[0].isKeyword(EggTokenizerKeyword::For));
       assert(context[1].isOperator(EggTokenizerOperator::ParenthesisLeft));
-      auto init = this->parseStatementSimple(tokidx + 2);
+      auto init = this->parseStatementSimpleOptional(tokidx + 2, EggTokenizerOperator::Semicolon);
       if (!init.succeeded()) {
         return init;
       }
       if (!init.after(0).isOperator(EggTokenizerOperator::Semicolon)) {
         return context.expected(init.tokensAfter, "';' after first clause of 'for' loop statement");
       }
-      auto cond = this->parseValueExpression(init.tokensAfter + 1);
+      auto cond = this->parseValueExpressionOptional(init.tokensAfter + 1, EggTokenizerOperator::Semicolon);
       if (!cond.succeeded()) {
         return cond;
       }
       if (!cond.after(0).isOperator(EggTokenizerOperator::Semicolon)) {
         return context.expected(cond.tokensAfter, "';' after condition clause of 'for' loop statement");
       }
-      auto adva = this->parseStatementSimple(cond.tokensAfter + 1);
+      auto adva = this->parseStatementSimpleOptional(cond.tokensAfter + 1, EggTokenizerOperator::ParenthesisRight);
       if (!adva.succeeded()) {
         return adva;
       }
@@ -869,7 +869,7 @@ namespace {
       if (!mutate.skipped()) {
         return mutate;
       }
-      auto expr = this->parseValueExpressionPrimary(tokidx);
+      auto expr = this->parseValueExpressionPrimary(tokidx, "statement");
       if (expr.succeeded()) {
         // The whole statement is actually an expression
         if (expr.node->kind == Node::Kind::ExprCall) {
@@ -882,6 +882,15 @@ namespace {
         return context.skip();
       }
       return expr;
+    }
+    Partial parseStatementSimpleOptional(size_t tokidx, EggTokenizerOperator terminal) {
+      Context context(*this, tokidx);
+      if (context[0].isOperator(terminal)) {
+        // Missing statement
+        auto stmt = this->makeNode(Node::Kind::Missing, context[0]);
+        return context.success(std::move(stmt), tokidx);
+      }
+      return this->parseStatementSimple(tokidx);
     }
     Partial parseStatementDiscard(size_t tokidx) {
       // void ( <expr> )
@@ -1332,6 +1341,15 @@ namespace {
     Partial parseValueExpression(size_t tokidx) {
       return this->parseValueExpressionTernary(tokidx);
     }
+    Partial parseValueExpressionOptional(size_t tokidx, EggTokenizerOperator terminal) {
+      Context context(*this, tokidx);
+      if (context[0].isOperator(terminal)) {
+        // Missing expression
+        auto stmt = this->makeNode(Node::Kind::Missing, context[0]);
+        return context.success(std::move(stmt), tokidx);
+      }
+      return this->parseValueExpression(tokidx);
+    }
     Partial parseValueExpressionTernary(size_t tokidx) {
       Context context(*this, tokidx);
       auto lhs = this->parseValueExpressionBinary(tokidx);
@@ -1367,11 +1385,11 @@ namespace {
       if (op.kind == EggTokenizerKind::Operator) {
         switch (op.value.o) {
         case EggTokenizerOperator::Percent: // "%"
-          break;
+          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::Remainder);
         case EggTokenizerOperator::Ampersand: // "&"
-          break;
+          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::BitwiseAnd);
         case EggTokenizerOperator::AmpersandAmpersand: // "&&"
-          break;
+          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::IfTrue);
         case EggTokenizerOperator::BangEqual: // "!="
           return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::NotEqual);
         case EggTokenizerOperator::Star: // "*"
@@ -1386,6 +1404,8 @@ namespace {
           return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::LessThan);
         case EggTokenizerOperator::ShiftLeft: // "<<"
           return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::ShiftLeft);
+        case EggTokenizerOperator::LessEqual: // "<="
+          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::LessThanOrEqual);
         case EggTokenizerOperator::EqualEqual: // "=="
           return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::Equal);
         case EggTokenizerOperator::Greater: // ">"
@@ -1403,7 +1423,7 @@ namespace {
         case EggTokenizerOperator::Bar: // "|"
           return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::BitwiseOr);
         case EggTokenizerOperator::BarBar: // "||"
-          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::IfTrue);
+          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::IfFalse);
         case EggTokenizerOperator::Bang: // "!"
         case EggTokenizerOperator::PercentEqual: // "%="
         case EggTokenizerOperator::AmpersandAmpersandEqual: // "&&="
@@ -1423,7 +1443,6 @@ namespace {
         case EggTokenizerOperator::Colon: // ":"
         case EggTokenizerOperator::Semicolon: // ";"
         case EggTokenizerOperator::ShiftLeftEqual: // "<<="
-        case EggTokenizerOperator::LessEqual: // "<="
         case EggTokenizerOperator::Equal: // "="
         case EggTokenizerOperator::ShiftRightEqual: // ">>="
         case EggTokenizerOperator::ShiftRightUnsignedEqual: // ">>>="
@@ -1499,7 +1518,7 @@ namespace {
         case EggTokenizerOperator::ParenthesisLeft: // "("
         case EggTokenizerOperator::BracketLeft: // "["
         case EggTokenizerOperator::CurlyLeft: // "{"
-          return this->parseValueExpressionPrimary(tokidx);
+          break;
         case EggTokenizerOperator::BangEqual: // "!="
         case EggTokenizerOperator::Percent: // "%"
         case EggTokenizerOperator::PercentEqual: // "%="
@@ -1544,11 +1563,10 @@ namespace {
         case EggTokenizerOperator::CurlyRight: // "}"
           return context.failed(tokidx, "bad unary expression operator: ", op.toString());
         default:
-          break;
+          return PARSE_TODO(tokidx, "invalid unary expression operator: ", op.toString());
         }
-        return PARSE_TODO(tokidx, "invalid unary expression operator: ", op.toString());
       }
-      return this->parseValueExpressionPrimary(tokidx);
+      return this->parseValueExpressionPrimary(tokidx, "expression");
     }
     Partial parseValueExpressionUnaryOperator(size_t tokidx, egg::ovum::ValueUnaryOp op) {
       auto rhs = this->parseValueExpressionPrimaryWrap(tokidx, Node::Kind::ExprUnary);
@@ -1558,7 +1576,7 @@ namespace {
       return rhs;
     }
     Partial parseValueExpressionPrimaryWrap(size_t tokidx, Node::Kind kind) {
-      auto rhs = this->parseValueExpressionPrimary(tokidx + 1);
+      auto rhs = this->parseValueExpressionPrimary(tokidx + 1, "expression");
       if (rhs.succeeded()) {
         auto& prefix = this->getAbsolute(tokidx);
         rhs.wrap(kind);
@@ -1566,8 +1584,8 @@ namespace {
       }
       return rhs;
     }
-    Partial parseValueExpressionPrimary(size_t tokidx) {
-      auto partial = this->parseValueExpressionPrimaryPrefix(tokidx);
+    Partial parseValueExpressionPrimary(size_t tokidx, const char* expected) {
+      auto partial = this->parseValueExpressionPrimaryPrefix(tokidx, expected);
       while (partial.succeeded()) {
         if (!this->parseValueExpressionPrimarySuffix(partial)) {
           break;
@@ -1575,7 +1593,7 @@ namespace {
       }
       return partial;
     }
-    Partial parseValueExpressionPrimaryPrefix(size_t tokidx) {
+    Partial parseValueExpressionPrimaryPrefix(size_t tokidx, const char* expected) {
       std::unique_ptr<Node> node;
       Context context(*this, tokidx);
       auto& next = context[0];
@@ -1610,7 +1628,7 @@ namespace {
       case EggTokenizerKind::EndOfFile:
         break;
       }
-      return context.expected(tokidx, "expression");
+      return context.expected(tokidx, expected);
     }
     Partial parseValueExpressionPrimaryPrefixKeyword(size_t tokidx) {
       Context context(*this, tokidx);

@@ -134,7 +134,7 @@ namespace {
     ModuleNode* compileStmtInto(ParserNode& pnode, StmtContext& context, ModuleNode& parent);
     ModuleNode* compileStmtVoid(ParserNode& pnode);
     ModuleNode* compileStmtBlock(ParserNode& pnodes, StmtContext& context);
-    ModuleNode* compileStmtBlockInto(ParserNode& pnodes, StmtContext& context, ModuleNode& parent);
+    ModuleNode* compileStmtBlockInto(ParserNodes& pnodes, StmtContext& context, ModuleNode& parent);
     ModuleNode* compileStmtDeclareVariable(ParserNode& pnode, StmtContext& context);
     ModuleNode* compileStmtDefineVariable(ParserNode& pnode, StmtContext& context);
     ModuleNode* compileStmtDefineFunction(ParserNode& pnode, StmtContext& context);
@@ -156,6 +156,7 @@ namespace {
     ModuleNode* compileStmtSwitch(ParserNode& pnode, StmtContext& context);
     ModuleNode* compileStmtBreak(ParserNode& pnode, StmtContext& context);
     ModuleNode* compileStmtContinue(ParserNode& pnode, StmtContext& context);
+    ModuleNode* compileStmtMissing(ParserNode& pnode, StmtContext& context);
     ModuleNode* compileValueExpr(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileValueExprVariable(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileValueExprUnary(ParserNode& op, ParserNode& rhs, const ExprContext& context);
@@ -174,6 +175,7 @@ namespace {
     ModuleNode* compileValueExprObjectElement(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileValueExprGuard(ParserNode& pnode, ParserNode& ptype, ParserNode& pexpr, const ExprContext& context);
     ModuleNode* compileValueExprManifestation(ParserNode& pnode, egg::ovum::ValueFlags flags);
+    ModuleNode* compileValueExprMissing(ParserNode& pnode);
     ModuleNode* compileTypeExpr(ParserNode& pnode, const ExprContext& context, egg::ovum::Type& type);
     ModuleNode* compileTypeGuard(ParserNode& pnode, const ExprContext& context, egg::ovum::Type& type, ModuleNode*& mcond);
     ModuleNode* compileTypeInfer(ParserNode& pnode, ParserNode& ptype, ParserNode& pexpr, const ExprContext& context, egg::ovum::Type& type, ModuleNode*& mexpr);
@@ -329,7 +331,7 @@ egg::ovum::HardPtr<egg::ovum::IVMModule> ModuleCompiler::compile(ParserNode& roo
     this->expected(root, "module root node");
     return nullptr;
   }
-  auto block = this->compileStmtBlockInto(root, context, *context.target);
+  auto block = this->compileStmtBlockInto(root.children, context, *context.target);
   if (block == nullptr) {
     return nullptr;
   }
@@ -392,6 +394,9 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, StmtContext& context)
   case ParserNode::Kind::ExprCall:
     EXPECT(pnode, !pnode.children.empty());
     return this->compileValueExprCall(pnode.children, context);
+  case ParserNode::Kind::Missing:
+    EXPECT(pnode, pnode.children.empty());
+    return this->compileStmtMissing(pnode, context);
   case ParserNode::Kind::ModuleRoot:
   case ParserNode::Kind::StmtCase:
   case ParserNode::Kind::StmtDefault:
@@ -435,7 +440,7 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, StmtContext& context)
 
 ModuleNode* ModuleCompiler::compileStmtInto(ParserNode& pnode, StmtContext& context, ModuleNode& parent) {
   if (pnode.kind == ParserNode::Kind::StmtBlock) {
-    return this->compileStmtBlockInto(pnode, context, parent);
+    return this->compileStmtBlockInto(pnode.children, context, parent);
   }
   auto* before = context.target;
   context.target = &parent;
@@ -453,17 +458,19 @@ ModuleNode* ModuleCompiler::compileStmtVoid(ParserNode& pnode) {
 }
 
 ModuleNode* ModuleCompiler::compileStmtBlock(ParserNode& pnode, StmtContext& context) {
-  return this->compileStmtBlockInto(pnode, context, this->mbuilder.stmtBlock(pnode.range));
+  assert(pnode.kind == ParserNode::Kind::StmtBlock);
+  StmtContext inner{ &context };
+  return this->compileStmtBlockInto(pnode.children, inner, this->mbuilder.stmtBlock(pnode.range));
 }
 
-ModuleNode* ModuleCompiler::compileStmtBlockInto(ParserNode& pnode, StmtContext& context, ModuleNode& parent) {
+ModuleNode* ModuleCompiler::compileStmtBlockInto(ParserNodes& pnodes, StmtContext& context, ModuleNode& parent) {
   auto* before = context.target;
   context.target = &parent;
-  for (const auto& child : pnode.children) {
+  for (const auto& pnode : pnodes) {
     // Make sure we append to the target as it is now
     auto* target = context.target;
     assert(target != nullptr);
-    auto* stmt = this->compileStmt(*child, context);
+    auto* stmt = this->compileStmt(*pnode, context);
     if (stmt == nullptr) {
       context.target = before;
       return nullptr;
@@ -560,8 +567,9 @@ ModuleNode* ModuleCompiler::compileStmtDefineFunction(ParserNode& pnode, StmtCon
     return nullptr;
   }
   auto& ptail = *pnode.children.back();
+  assert(ptail.kind == ParserNode::Kind::StmtBlock);
   auto& invoke = this->mbuilder.stmtFunctionInvoke(pnode.range); // WIBBLE convert stmtFunctionInvoke to stmtBlock?
-  auto block = this->compileStmtBlockInto(ptail, inner, invoke);
+  auto block = this->compileStmtBlockInto(ptail.children, inner, invoke);
   if (block == nullptr) {
     return nullptr;
   }
@@ -871,21 +879,19 @@ ModuleNode* ModuleCompiler::compileStmtYield(ParserNode& pnode, StmtContext& con
 ModuleNode* ModuleCompiler::compileStmtThrow(ParserNode& pnode, StmtContext& context) {
   assert(pnode.kind == ParserNode::Kind::StmtThrow);
   assert(pnode.children.size() <= 1);
-  auto* stmt = &this->mbuilder.stmtReturn(pnode.range);
   if (pnode.children.empty()) {
     // throw ;
     if (!context.canRethrow) {
       return this->error(pnode, "Rethrow 'throw' statements are only valid within 'catch' clauses");
     }
-  } else {
-    // throw <expr> ;
-    auto* expr = this->compileValueExpr(*pnode.children.back(), context);
-    if (expr == nullptr) {
-      return nullptr;
-    }
-    this->mbuilder.appendChild(*stmt, *expr);
+    return &this->mbuilder.stmtRethrow(pnode.range);
   }
-  return stmt;
+  // throw <expr> ;
+  auto* expr = this->compileValueExpr(*pnode.children.back(), context);
+  if (expr == nullptr) {
+    return nullptr;
+  }
+  return &this->mbuilder.stmtThrow(*expr, pnode.range);
 }
 
 ModuleNode* ModuleCompiler::compileStmtTry(ParserNode& pnode, StmtContext& context) {
@@ -915,9 +921,9 @@ ModuleNode* ModuleCompiler::compileStmtTry(ParserNode& pnode, StmtContext& conte
       }
       seenFinally = true;
       inner.canRethrow = false;
-      child = this->compileStmt(*pchild, inner);
+      child = this->compileStmtBlockInto(pchild->children, inner, this->mbuilder.stmtBlock(pchild->range));
     } else {
-      return this->expected(pnode, "'catch' or 'finally' after 'try'");
+      return this->expected(pnode, "'catch' or 'finally' clause in 'try' statement");
     }
     if (child == nullptr) {
       stmt = nullptr;
@@ -1028,7 +1034,7 @@ ModuleNode* ModuleCompiler::compileStmtDo(ParserNode& pnode, StmtContext& contex
   if (condition == nullptr) {
     return nullptr;
   }
-  auto* stmt = &this->mbuilder.stmtDo(*condition, *block, pnode.range);
+  auto* stmt = &this->mbuilder.stmtDo(*block, *condition, pnode.range);
   return stmt;
 }
 
@@ -1039,7 +1045,12 @@ ModuleNode* ModuleCompiler::compileStmtSwitch(ParserNode& pnode, StmtContext& co
   if (expr == nullptr) {
     return nullptr;
   }
-  std::vector<ModuleNode*> clauses;
+  struct Clause {
+    std::vector<ParserNode*> statements;
+    std::vector<ParserNode*> values;
+  };
+  std::vector<Clause> pclauses;
+  enum { Start, Labels, Statements } state = Start;
   StmtContext inner{ &context };
   inner.canBreak = true;
   inner.canContinue = true;
@@ -1056,41 +1067,82 @@ ModuleNode* ModuleCompiler::compileStmtSwitch(ParserNode& pnode, StmtContext& co
       if ((index + 1) >= count) {
         return this->error(*pchildren[index], "Expected at least one statement within final 'case' clause of 'switch' statement block");
       }
-      auto* mexpr = this->compileValueExpr(*pchild.children.front(), inner);
-      if (mexpr == nullptr) {
-        return nullptr;
+      switch (state) {
+      case Start:
+        pclauses.push_back({});
+        state = Labels;
+        break;
+      case Labels:
+        break;
+      case Statements:
+        pclauses.push_back({});
+        state = Labels;
+        break;
       }
-      inner.target = &this->mbuilder.stmtCase(*mexpr, pchild.range);
-      clauses.push_back(inner.target);
+      pclauses.back().values.push_back(pchild.children.front().get());
     } else if (pchild.kind == ParserNode::Kind::StmtDefault) {
       // default :
       EXPECT(pchild, pchild.children.empty());
+      if (defaultIndex > 0) {
+        return this->error(*pchildren[index], "Unexpected second 'default' clause in 'switch' statement");
+      }
       if ((index + 1) >= count) {
         return this->error(*pchildren[index], "Expected at least one statement within final 'default' clause of 'switch' statement");
       }
-      inner.target = &this->mbuilder.stmtDefault(pchild.range);
-      clauses.push_back(inner.target);
+      switch (state) {
+      case Start:
+        pclauses.push_back({});
+        state = Labels;
+        break;
+      case Labels:
+        break;
+      case Statements:
+        pclauses.push_back({});
+        state = Labels;
+        break;
+      }
+      defaultIndex = pclauses.size();
     } else {
       // Any other statement
-      auto* target = inner.target;
-      if (target == nullptr) {
+      switch (state) {
+      case Start:
+        // WIBBLE Impossible
         return this->error(pchild, "Expected 'case' or 'default' clause to start 'switch' statement block, but instead got ", ModuleCompiler::toString(pchild));
+      case Labels:
+        assert(pclauses.back().statements.empty());
+        state = Statements;
+        break;
+      case Statements:
+        break;
       }
-      auto* stmt = this->compileStmt(pchild, inner);
-      if (stmt == nullptr) {
-        return nullptr;
-      }
-      this->mbuilder.appendChild(*target, *stmt);
+      pclauses.back().statements.push_back(&pchild);
     }
   }
-  if (clauses.empty()) {
+  if (pclauses.empty()) {
     return this->error(pnode, "Expected at least one 'case' or 'default' clause within 'switch' statement");
   }
-  auto* stmt = &this->mbuilder.stmtSwitch(*expr, defaultIndex, pnode.range);
-  for (auto& clause : clauses) {
-    this->mbuilder.appendChild(*stmt, *clause);
+  auto& mswitch = this->mbuilder.stmtSwitch(*expr, defaultIndex, pnode.range);
+  for (auto& pclause : pclauses) {
+    auto& range = pclause.statements.front()->range;
+    auto& mblock = this->mbuilder.stmtBlock(range);
+    for (auto& pstmt : pclause.statements) {
+      auto* mstmt = this->compileStmt(*pstmt, inner);
+      if (mstmt == nullptr) {
+        return nullptr;
+      }
+      this->mbuilder.appendChild(mblock, *mstmt);
+    }
+    auto& mcase = this->mbuilder.stmtCase(mblock, range);
+    for (auto& pvalue : pclause.values) {
+      auto* mvalue = this->compileValueExpr(*pvalue, inner);
+      if (mvalue == nullptr) {
+        return nullptr;
+      }
+      this->mbuilder.appendChild(mcase, *mvalue);
+    }
+    this->mbuilder.appendChild(mswitch, mcase);
   }
-  return stmt;
+  return &mswitch;
 }
 
 ModuleNode* ModuleCompiler::compileStmtBreak(ParserNode& pnode, StmtContext& context) {
@@ -1110,6 +1162,13 @@ ModuleNode* ModuleCompiler::compileStmtContinue(ParserNode& pnode, StmtContext& 
     return this->error(pnode, "'continue' statements are only valid within loops");
   }
   auto* stmt = &this->mbuilder.stmtContinue(pnode.range);
+  return stmt;
+}
+
+ModuleNode* ModuleCompiler::compileStmtMissing(ParserNode& pnode, StmtContext&) {
+  assert(pnode.kind == ParserNode::Kind::Missing);
+  assert(pnode.children.empty());
+  auto* stmt = &this->mbuilder.stmtBlock(pnode.range);
   return stmt;
 }
 
@@ -1163,7 +1222,11 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode, const ExprContex
     EXPECT(pnode, pnode.children[1] != nullptr);
     return this->compileValueExprGuard(pnode, *pnode.children[0], *pnode.children[1], context);
   case ParserNode::Kind::Literal:
+    EXPECT(pnode, pnode.children.empty());
     return this->compileLiteral(pnode);
+  case ParserNode::Kind::Missing:
+    EXPECT(pnode, pnode.children.empty());
+    return this->compileValueExprMissing(pnode);
   case ParserNode::Kind::TypeVoid:
     EXPECT(pnode, pnode.children.empty());
     return this->compileValueExprManifestation(pnode, egg::ovum::ValueFlags::Void);
@@ -1536,6 +1599,13 @@ ModuleNode* ModuleCompiler::compileValueExprGuard(ParserNode& pnode, ParserNode&
 
 ModuleNode* ModuleCompiler::compileValueExprManifestation(ParserNode& pnode, egg::ovum::ValueFlags flags) {
   return &this->mbuilder.typeManifestation(flags, pnode.range);
+}
+
+ModuleNode* ModuleCompiler::compileValueExprMissing(ParserNode& pnode) {
+  assert(pnode.kind == ParserNode::Kind::Missing);
+  assert(pnode.children.empty());
+  auto* stmt = &this->mbuilder.exprLiteral(egg::ovum::HardValue::True, pnode.range);
+  return stmt;
 }
 
 ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode, const ExprContext&, egg::ovum::Type& type) {
@@ -2009,6 +2079,8 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
     return "literal";
   case ParserNode::Kind::Named:
     return "named expression";
+  case ParserNode::Kind::Missing:
+    return "nothing";
   }
   return "unknown node kind";
 }
