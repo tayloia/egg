@@ -146,6 +146,7 @@ namespace {
     ModuleNode* compileStmtIfUnguarded(ParserNode& pnode, StmtContext& context);
     ModuleNode* compileStmtReturn(ParserNode& pnode, StmtContext& context);
     ModuleNode* compileStmtYield(ParserNode& pnode, StmtContext& context);
+    ModuleNode* compileStmtThrow(ParserNode& pnode, StmtContext& context);
     ModuleNode* compileStmtTry(ParserNode& pnode, StmtContext& context);
     ModuleNode* compileStmtCatch(ParserNode& pnode, StmtContext& context);
     ModuleNode* compileStmtWhile(ParserNode& pnode, StmtContext& context);
@@ -365,6 +366,9 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, StmtContext& context)
   case ParserNode::Kind::StmtYield:
     EXPECT(pnode, pnode.children.size() <= 2);
     return this->compileStmtYield(pnode, context);
+  case ParserNode::Kind::StmtThrow:
+    EXPECT(pnode, pnode.children.size() <= 2);
+    return this->compileStmtThrow(pnode, context);
   case ParserNode::Kind::StmtTry:
     EXPECT(pnode, pnode.children.size() >= 2);
     return this->compileStmtTry(pnode, context);
@@ -864,6 +868,26 @@ ModuleNode* ModuleCompiler::compileStmtYield(ParserNode& pnode, StmtContext& con
   return &this->mbuilder.stmtYield(*expr, pnode.range);
 }
 
+ModuleNode* ModuleCompiler::compileStmtThrow(ParserNode& pnode, StmtContext& context) {
+  assert(pnode.kind == ParserNode::Kind::StmtThrow);
+  assert(pnode.children.size() <= 1);
+  auto* stmt = &this->mbuilder.stmtReturn(pnode.range);
+  if (pnode.children.empty()) {
+    // throw ;
+    if (!context.canRethrow) {
+      return this->error(pnode, "Rethrow 'throw' statements are only valid within 'catch' clauses");
+    }
+  } else {
+    // throw <expr> ;
+    auto* expr = this->compileValueExpr(*pnode.children.back(), context);
+    if (expr == nullptr) {
+      return nullptr;
+    }
+    this->mbuilder.appendChild(*stmt, *expr);
+  }
+  return stmt;
+}
+
 ModuleNode* ModuleCompiler::compileStmtTry(ParserNode& pnode, StmtContext& context) {
   assert(pnode.kind == ParserNode::Kind::StmtTry);
   assert(pnode.children.size() >= 2);
@@ -1146,6 +1170,7 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode, const ExprContex
   case ParserNode::Kind::StmtIf:
   case ParserNode::Kind::StmtReturn:
   case ParserNode::Kind::StmtYield:
+  case ParserNode::Kind::StmtThrow:
   case ParserNode::Kind::StmtTry:
   case ParserNode::Kind::StmtCatch:
   case ParserNode::Kind::StmtFinally:
@@ -1872,6 +1897,8 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
     return "yield statement";
   case ParserNode::Kind::StmtTry:
     return "try statement";
+  case ParserNode::Kind::StmtThrow:
+    return "throw statement";
   case ParserNode::Kind::StmtCatch:
     return "catch statement";
   case ParserNode::Kind::StmtFinally:

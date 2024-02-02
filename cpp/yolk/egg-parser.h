@@ -25,6 +25,7 @@ namespace egg::yolk {
         StmtIf,
         StmtReturn,
         StmtYield,
+        StmtThrow,
         StmtTry,
         StmtCatch,
         StmtFinally,

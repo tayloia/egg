@@ -721,7 +721,22 @@ namespace {
     Partial parseStatementThrow(size_t tokidx) {
       Context context(*this, tokidx);
       assert(context[0].isKeyword(EggTokenizerKeyword::Throw));
-      return PARSE_TODO(tokidx, "statement keyword: ", context[0].toString());
+      if (context[1].isOperator(EggTokenizerOperator::Semicolon)) {
+        // throw ;
+        auto stmt = this->makeNode(Node::Kind::StmtThrow, context[0]);
+        return context.success(std::move(stmt), tokidx + 2);
+      }
+      auto expr = this->parseValueExpression(tokidx + 1);
+      if (expr.succeeded()) {
+        // throw <expr> ;
+        if (!expr.after(0).isOperator(EggTokenizerOperator::Semicolon)) {
+          return context.expected(expr.tokensAfter, "';' after 'throw' statement");
+        }
+        auto stmt = this->makeNode(Node::Kind::StmtThrow, context[0]);
+        stmt->children.emplace_back(std::move(expr.node));
+        return context.success(std::move(stmt), expr.tokensAfter + 1);
+      }
+      return expr;
     }
     Partial parseStatementTry(size_t tokidx) {
       Context context(*this, tokidx);

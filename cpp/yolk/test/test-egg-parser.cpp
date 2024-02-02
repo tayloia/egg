@@ -81,6 +81,9 @@ namespace {
     case Node::Kind::StmtYield:
       assert(node.children.size() <= 1);
       return printNodeChildren(os, "stmt-yield", node, ranges);
+    case Node::Kind::StmtThrow:
+      assert(node.children.size() <= 1);
+      return printNodeChildren(os, "stmt-throw", node, ranges);
     case Node::Kind::StmtTry:
       assert(node.children.size() >= 2);
       return printNodeChildren(os, "stmt-try", node, ranges);
@@ -684,6 +687,22 @@ TEST(TestEggParser, StatementTryFinally) {
     "try {} finally {}"
     });
   std::string expected = "(stmt-try (stmt-block) (stmt-finally (stmt-block)))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementThrow) {
+  std::string actual = outputFromLines({
+    "throw i;"
+    });
+  std::string expected = "(stmt-throw (expr-variable 'i'))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementRethrow) {
+  std::string actual = outputFromLines({
+    "throw;"
+    });
+  std::string expected = "(stmt-throw)\n";
   ASSERT_EQ(expected, actual);
 }
 
