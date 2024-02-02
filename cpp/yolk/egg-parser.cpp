@@ -352,17 +352,22 @@ namespace {
             return context.expected(tokidx, "statement");
         }
       }
-      auto partial = this->parseStatementSimple(tokidx);
-      if (partial.succeeded()) {
-        auto& terminal = partial.after(0);
-        if (terminal.isOperator(EggTokenizerOperator::Semicolon)) {
+      auto simple = this->parseStatementSimple(tokidx);
+      if (!simple.skipped()) {
+        if (simple.succeeded()) {
           // Swallow the semicolon
-          partial.tokensAfter++;
-          return partial;
+          if (!simple.after(0).isOperator(EggTokenizerOperator::Semicolon)) {
+            return context.expected(simple.tokensAfter, "';' after statement");
+          }
+          simple.tokensAfter++;
         }
-        return PARSE_TODO(partial.tokensAfter, "expected ';' after simple statement, but instead got ", terminal.toString());
+        return simple;
       }
-      return partial;
+      if (context[0].isOperator(EggTokenizerOperator::CurlyLeft)) {
+        // We've ruled out a primary expression (object literal) above, so this should be a statement block
+        return this->parseStatementBlock(tokidx);
+      }
+      return context.expected(tokidx, "statement");
     }
     Partial parseStatementBlock(size_t tokidx) {
       Context context(*this, tokidx);
@@ -872,7 +877,11 @@ namespace {
         }
         return context.skip();
       }
-      return PARSE_TODO(tokidx, "statement simple");
+      if (context[0].isOperator(EggTokenizerOperator::CurlyLeft)) {
+        // Edge case: '{}' is an object expression and an empty statement block
+        return context.skip();
+      }
+      return expr;
     }
     Partial parseStatementDiscard(size_t tokidx) {
       // void ( <expr> )

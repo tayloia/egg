@@ -264,3 +264,5 @@
   }
   assert(f(3) == 9);
 }
+print("SUCCESS");
+///>SUCCESS
