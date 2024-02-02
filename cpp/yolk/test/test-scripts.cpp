@@ -4,6 +4,50 @@
 using namespace egg::yolk;
 
 namespace {
+  class TestScript {
+  public:
+    static void run(const std::string& resource) {
+      // Actually perform the testing
+      FileTextStream stream(resource);
+      auto actual = TestScript::execute(stream);
+      ASSERT_TRUE(stream.rewind());
+      auto expected = TestScript::expectation(stream);
+      ASSERT_EQ(expected, actual);
+    }
+  private:
+    static std::string execute(TextStream& stream) {
+      egg::test::VM vm;
+      vm.logger.resource = stream.getResourceName();
+      auto program = EggCompilerFactory::compileFromStream(*vm, stream);
+      if (program != nullptr) {
+        auto runner = program->createRunner();
+        vm.addBuiltins(*runner);
+        vm.run(*runner);
+      }
+      return vm.logger.logged.str();
+    }
+    static std::string expectation(TextStream& stream) {
+      std::string expected;
+      std::string line;
+      while (stream.readline(line)) {
+        // Test output lines always begin with '///'
+        if (line.starts_with("///")) {
+          switch (line[3]) {
+          case '>':
+            // '///>message' for normal USER/INFO output, e.g. print()
+            expected += line.substr(4) + "\n";
+            break;
+          case '<':
+            // '///<SOURCE><SEVERITY>message' for other log output
+            expected += line.substr(3) + "\n";
+            break;
+          }
+        }
+      }
+      return expected;
+    }
+  };
+
   class TestScripts : public ::testing::TestWithParam<std::string> {
   private:
     static const std::string directory;
@@ -14,11 +58,7 @@ namespace {
       // Actually perform the testing
       std::string script = this->GetParam();
       auto resource = TestScripts::directory + "/" + script;
-      FileTextStream stream(resource);
-      auto actual = TestScripts::execute(stream);
-      ASSERT_TRUE(stream.rewind());
-      auto expected = TestScripts::expectation(stream);
-      ASSERT_EQ(expected, actual);
+      TestScript::run(resource);
     }
     static ::testing::internal::ParamGenerator<std::string> generator() {
       // Generate value parameterizations for all the scripts
@@ -98,6 +138,10 @@ namespace {
   };
 
   const std::string TestScripts::directory = "~/cpp/yolk/test/scripts";
+}
+
+TEST(TestScript, Working) {
+  TestScript::run("~/cpp/yolk/test/data/working.egg");
 }
 
 TEST_P(TestScripts, Run) {
