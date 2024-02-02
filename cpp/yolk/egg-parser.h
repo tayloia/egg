@@ -29,6 +29,7 @@ namespace egg::yolk {
         StmtCatch,
         StmtFinally,
         StmtWhile,
+        StmtDo,
         StmtMutate,
         ExprVariable,
         ExprUnary,

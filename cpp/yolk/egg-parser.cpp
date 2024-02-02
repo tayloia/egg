@@ -409,7 +409,33 @@ namespace {
     Partial parseStatementDo(size_t tokidx) {
       Context context(*this, tokidx);
       assert(context[0].isKeyword(EggTokenizerKeyword::Do));
-      return PARSE_TODO(tokidx, "statement keyword: ", context[0].toString());
+      if (!context[1].isOperator(EggTokenizerOperator::CurlyLeft)) {
+        return context.expected(tokidx + 1, "'{' after keyword 'do'");
+      }
+      auto block = this->parseStatementBlock(tokidx + 1);
+      if (!block.succeeded()) {
+        return block;
+      }
+      if (!block.after(0).isKeyword(EggTokenizerKeyword::While)) {
+        return context.expected(block.tokensAfter, "'while' after '}' in 'do' statement");
+      }
+      if (!block.after(1).isOperator(EggTokenizerOperator::ParenthesisLeft)) {
+        return context.expected(block.tokensAfter + 1, "'(' after 'while' in 'do' statement");
+      }
+      auto condition = this->parseValueExpression(block.tokensAfter + 2);
+      if (!condition.succeeded()) {
+        return condition;
+      }
+      if (!condition.after(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
+        return context.expected(condition.tokensAfter, "')' after 'while' condition in 'do' statement");
+      }
+      if (!condition.after(1).isOperator(EggTokenizerOperator::Semicolon)) {
+        return context.expected(condition.tokensAfter + 1, "';' after ')' in 'while' condition of 'do' statement");
+      }
+      auto stmt = this->makeNodeString(Node::Kind::StmtDo, context[0]);
+      stmt->children.emplace_back(std::move(block.node));
+      stmt->children.emplace_back(std::move(condition.node));
+      return context.success(std::move(stmt), condition.tokensAfter + 2);
     }
     Partial parseStatementElse(size_t tokidx) {
       Context context(*this, tokidx);

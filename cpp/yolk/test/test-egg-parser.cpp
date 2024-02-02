@@ -93,6 +93,9 @@ namespace {
     case Node::Kind::StmtWhile:
       assert(node.children.size() == 2);
       return printNodeChildren(os, "stmt-while", node, ranges);
+    case Node::Kind::StmtDo:
+      assert(node.children.size() == 2);
+      return printNodeChildren(os, "stmt-do", node, ranges);
     case Node::Kind::StmtMutate:
       return printNodeExtra(os, "stmt-mutate", node.op.valueMutationOp, node, ranges);
     case Node::Kind::ExprVariable:

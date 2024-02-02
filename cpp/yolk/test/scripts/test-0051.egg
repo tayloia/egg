@@ -39,4 +39,4 @@ int... countdown_for(int counter) {
 test("countdown_for", countdown_for(3));
 */
 
-///<RUNTIME><ERROR><RESOURCE>(9,8): Generators are not yet supported
+///<RUNTIME><ERROR><RESOURCE>(10,3-7): 'yield' statements are not yet supported

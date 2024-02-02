@@ -151,6 +151,7 @@ namespace {
     ModuleNode* compileStmtWhile(ParserNode& pnode, StmtContext& context);
     ModuleNode* compileStmtWhileGuarded(ParserNode& pnode, StmtContext& context);
     ModuleNode* compileStmtWhileUnguarded(ParserNode& pnode, StmtContext& context);
+    ModuleNode* compileStmtDo(ParserNode& pnode, StmtContext& context);
     ModuleNode* compileValueExpr(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileValueExprVariable(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileValueExprUnary(ParserNode& op, ParserNode& rhs, const ExprContext& context);
@@ -367,6 +368,9 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, StmtContext& context)
   case ParserNode::Kind::StmtWhile:
     EXPECT(pnode, pnode.children.size() == 2);
     return this->compileStmtWhile(pnode, context);
+  case ParserNode::Kind::StmtDo:
+    EXPECT(pnode, pnode.children.size() == 2);
+    return this->compileStmtDo(pnode, context);
   case ParserNode::Kind::StmtMutate:
     return this->compileStmtMutate(pnode, context);
   case ParserNode::Kind::ExprCall:
@@ -975,6 +979,21 @@ ModuleNode* ModuleCompiler::compileStmtWhileUnguarded(ParserNode& pnode, StmtCon
   return stmt;
 }
 
+ModuleNode* ModuleCompiler::compileStmtDo(ParserNode& pnode, StmtContext& context) {
+  assert(pnode.kind == ParserNode::Kind::StmtDo);
+  assert(pnode.children.size() == 2);
+  auto* block = this->compileStmt(*pnode.children.front(), context);
+  if (block == nullptr) {
+    return nullptr;
+  }
+  auto* condition = this->compileValueExpr(*pnode.children.back(), context);
+  if (condition == nullptr) {
+    return nullptr;
+  }
+  auto* stmt = &this->mbuilder.stmtDo(*condition, *block, pnode.range);
+  return stmt;
+}
+
 ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode, const ExprContext& context) {
   switch (pnode.kind) {
   case ParserNode::Kind::ExprVariable:
@@ -1070,6 +1089,7 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode, const ExprContex
   case ParserNode::Kind::StmtCatch:
   case ParserNode::Kind::StmtFinally:
   case ParserNode::Kind::StmtWhile:
+  case ParserNode::Kind::StmtDo:
   case ParserNode::Kind::StmtMutate:
   case ParserNode::Kind::Named:
   default:
@@ -1792,6 +1812,8 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
     return "finally statement";
   case ParserNode::Kind::StmtWhile:
     return "while statement";
+  case ParserNode::Kind::StmtDo:
+    return "do statement";
   case ParserNode::Kind::StmtMutate:
     return "mutate statement";
   case ParserNode::Kind::ExprVariable:
