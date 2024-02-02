@@ -783,6 +783,33 @@ namespace egg::internal {
       }
       return this->forgeShape(std::move(shape));
     }
+    virtual TypeShape forgeGeneratorShape(const Type& generated) override {
+      // Generated type is 'T' so the generator return type is '(void|T)()'
+      TypeForgeShape shape;
+      {
+        // Callable
+        auto builder = this->createFunctionBuilder();
+        builder->setReturnType(this->forgeVoidableType(generated, true));
+        shape.callable = &builder->build();
+      }
+      {
+        // Iteration
+        auto builder = this->createIteratorBuilder();
+        builder->setIterationType(generated);
+        shape.iterable = &builder->build();
+      }
+      {
+        // Taggable
+        auto builder = this->createTaggableBuilder();
+        Print::Options options{};
+        options.names = false;
+        StringBuilder sb{ options };
+        Type::print(sb, *shape.callable);
+        builder->setDescription(sb.build(this->allocator), 1);
+        shape.taggable = &builder->build();
+      }
+      return this->forgeShape(std::move(shape));
+    }
     virtual TypeShape forgeIteratorShape(const Type& element) override {
       TypeForgeShape shape;
       {
@@ -904,6 +931,9 @@ namespace egg::internal {
     }
     virtual Type forgeFunctionType(const IFunctionSignature& signature) override {
       return this->forgeShapeType(this->forgeFunctionShape(signature));
+    }
+    virtual Type forgeGeneratorType(const Type& generated) override {
+      return this->forgeShapeType(this->forgeGeneratorShape(generated));
     }
     virtual Type forgePointerType(const Type& pointee, Modifiability modifiability) override {
       return this->forgeShapeType(this->forgePointerShape(pointee, modifiability));
@@ -1299,12 +1329,7 @@ namespace egg::internal {
   void TypeForgeFunctionBuilder::setGeneratedType(const Type& type) {
     // Generated type is 'T' so the generator return type is '(void|T)()'
     this->gtype = type;
-    auto fb = this->forge.createFunctionBuilder();
-    auto voidable = this->forge.forgeVoidableType(type, true);
-    assert(voidable != nullptr);
-    fb->setReturnType(voidable);
-    auto& signature = fb->build();
-    this->rtype = this->forge.forgeFunctionType(signature);
+    this->rtype = this->forge.forgeGeneratorType(type);
   }
 
   const IFunctionSignature& TypeForgeFunctionBuilder::build() {

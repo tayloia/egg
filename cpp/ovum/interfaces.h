@@ -419,6 +419,7 @@ namespace egg::ovum {
     // Interface
     virtual TypeShape forgeArrayShape(const Type& element, Modifiability modifiability) = 0;
     virtual TypeShape forgeFunctionShape(const IFunctionSignature& signature) = 0;
+    virtual TypeShape forgeGeneratorShape(const Type& generated) = 0;
     virtual TypeShape forgeIteratorShape(const Type& element) = 0;
     virtual TypeShape forgePointerShape(const Type& pointee, Modifiability modifiability) = 0;
     virtual TypeShape forgeStringShape() = 0;
@@ -431,6 +432,7 @@ namespace egg::ovum {
     virtual Type forgeIterationType(const Type& container) = 0;
     virtual Type forgeIteratorType(const Type& element) = 0;
     virtual Type forgeFunctionType(const IFunctionSignature& signature) = 0;
+    virtual Type forgeGeneratorType(const Type& generated) = 0;
     virtual Type forgePointerType(const Type& pointee, Modifiability modifiability) = 0;
     virtual Type forgeShapeType(const TypeShape& shape) = 0;
     virtual Assignability isTypeAssignable(const Type& dst, const Type& src) = 0;
