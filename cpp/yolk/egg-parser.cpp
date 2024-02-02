@@ -384,12 +384,27 @@ namespace {
     Partial parseStatementBreak(size_t tokidx) {
       Context context(*this, tokidx);
       assert(context[0].isKeyword(EggTokenizerKeyword::Break));
-      return PARSE_TODO(tokidx, "statement keyword: ", context[0].toString());
+      if (context[1].isOperator(EggTokenizerOperator::Semicolon)) {
+        // break ;
+        auto stmt = this->makeNode(Node::Kind::StmtBreak, context[0]);
+        return context.success(std::move(stmt), tokidx + 2);
+      }
+      return context.expected(tokidx + 1, "';' after 'break' statement");
     }
     Partial parseStatementCase(size_t tokidx) {
       Context context(*this, tokidx);
       assert(context[0].isKeyword(EggTokenizerKeyword::Case));
-      return PARSE_TODO(tokidx, "statement keyword: ", context[0].toString());
+      auto expr = this->parseValueExpression(tokidx + 1);
+      if (expr.succeeded()) {
+        // case <expr> :
+        if (!expr.after(0).isOperator(EggTokenizerOperator::Colon)) {
+          return context.expected(expr.tokensAfter, "':' after expression in 'case' statement");
+        }
+        auto stmt = this->makeNode(Node::Kind::StmtCase, context[0]);
+        stmt->children.emplace_back(std::move(expr.node));
+        return context.success(std::move(stmt), expr.tokensAfter + 1);
+      }
+      return expr;
     }
     Partial parseStatementCatch(size_t tokidx) {
       Context context(*this, tokidx);
@@ -399,12 +414,22 @@ namespace {
     Partial parseStatementContinue(size_t tokidx) {
       Context context(*this, tokidx);
       assert(context[0].isKeyword(EggTokenizerKeyword::Continue));
-      return PARSE_TODO(tokidx, "statement keyword: ", context[0].toString());
+      if (context[1].isOperator(EggTokenizerOperator::Semicolon)) {
+        // continue ;
+        auto stmt = this->makeNode(Node::Kind::StmtContinue, context[0]);
+        return context.success(std::move(stmt), tokidx + 2);
+      }
+      return context.expected(tokidx + 1, "';' after 'continue' statement");
     }
     Partial parseStatementDefault(size_t tokidx) {
       Context context(*this, tokidx);
       assert(context[0].isKeyword(EggTokenizerKeyword::Default));
-      return PARSE_TODO(tokidx, "statement keyword: ", context[0].toString());
+      if (context[1].isOperator(EggTokenizerOperator::Colon)) {
+        // default :
+        auto stmt = this->makeNode(Node::Kind::StmtDefault, context[0]);
+        return context.success(std::move(stmt), tokidx + 2);
+      }
+      return context.expected(tokidx + 1, "':' after 'default' statement");
     }
     Partial parseStatementDo(size_t tokidx) {
       Context context(*this, tokidx);
@@ -432,7 +457,7 @@ namespace {
       if (!condition.after(1).isOperator(EggTokenizerOperator::Semicolon)) {
         return context.expected(condition.tokensAfter + 1, "';' after ')' in 'while' condition of 'do' statement");
       }
-      auto stmt = this->makeNodeString(Node::Kind::StmtDo, context[0]);
+      auto stmt = this->makeNode(Node::Kind::StmtDo, context[0]);
       stmt->children.emplace_back(std::move(block.node));
       stmt->children.emplace_back(std::move(condition.node));
       return context.success(std::move(stmt), condition.tokensAfter + 2);
@@ -479,7 +504,7 @@ namespace {
         if (context[3].kind != EggTokenizerKind::Identifier) {
           return context.expected(tokidx + 3, "identifier after 'var' in 'for' statement");
         }
-        auto node = this->makeNodeString(Node::Kind::TypeInfer, context[0]);
+        auto node = this->makeNode(Node::Kind::TypeInfer, context[0]);
         auto type = context.success(std::move(node), tokidx + 3);
         return this->parseStatementForEachIdentifier(type);
       } else {
@@ -487,7 +512,7 @@ namespace {
         if (context[4].kind != EggTokenizerKind::Identifier) {
           return context.expected(tokidx + 4, "identifier after 'var?' in 'for' statement");
         }
-        auto node = this->makeNodeString(Node::Kind::TypeInferQ, context[0]);
+        auto node = this->makeNode(Node::Kind::TypeInferQ, context[0]);
         auto type = context.success(std::move(node), tokidx + 4);
         return this->parseStatementForEachIdentifier(type);
       }
@@ -622,7 +647,7 @@ namespace {
           if (!chain.succeeded()) {
             return chain;
           }
-          auto stmt = this->makeNodeString(Node::Kind::StmtIf, context[0]);
+          auto stmt = this->makeNode(Node::Kind::StmtIf, context[0]);
           stmt->children.emplace_back(std::move(condition.node));
           stmt->children.emplace_back(std::move(truthy.node));
           stmt->children.emplace_back(std::move(chain.node));
@@ -635,14 +660,14 @@ namespace {
         if (!falsy.succeeded()) {
           return falsy;
         }
-        auto stmt = this->makeNodeString(Node::Kind::StmtIf, context[0]);
+        auto stmt = this->makeNode(Node::Kind::StmtIf, context[0]);
         stmt->children.emplace_back(std::move(condition.node));
         stmt->children.emplace_back(std::move(truthy.node));
         stmt->children.emplace_back(std::move(falsy.node));
         return context.success(std::move(stmt), falsy.tokensAfter);
       } else {
         // There is no 'else' clause
-        auto stmt = this->makeNodeString(Node::Kind::StmtIf, context[0]);
+        auto stmt = this->makeNode(Node::Kind::StmtIf, context[0]);
         stmt->children.emplace_back(std::move(condition.node));
         stmt->children.emplace_back(std::move(truthy.node));
         return context.success(std::move(stmt), truthy.tokensAfter);
@@ -653,7 +678,7 @@ namespace {
       assert(context[0].isKeyword(EggTokenizerKeyword::Return));
       if (context[1].isOperator(EggTokenizerOperator::Semicolon)) {
         // return ;
-        auto stmt = this->makeNodeString(Node::Kind::StmtReturn, context[0]);
+        auto stmt = this->makeNode(Node::Kind::StmtReturn, context[0]);
         return context.success(std::move(stmt), tokidx + 2);
       }
       auto expr = this->parseValueExpression(tokidx + 1);
@@ -662,7 +687,7 @@ namespace {
         if (!expr.after(0).isOperator(EggTokenizerOperator::Semicolon)) {
           return context.expected(expr.tokensAfter, "';' after 'return' statement");
         }
-        auto stmt = this->makeNodeString(Node::Kind::StmtReturn, context[0]);
+        auto stmt = this->makeNode(Node::Kind::StmtReturn, context[0]);
         stmt->children.emplace_back(std::move(expr.node));
         return context.success(std::move(stmt), expr.tokensAfter + 1);
       }
@@ -671,7 +696,27 @@ namespace {
     Partial parseStatementSwitch(size_t tokidx) {
       Context context(*this, tokidx);
       assert(context[0].isKeyword(EggTokenizerKeyword::Switch));
-      return PARSE_TODO(tokidx, "statement keyword: ", context[0].toString());
+      if (!context[1].isOperator(EggTokenizerOperator::ParenthesisLeft)) {
+        return context.expected(tokidx + 1, "'(' after keyword 'switch'");
+      }
+      auto condition = this->parseGuardExpression(tokidx + 2);
+      if (!condition.succeeded()) {
+        return condition;
+      }
+      if (!condition.after(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
+        return context.expected(condition.tokensAfter, "')' after condition in 'switch' statement");
+      }
+      if (!condition.after(1).isOperator(EggTokenizerOperator::CurlyLeft)) {
+        return context.expected(condition.tokensAfter + 1, "'{' after ')' in 'switch' statement");
+      }
+      auto block = this->parseStatementBlock(condition.tokensAfter + 1);
+      if (!block.succeeded()) {
+        return block;
+      }
+      auto stmt = this->makeNode(Node::Kind::StmtSwitch, context[0]);
+      stmt->children.emplace_back(std::move(condition.node));
+      stmt->children.emplace_back(std::move(block.node));
+      return context.success(std::move(stmt), block.tokensAfter);
     }
     Partial parseStatementThrow(size_t tokidx) {
       Context context(*this, tokidx);
@@ -764,7 +809,7 @@ namespace {
       if (!block.succeeded()) {
         return block;
       }
-      auto stmt = this->makeNodeString(Node::Kind::StmtWhile, context[0]);
+      auto stmt = this->makeNode(Node::Kind::StmtWhile, context[0]);
       stmt->children.emplace_back(std::move(condition.node));
       stmt->children.emplace_back(std::move(block.node));
       return context.success(std::move(stmt), block.tokensAfter);
@@ -774,7 +819,7 @@ namespace {
       assert(context[0].isKeyword(EggTokenizerKeyword::Yield));
       if (context[1].isOperator(EggTokenizerOperator::Semicolon)) {
         // yield ;
-        auto stmt = this->makeNodeString(Node::Kind::StmtYield, context[0]);
+        auto stmt = this->makeNode(Node::Kind::StmtYield, context[0]);
         return context.success(std::move(stmt), tokidx + 2);
       }
       // TODO yield ... <expr> ;
@@ -784,7 +829,7 @@ namespace {
         if (!expr.after(0).isOperator(EggTokenizerOperator::Semicolon)) {
           return context.expected(expr.tokensAfter, "';' after 'yield' statement");
         }
-        auto stmt = this->makeNodeString(Node::Kind::StmtYield, context[0]);
+        auto stmt = this->makeNode(Node::Kind::StmtYield, context[0]);
         stmt->children.emplace_back(std::move(expr.node));
         return context.success(std::move(stmt), expr.tokensAfter + 1);
       }
@@ -820,7 +865,7 @@ namespace {
       if (context[0].isKeyword(EggTokenizerKeyword::Void) && context[1].isOperator(EggTokenizerOperator::ParenthesisLeft)) {
         auto expr = this->parseValueExpression(tokidx + 2);
         if (expr.succeeded() && expr.after(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
-          auto call = this->makeNodeString(Node::Kind::ExprCall, context[0]);
+          auto call = this->makeNode(Node::Kind::ExprCall, context[0]);
           auto vtype = this->makeNode(Node::Kind::TypeVoid, context[0]);
           call->children.emplace_back(std::move(vtype));
           call->children.emplace_back(std::move(expr.node));
@@ -1810,6 +1855,7 @@ namespace {
       return this->makeNodeValue(kind, item, egg::ovum::ValueFactory::createFloat(this->allocator, item.value.f));
     }
     std::unique_ptr<Node> makeNodeString(Node::Kind kind, const EggTokenizerItem& item) {
+      assert((kind == Node::Kind::Literal) || !item.value.s.empty());
       return this->makeNodeValue(kind, item, egg::ovum::ValueFactory::createString(this->allocator, item.value.s));
     }
   };

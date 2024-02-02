@@ -96,6 +96,21 @@ namespace {
     case Node::Kind::StmtDo:
       assert(node.children.size() == 2);
       return printNodeChildren(os, "stmt-do", node, ranges);
+    case Node::Kind::StmtSwitch:
+      assert(!node.children.empty());
+      return printNodeChildren(os, "stmt-switch", node, ranges);
+    case Node::Kind::StmtCase:
+      assert(node.children.size() == 1);
+      return printNodeChildren(os, "stmt-case", node, ranges);
+    case Node::Kind::StmtDefault:
+      assert(node.children.empty());
+      return printNodeChildren(os, "stmt-default", node, ranges);
+    case Node::Kind::StmtBreak:
+      assert(node.children.empty());
+      return printNodeChildren(os, "stmt-break", node, ranges);
+    case Node::Kind::StmtContinue:
+      assert(node.children.empty());
+      return printNodeChildren(os, "stmt-continue", node, ranges);
     case Node::Kind::StmtMutate:
       return printNodeExtra(os, "stmt-mutate", node.op.valueMutationOp, node, ranges);
     case Node::Kind::ExprVariable:
@@ -677,6 +692,38 @@ TEST(TestEggParser, StatementWhileLoop) {
     "while (i < 10) {}"
     });
   std::string expected = "(stmt-while (expr-binary '<' (expr-variable 'i') 10) (stmt-block))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementDoLoop) {
+  std::string actual = outputFromLines({
+    "do {} while (i < 10);"
+    });
+  std::string expected = "(stmt-do (stmt-block) (expr-binary '<' (expr-variable 'i') 10))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementBreak) {
+  std::string actual = outputFromLines({
+    "break;"
+    });
+  std::string expected = "(stmt-break)\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementContinue) {
+  std::string actual = outputFromLines({
+    "continue;"
+    });
+  std::string expected = "(stmt-continue)\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementSwitch) {
+  std::string actual = outputFromLines({
+    "switch (i) { case 123: default: break; case 321: continue; }"
+    });
+  std::string expected = "(stmt-switch (expr-variable 'i') (stmt-block (stmt-case 123) (stmt-default) (stmt-break) (stmt-case 321) (stmt-continue)))\n";
   ASSERT_EQ(expected, actual);
 }
 

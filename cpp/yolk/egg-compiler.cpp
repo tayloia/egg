@@ -152,6 +152,9 @@ namespace {
     ModuleNode* compileStmtWhileGuarded(ParserNode& pnode, StmtContext& context);
     ModuleNode* compileStmtWhileUnguarded(ParserNode& pnode, StmtContext& context);
     ModuleNode* compileStmtDo(ParserNode& pnode, StmtContext& context);
+    ModuleNode* compileStmtSwitch(ParserNode& pnode, StmtContext& context);
+    ModuleNode* compileStmtBreak(ParserNode& pnode, StmtContext& context);
+    ModuleNode* compileStmtContinue(ParserNode& pnode, StmtContext& context);
     ModuleNode* compileValueExpr(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileValueExprVariable(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileValueExprUnary(ParserNode& op, ParserNode& rhs, const ExprContext& context);
@@ -371,12 +374,23 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, StmtContext& context)
   case ParserNode::Kind::StmtDo:
     EXPECT(pnode, pnode.children.size() == 2);
     return this->compileStmtDo(pnode, context);
+  case ParserNode::Kind::StmtSwitch:
+    EXPECT(pnode, pnode.children.size() >= 1);
+    return this->compileStmtSwitch(pnode, context);
+  case ParserNode::Kind::StmtBreak:
+    EXPECT(pnode, pnode.children.empty());
+    return this->compileStmtBreak(pnode, context);
+  case ParserNode::Kind::StmtContinue:
+    EXPECT(pnode, pnode.children.empty());
+    return this->compileStmtContinue(pnode, context);
   case ParserNode::Kind::StmtMutate:
     return this->compileStmtMutate(pnode, context);
   case ParserNode::Kind::ExprCall:
     EXPECT(pnode, !pnode.children.empty());
     return this->compileValueExprCall(pnode.children, context);
   case ParserNode::Kind::ModuleRoot:
+  case ParserNode::Kind::StmtCase:
+  case ParserNode::Kind::StmtDefault:
   case ParserNode::Kind::StmtCatch:
   case ParserNode::Kind::StmtFinally:
   case ParserNode::Kind::ExprVariable:
@@ -542,7 +556,7 @@ ModuleNode* ModuleCompiler::compileStmtDefineFunction(ParserNode& pnode, StmtCon
     return nullptr;
   }
   auto& ptail = *pnode.children.back();
-  auto& invoke = this->mbuilder.stmtFunctionInvoke(pnode.range); // WIBBLE convert stmtFunctionInvoke to stmtBlock
+  auto& invoke = this->mbuilder.stmtFunctionInvoke(pnode.range); // WIBBLE convert stmtFunctionInvoke to stmtBlock?
   auto block = this->compileStmtBlockInto(ptail, inner, invoke);
   if (block == nullptr) {
     return nullptr;
@@ -994,6 +1008,53 @@ ModuleNode* ModuleCompiler::compileStmtDo(ParserNode& pnode, StmtContext& contex
   return stmt;
 }
 
+ModuleNode* ModuleCompiler::compileStmtSwitch(ParserNode& pnode, StmtContext& context) {
+  assert(pnode.kind == ParserNode::Kind::StmtSwitch);
+  assert(pnode.children.size() == 2);
+  auto* expr = this->compileValueExpr(*pnode.children.front(), context);
+  if (expr == nullptr) {
+    return nullptr;
+  }
+  StmtContext inner{ &context };
+  inner.canBreak = true;
+  inner.canContinue = true;
+  inner.target = nullptr;
+  size_t defaultIndex = 0;
+  // WIBBLE
+  for (const auto& child : pnode.children.back()->children) {
+    // Make sure we append to the target as it is now
+    auto* target = inner.target;
+    assert(target != nullptr);
+    auto* stmt = this->compileStmt(*child, inner);
+    if (stmt == nullptr) {
+      return nullptr;
+    }
+    this->mbuilder.appendChild(*target, *stmt);
+  }
+  auto* stmt = &this->mbuilder.stmtSwitch(*expr, defaultIndex, pnode.range);
+  return stmt;
+}
+
+ModuleNode* ModuleCompiler::compileStmtBreak(ParserNode& pnode, StmtContext& context) {
+  assert(pnode.kind == ParserNode::Kind::StmtBreak);
+  assert(pnode.children.empty());
+  if (!context.canBreak) {
+    return this->error(pnode, "'break' statements are only valid within loops");
+  }
+  auto* stmt = &this->mbuilder.stmtBreak(pnode.range);
+  return stmt;
+}
+
+ModuleNode* ModuleCompiler::compileStmtContinue(ParserNode& pnode, StmtContext& context) {
+  assert(pnode.kind == ParserNode::Kind::StmtContinue);
+  assert(pnode.children.empty());
+  if (!context.canContinue) {
+    return this->error(pnode, "'continue' statements are only valid within loops");
+  }
+  auto* stmt = &this->mbuilder.stmtContinue(pnode.range);
+  return stmt;
+}
+
 ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode, const ExprContext& context) {
   switch (pnode.kind) {
   case ParserNode::Kind::ExprVariable:
@@ -1090,6 +1151,11 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode, const ExprContex
   case ParserNode::Kind::StmtFinally:
   case ParserNode::Kind::StmtWhile:
   case ParserNode::Kind::StmtDo:
+  case ParserNode::Kind::StmtSwitch:
+  case ParserNode::Kind::StmtCase:
+  case ParserNode::Kind::StmtDefault:
+  case ParserNode::Kind::StmtBreak:
+  case ParserNode::Kind::StmtContinue:
   case ParserNode::Kind::StmtMutate:
   case ParserNode::Kind::Named:
   default:
@@ -1814,6 +1880,16 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
     return "while statement";
   case ParserNode::Kind::StmtDo:
     return "do statement";
+  case ParserNode::Kind::StmtSwitch:
+    return "switch statement";
+  case ParserNode::Kind::StmtCase:
+    return "case statement";
+  case ParserNode::Kind::StmtDefault:
+    return "default statement";
+  case ParserNode::Kind::StmtBreak:
+    return "break statement";
+  case ParserNode::Kind::StmtContinue:
+    return "continue statement";
   case ParserNode::Kind::StmtMutate:
     return "mutate statement";
   case ParserNode::Kind::ExprVariable:

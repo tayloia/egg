@@ -15,16 +15,16 @@ for (var i = 0; i < 100; ++i) {
 }
 print(s);
 ///>4950
-/* WIBBLE
+
 switch (s) {
 case 123:
 case 234:
 default:
   break;
 }
+
 try {
   //func(named:a,b,c);
 } catch (any ex) {
   throw;
 }
-*/
