@@ -1597,6 +1597,9 @@ namespace {
       case EggTokenizerKind::Attribute:
         return PARSE_TODO(tokidx, "bad expression attribute");
       case EggTokenizerKind::Operator:
+        if (next.isOperator(EggTokenizerOperator::ParenthesisLeft)) {
+          return this->parseValueExpressionParentheses(tokidx);
+        }
         if (next.isOperator(EggTokenizerOperator::BracketLeft)) {
           return this->parseValueExpressionArray(tokidx);
         }
@@ -1744,6 +1747,21 @@ namespace {
         return true;
       }
       return false;
+    }
+    Partial parseValueExpressionParentheses(size_t tokidx) {
+      // Parenthesis: (expression)
+      Context context(*this, tokidx);
+      assert(context[0].isOperator(EggTokenizerOperator::ParenthesisLeft));
+      auto partial = this->parseValueExpression(tokidx + 1);
+      if (!partial.succeeded()) {
+        return partial;
+      }
+      if (!partial.after(0).isOperator(EggTokenizerOperator::ParenthesisRight)) {
+        return context.expected(partial.tokensAfter, "')' after parenthesised expression");
+      }
+      partial.tokensBefore--;
+      partial.tokensAfter++;
+      return partial;
     }
     Partial parseValueExpressionArray(size_t tokidx) {
       // Array literal: [a, ...b, c]
