@@ -870,7 +870,7 @@ namespace {
         if (expr.node->kind == Node::Kind::ExprCall) {
           return expr;
         }
-        return PARSE_TODO(tokidx, "non-function statement simple");
+        return context.skip();
       }
       return PARSE_TODO(tokidx, "statement simple");
     }
@@ -1774,7 +1774,7 @@ namespace {
       return true;
     }
     Partial parseValueExpressionObject(size_t tokidx) {
-      // Object literal: [a:x, ...b, c:y]
+      // Object literal: {a:x, ...b, c:y}
       Context context(*this, tokidx);
       auto& curly = context[0];
       assert(curly.isOperator(EggTokenizerOperator::CurlyLeft));

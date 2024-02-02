@@ -1852,7 +1852,7 @@ egg::ovum::Type ModuleCompiler::forgeType(ParserNode& pnode) {
     auto& forge = this->vm.getTypeForge();
     switch (pnode.op.typeBinaryOp) {
     case egg::ovum::TypeBinaryOp::Map:
-      this->error(pnode, "WIBBLE maps not supported");
+      this->error(pnode, "Map types not yet supported"); // TODO
       return nullptr;
     case egg::ovum::TypeBinaryOp::Union:
       return forge.forgeUnionType(lhs, rhs);

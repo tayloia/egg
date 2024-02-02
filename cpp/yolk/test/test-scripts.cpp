@@ -145,7 +145,7 @@ TEST(TestScript, Working) {
 }
 
 TEST(TestScript, Coverage) {
-  // WIBBLE TestScript::run("~/cpp/yolk/test/data/coverage.egg");
+  TestScript::run("~/cpp/yolk/test/data/coverage.egg");
 }
 
 TEST_P(TestScripts, Run) {
