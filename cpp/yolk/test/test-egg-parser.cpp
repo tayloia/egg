@@ -766,6 +766,30 @@ TEST(TestEggParser, StatementBlock) {
   ASSERT_EQ(expected, actual);
 }
 
+TEST(TestEggParser, StatementOrphanCatch) {
+  std::string actual = outputFromLines({
+    "catch (...) {}"
+    });
+  std::string expected = "<ERROR>: (1,1-5): Unexpected 'catch' without preceding 'try' statement\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementOrphanElse) {
+  std::string actual = outputFromLines({
+    "else {}"
+    });
+  std::string expected = "<ERROR>: (1,1-4): Unexpected 'else' without preceding 'if' statement\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementOrphanFinally) {
+  std::string actual = outputFromLines({
+    "finally {}"
+    });
+  std::string expected = "<ERROR>: (1,1-7): Unexpected 'finally' without preceding 'try' statement\n";
+  ASSERT_EQ(expected, actual);
+}
+
 TEST(TestEggParser, Ranges) {
   std::string actual = outputFromLines({
   //          1         2         3

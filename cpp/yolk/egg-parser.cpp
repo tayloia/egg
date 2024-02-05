@@ -3,9 +3,6 @@
 #include "yolk/egg-tokenizer.h"
 #include "yolk/egg-parser.h"
 
-#include <iostream> // Only needed by PARSE_TODO
-#define PARSE_TODO(tokidx, ...) context.todo(tokidx, __FILE__, __LINE__, __VA_ARGS__)
-
 using namespace egg::yolk;
 
 namespace {
@@ -258,13 +255,6 @@ namespace {
         auto actual = this->parser.getAbsolute(tokensAfter).toString();
         return this->failed(tokensAfter, "Expected ", std::forward<ARGS>(args)..., ", but instead got ", actual);
       }
-      template<typename... ARGS>
-      Partial todo(size_t tokensAfter, const char* file, size_t line, ARGS&&... args) const {
-        // TODO: remove
-        egg::ovum::StringBuilder sb;
-        std::cout << file << '(' << line << "): PARSE_TODO: " << sb.add(std::forward<ARGS>(args)...).toUTF8() << std::endl;
-        return this->failed(tokensAfter, "PARSE_TODO: ", std::forward<ARGS>(args)...);
-      }
     };
     template<typename... ARGS>
     Issue createIssue(Issue::Severity severity, size_t tokensBefore, size_t tokensAfter, ARGS&&... args) {
@@ -330,6 +320,8 @@ namespace {
             return this->parseStatementDefault(tokidx);
           case EggTokenizerKeyword::Do:
             return this->parseStatementDo(tokidx);
+          case EggTokenizerKeyword::Else:
+            return this->parseStatementElse(tokidx);
           case EggTokenizerKeyword::Finally:
             return this->parseStatementFinally(tokidx);
           case EggTokenizerKeyword::For:
@@ -348,8 +340,6 @@ namespace {
             return this->parseStatementWhile(tokidx);
           case EggTokenizerKeyword::Yield:
             return this->parseStatementYield(tokidx);
-          case EggTokenizerKeyword::Else:
-            return context.expected(tokidx, "statement");
         }
       }
       auto simple = this->parseStatementSimple(tokidx);
@@ -414,7 +404,7 @@ namespace {
     Partial parseStatementCatch(size_t tokidx) {
       Context context(*this, tokidx);
       assert(context[0].isKeyword(EggTokenizerKeyword::Catch));
-      return PARSE_TODO(tokidx, "statement keyword: ", context[0].toString());
+      return context.failed(tokidx, "Unexpected 'catch' without preceding 'try' statement");
     }
     Partial parseStatementContinue(size_t tokidx) {
       Context context(*this, tokidx);
@@ -470,12 +460,12 @@ namespace {
     Partial parseStatementElse(size_t tokidx) {
       Context context(*this, tokidx);
       assert(context[0].isKeyword(EggTokenizerKeyword::Else));
-      return PARSE_TODO(tokidx, "statement keyword: ", context[0].toString());
+      return context.failed(tokidx, "Unexpected 'else' without preceding 'if' statement");
     }
     Partial parseStatementFinally(size_t tokidx) {
       Context context(*this, tokidx);
       assert(context[0].isKeyword(EggTokenizerKeyword::Finally));
-      return PARSE_TODO(tokidx, "statement keyword: ", context[0].toString());
+      return context.failed(tokidx, "Unexpected 'finally' without preceding 'try' statement");
     }
     Partial parseStatementFor(size_t tokidx) {
       Context context(*this, tokidx);
@@ -1455,11 +1445,8 @@ namespace {
         case EggTokenizerOperator::BarBarEqual: // "||="
         case EggTokenizerOperator::CurlyRight: // "}"
         case EggTokenizerOperator::Tilde: // "~"
-          return lhs;
-        default:
           break;
         }
-        return PARSE_TODO(tokidx, "bad binary expression operator: ", op.toString());
       }
       return lhs;
     }
@@ -1560,9 +1547,7 @@ namespace {
         case EggTokenizerOperator::BarBar: // "||"
         case EggTokenizerOperator::BarBarEqual: // "||="
         case EggTokenizerOperator::CurlyRight: // "}"
-          return context.failed(tokidx, "bad unary expression operator: ", op.toString());
-        default:
-          return PARSE_TODO(tokidx, "invalid unary expression operator: ", op.toString());
+          return context.expected(tokidx, "unary prefix operator");
         }
       }
       return this->parseValueExpressionPrimary(tokidx, "expression");
@@ -1611,8 +1596,6 @@ namespace {
         return context.success(std::move(node), tokidx + 1);
       case EggTokenizerKind::Keyword:
         return this->parseValueExpressionPrimaryPrefixKeyword(tokidx);
-      case EggTokenizerKind::Attribute:
-        return PARSE_TODO(tokidx, "bad expression attribute");
       case EggTokenizerKind::Operator:
         if (next.isOperator(EggTokenizerOperator::ParenthesisLeft)) {
           return this->parseValueExpressionParentheses(tokidx);
@@ -1624,6 +1607,7 @@ namespace {
           return this->parseValueExpressionObject(tokidx);
         }
         break;
+      case EggTokenizerKind::Attribute:
       case EggTokenizerKind::EndOfFile:
         break;
       }
@@ -1674,7 +1658,7 @@ namespace {
       case EggTokenizerKeyword::Yield:
         break;
       }
-      return PARSE_TODO(tokidx, "bad expression primary prefix keyword: '", context[0].value.s, "'");
+      return context.expected(tokidx, "expression");
     }
     Partial parseValueExpressionPrimaryPrefixKeywordManifestation(Context& context, Node::Kind kind) {
       assert(context[0].kind == EggTokenizerKind::Keyword);
