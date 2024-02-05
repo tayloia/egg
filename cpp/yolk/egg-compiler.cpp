@@ -568,7 +568,7 @@ ModuleNode* ModuleCompiler::compileStmtDefineFunction(ParserNode& pnode, StmtCon
   }
   auto& ptail = *pnode.children.back();
   assert(ptail.kind == ParserNode::Kind::StmtBlock);
-  auto& invoke = this->mbuilder.stmtFunctionInvoke(pnode.range); // WIBBLE convert stmtFunctionInvoke to stmtBlock?
+  auto& invoke = this->mbuilder.stmtFunctionInvoke(pnode.range);
   auto block = this->compileStmtBlockInto(ptail.children, inner, invoke);
   if (block == nullptr) {
     return nullptr;
@@ -1067,17 +1067,9 @@ ModuleNode* ModuleCompiler::compileStmtSwitch(ParserNode& pnode, StmtContext& co
       if ((index + 1) >= count) {
         return this->error(*pchildren[index], "Expected at least one statement within final 'case' clause of 'switch' statement block");
       }
-      switch (state) {
-      case Start:
+      if (state != Labels) {
         pclauses.push_back({});
         state = Labels;
-        break;
-      case Labels:
-        break;
-      case Statements:
-        pclauses.push_back({});
-        state = Labels;
-        break;
       }
       pclauses.back().values.push_back(pchild.children.front().get());
     } else if (pchild.kind == ParserNode::Kind::StmtDefault) {
@@ -1089,31 +1081,19 @@ ModuleNode* ModuleCompiler::compileStmtSwitch(ParserNode& pnode, StmtContext& co
       if ((index + 1) >= count) {
         return this->error(*pchildren[index], "Expected at least one statement within final 'default' clause of 'switch' statement");
       }
-      switch (state) {
-      case Start:
+      if (state != Labels) {
         pclauses.push_back({});
         state = Labels;
-        break;
-      case Labels:
-        break;
-      case Statements:
-        pclauses.push_back({});
-        state = Labels;
-        break;
       }
       defaultIndex = pclauses.size();
     } else {
       // Any other statement
-      switch (state) {
-      case Start:
-        // WIBBLE Impossible
+      if (state == Start) {
         return this->error(pchild, "Expected 'case' or 'default' clause to start 'switch' statement block, but instead got ", ModuleCompiler::toString(pchild));
-      case Labels:
+      }
+      if (state != Statements) {
         assert(pclauses.back().statements.empty());
         state = Statements;
-        break;
-      case Statements:
-        break;
       }
       pclauses.back().statements.push_back(&pchild);
     }

@@ -2245,11 +2245,8 @@ bool VMRunner::stepNode(HardValue& retval) {
         return true;
       }
       top.deque.clear();
-      // Find the statements after the capture symbols
-      while ((top.index < (top.node->children.size() - 1)) && (top.node->children[top.index]->kind == IVMModule::Node::Kind::StmtFunctionCapture)) {
-        top.index++;
-      }
-      assert(top.node->children[top.index]->kind == IVMModule::Node::Kind::StmtFunctionInvoke); // WIBBLE
+      top.index = top.node->defaultIndex;
+      assert(top.node->children[top.index]->kind == IVMModule::Node::Kind::StmtFunctionInvoke);
       if (!this->symbolSet(top.node, this->functionConstruct(type, *top.node))) {
         return true;
       }

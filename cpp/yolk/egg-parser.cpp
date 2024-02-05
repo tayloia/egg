@@ -1167,13 +1167,12 @@ namespace {
           if (last.isOperator(EggTokenizerOperator::ParenthesisRight)) {
             // type()
             partial.wrap(Node::Kind::TypeFunctionSignature);
-            partial.node->op.functionOp = Node::FunctionOp::Function;
             partial.node->range.end = { last.line, last.column + 1 };
-            partial.node->op.typeUnaryOp = egg::ovum::TypeUnaryOp::Array;
+            partial.node->op.functionOp = Node::FunctionOp::Function;
             partial.tokensAfter += 2;
           } else {
-            // type(...) WIBBLE
-            return context.expected(partial.tokensAfter + 1, "')' WIBBLE");
+            // TODO type(<parameters>)
+            return context.failed(partial.tokensAfter + 1, "Function type parameters not yet supported");
           }
         } else {
           break;

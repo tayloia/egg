@@ -1216,7 +1216,7 @@ namespace egg::internal {
           // Property signature required but not supplied
           return Assignability::Never;
         }
-        // WIBBLE
+        // TODO property assignability
         assert(false);
       }
       return retval;
@@ -1233,7 +1233,7 @@ namespace egg::internal {
           // Index signature required but not supplied
           return Assignability::Never;
         }
-        // WIBBLE
+        // TODO index assignability
         assert(false);
       }
       return retval;
@@ -1250,7 +1250,7 @@ namespace egg::internal {
           // Iterator signature required but not supplied
           return Assignability::Never;
         }
-        // WIBBLE
+        // TODO iterator assignability
         assert(false);
       }
       return retval;
