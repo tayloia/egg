@@ -967,6 +967,7 @@ namespace {
             return inner;
           }
         }
+        assert(retval->getVoid());
       }
       return retval;
     }

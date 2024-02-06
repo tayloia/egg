@@ -50,6 +50,7 @@ public:
     StmtFunctionDefine,
     StmtFunctionCapture,
     StmtFunctionInvoke,
+    StmtGeneratorInvoke,
     StmtVariableDeclare,
     StmtVariableDefine,
     StmtVariableSet,
@@ -1032,6 +1033,7 @@ namespace {
       case Node::Kind::StmtFunctionDefine:
       case Node::Kind::StmtFunctionCapture:
       case Node::Kind::StmtFunctionInvoke:
+      case Node::Kind::StmtGeneratorInvoke:
       case Node::Kind::StmtVariableDeclare:
       case Node::Kind::StmtVariableDefine:
       case Node::Kind::StmtVariableSet:
@@ -1453,6 +1455,10 @@ namespace {
       auto& node = this->module->createNode(Node::Kind::StmtFunctionInvoke, range);
       return node;
     }
+    virtual Node& stmtGeneratorInvoke(const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtGeneratorInvoke, range);
+      return node;
+    }
     virtual Node& stmtVariableDeclare(const String& symbol, Node& type, const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::StmtVariableDeclare, range);
       node.literal = this->createHardValueString(symbol);
@@ -1651,18 +1657,36 @@ namespace {
       this->symtable.builtin(symbol, &this->vm.createSoftValue(value));
     }
     virtual RunOutcome run(HardValue& retval, RunFlags flags) override {
+      assert(this->validate());
       if (flags == RunFlags::Step) {
-        if (this->stepNodeChecked(retval)) {
+        auto outcome = this->stepNode(retval);
+        assert(this->validate());
+        switch (outcome) {
+        case StepOutcome::Stepped:
+          assert(!retval.hasAnyFlags(ValueFlags::Yield));
           return RunOutcome::Stepped;
+        case StepOutcome::Yielded:
+          assert(retval.hasAnyFlags(ValueFlags::Yield));
+          return RunOutcome::Succeeded;
+        case StepOutcome::Finished:
+          break;
         }
       } else  if (flags != RunFlags::None) {
         retval = this->raiseRuntimeError(this->createString("TODO: Run flags not yet supported in runner"));
         return RunOutcome::Failed;
       } else {
-        while (this->stepNodeChecked(retval)) {
-          // Step
+        auto outcome = this->stepNode(retval);
+        assert(this->validate());
+        while (outcome == StepOutcome::Stepped) {
+          outcome = this->stepNode(retval);
+          assert(this->validate());
+        }
+        if (outcome == StepOutcome::Yielded) {
+          assert(retval.hasAnyFlags(ValueFlags::Yield));
+          return RunOutcome::Succeeded;
         }
       }
+      assert(!retval.hasAnyFlags(ValueFlags::Yield));
       if (retval.hasFlowControl()) {
         return RunOutcome::Failed;
       }
@@ -1740,6 +1764,7 @@ namespace {
       // Push the invoke node
       auto* invoke = definition.children[definition.defaultIndex];
       assert(invoke != nullptr);
+      assert(invoke->kind == IVMModule::Node::Kind::StmtFunctionInvoke);
       this->push(*invoke);
       return HardValue::Continue;
     }
@@ -1749,7 +1774,10 @@ namespace {
       assert(!this->stack.empty());
       assert(this->stack.top().node->kind == IVMModule::Node::Kind::ExprFunctionCall);
       assert(this->stack.top().scope.empty());
-      auto runner = HardPtr(this->getAllocator().makeRaw<VMRunner>(this->vm, *this->program, definition));
+      auto* invoke = definition.children[definition.defaultIndex];
+      assert(invoke != nullptr);
+      assert(invoke->kind == IVMModule::Node::Kind::StmtGeneratorInvoke);
+      auto runner = HardPtr(this->getAllocator().makeRaw<VMRunner>(this->vm, *this->program, *invoke));
       assert(runner != nullptr);
       assert(runner->softGetBasket() == this->basket);
       if (captures != nullptr) {
@@ -1782,41 +1810,43 @@ namespace {
           }
           return this->execution.raiseRuntimeError(message, nullptr);
         }
-        auto* extant = this->addVariable(pname, ptype, &poly);
+        auto* extant = runner->addVariable(pname, ptype, &poly);
         if (extant != nullptr) {
           return this->raiseRuntimeError("Parameter symbol already declared as ", describe(extant->kind), ": '", pname, "'");
         }
       }
-      // Return a newly-created stream object
-      return this->createHardValueObject(VMFactory::createGeneratorIterator(vm, signature.getReturnType(), *runner));
+      // Create and return an iterator object
+      auto iterator = VMFactory::createGeneratorIterator(vm, signature.getReturnType(), *runner);
+      return this->createHardValueObject(iterator);
     }
     void printSymtable(Printer& printer) const {
       this->symtable.print(printer);
     }
   private:
-    bool stepNode(HardValue& retval);
-    bool stepNodeChecked(HardValue& retval);
-    bool stepBlock(HardValue& retval, size_t first = 0);
+    enum class StepOutcome { Stepped, Yielded, Finished };
+    StepOutcome stepNode(HardValue& retval);
+    StepOutcome stepBlock(HardValue& retval, size_t first = 0);
     NodeStack& push(const IVMModule::Node& node, const String& scope = {}, size_t index = 0) {
       return this->stack.emplace(&node, scope, index);
     }
-    bool pop(HardValue value) { // sic byval
+    StepOutcome pop(HardValue value) { // sic byval
       assert(!this->stack.empty());
       const auto& symbol = this->stack.top().scope;
       if (!symbol.empty()) {
         (void)this->symtable.remove(symbol);
       }
       this->stack.pop();
+      if(this->stack.empty()) // WIBBLE
       assert(!this->stack.empty());
       this->stack.top().deque.emplace_back(std::move(value));
-      return true;
+      return StepOutcome::Stepped;
     }
     template<typename... ARGS>
-    bool raise(ARGS&&... args) {
+    StepOutcome raise(ARGS&&... args) {
       auto error = this->raiseRuntimeError(std::forward<ARGS>(args)...);
       return this->pop(error);
     }
-    bool raiseBadPropertyModification(const HardValue& instance, const HardValue& property) {
+    StepOutcome raiseBadPropertyModification(const HardValue& instance, const HardValue& property) {
       if (instance->getPrimitiveFlag() == ValueFlags::String) {
         String pname;
         if (property->getString(pname)) {
@@ -2229,8 +2259,7 @@ void egg::ovum::IVMModule::Node::hardDestroy() const {
   this->module.getAllocator().destroy(this);
 }
 
-bool VMRunner::stepNode(HardValue& retval) {
-  // Return false iff 'retval' has been set and the block has finished
+VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
   auto& top = this->stack.top();
   switch (top.node->kind) {
   case IVMModule::Node::Kind::Root:
@@ -2240,7 +2269,7 @@ bool VMRunner::stepNode(HardValue& retval) {
   case IVMModule::Node::Kind::StmtBlock:
     assert(top.node->literal->getVoid());
     assert(top.index <= top.node->children.size());
-    if (!this->stepBlock(retval)) {
+    if (this->stepBlock(retval) != StepOutcome::Stepped) {
       return this->pop(retval);
     }
     break;
@@ -2262,28 +2291,28 @@ bool VMRunner::stepNode(HardValue& retval) {
         return this->raise("Invalid type literal module node for function definition");
       }
       if (!this->variableScopeBegin(top, type)) {
-        return true;
+        return StepOutcome::Stepped;
       }
       top.deque.clear();
       top.index = top.node->defaultIndex;
-      assert(top.node->children[top.index]->kind == IVMModule::Node::Kind::StmtFunctionInvoke);
+      assert((top.node->children[top.index]->kind == IVMModule::Node::Kind::StmtFunctionInvoke) || (top.node->children[top.index]->kind == IVMModule::Node::Kind::StmtGeneratorInvoke));
       if (!this->symbolSet(top.node, this->functionConstruct(type, *top.node))) {
-        return true;
+        return StepOutcome::Stepped;
       }
       // Skip the function invocation block
       top.index++;
       // Perform the first statement of the scope of the function name
       this->push(*top.node->children[top.index++]);
-    } else if (!this->stepBlock(retval, 2)) {
+    } else if (this->stepBlock(retval, 2) != StepOutcome::Stepped) {
       return this->pop(retval);
     }
     break;
   case IVMModule::Node::Kind::StmtFunctionCapture:
    return this->raise("Unexpected function symbol capture module node encountered");
   case IVMModule::Node::Kind::StmtFunctionInvoke:
-    // Placeholder actually pushed on to the stack by 'VMRunner::initiateTailCall()'
+    // Actually pushed on to the stack by 'VMRunner::initiateFunctionCall()'
     assert(top.index <= top.node->children.size());
-    if (!this->stepBlock(retval)) {
+    if (this->stepBlock(retval) != StepOutcome::Stepped) {
       if (retval.hasAnyFlags(ValueFlags::Return)) {
         retval->getInner(retval);
       }
@@ -2291,6 +2320,10 @@ bool VMRunner::stepNode(HardValue& retval) {
       return this->pop(retval);
     }
     break;
+  case IVMModule::Node::Kind::StmtGeneratorInvoke:
+    // Actually pushed on to the stack by 'VMRunner::initiateGeneratorCall()'
+    assert(top.index <= top.node->children.size());
+    return this->stepBlock(retval);
   case IVMModule::Node::Kind::StmtVariableDeclare:
     assert(top.node->children.size() >= 1);
     assert(top.index <= top.node->children.size());
@@ -2309,11 +2342,11 @@ bool VMRunner::stepNode(HardValue& retval) {
           return this->raise("Invalid type literal module node for variable declaration");
         }
         if (!this->variableScopeBegin(top, type)) {
-          return true;
+          return StepOutcome::Stepped;
         }
         top.deque.clear();
       }
-      if (!this->stepBlock(retval, 1)) {
+      if (this->stepBlock(retval, 1) != StepOutcome::Stepped) {
         return this->pop(retval);
       }
     }
@@ -2336,7 +2369,7 @@ bool VMRunner::stepNode(HardValue& retval) {
         return this->raise("Invalid type literal module node for variable definition");
       }
       if (!this->variableScopeBegin(top, type)) {
-        return true;
+        return StepOutcome::Stepped;
       }
       top.deque.clear();
       this->push(*top.node->children[top.index++]);
@@ -2344,11 +2377,11 @@ bool VMRunner::stepNode(HardValue& retval) {
       if (top.index == 2) {
         assert(top.deque.size() == 1);
         if (!this->symbolSet(top.node, top.deque.front())) {
-          return true;
+          return StepOutcome::Stepped;
         }
         top.deque.clear();
       }
-      if (!this->stepBlock(retval, 2)) {
+      if (this->stepBlock(retval, 2) != StepOutcome::Stepped) {
         return this->pop(retval);
       }
     }
@@ -2362,7 +2395,7 @@ bool VMRunner::stepNode(HardValue& retval) {
     } else {
       assert(top.deque.size() == 1);
       if (!this->symbolSet(top.node, top.deque.front())) {
-        return true;
+        return StepOutcome::Stepped;
       }
       return this->pop(HardValue::Void);
     }
@@ -2665,7 +2698,7 @@ bool VMRunner::stepNode(HardValue& retval) {
         return this->raise("Invalid type literal module node for 'for' each variable");
       }
       if (!this->variableScopeBegin(top, type)) {
-        return true;
+        return StepOutcome::Stepped;
       }
       top.deque.clear();
       this->push(*top.node->children[top.index++]);
@@ -2723,7 +2756,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       }
       // Assign to the control variable
       if (!this->symbolSet(top.node, value)) {
-        return true;
+        return StepOutcome::Stepped;
       }
       // Execute the controlled block
       top.deque.resize(1);
@@ -3023,12 +3056,12 @@ bool VMRunner::stepNode(HardValue& retval) {
         if (child->kind != IVMModule::Node::Kind::StmtCatch) {
           // Always run finally clauses
           this->push(*child);
-          return true;
+          return StepOutcome::Stepped;
         } else if (exception.hasAnyFlags(ValueFlags::Throw)) {
           // Only run a catch clause if an exception is still outstanding
           auto& added = this->push(*child);
           added.value = exception;
-          return true;
+          return StepOutcome::Stepped;
         }
       }
       return this->pop(top.value);
@@ -3052,18 +3085,18 @@ bool VMRunner::stepNode(HardValue& retval) {
           return this->raise("Invalid type literal module node for 'catch' clause");
         }
         if (!this->variableScopeBegin(top, type)) {
-          return true;
+          return StepOutcome::Stepped;
         }
         HardValue inner;
         if (!top.value->getInner(inner)) {
           return this->raise("Invalid 'catch' clause expression");
         }
         if (!this->symbolSet(top.node, inner)) {
-          return true;
+          return StepOutcome::Stepped;
         }
         top.deque.clear();
       }
-      if (!this->stepBlock(retval, 1)) {
+      if (this->stepBlock(retval, 1) != StepOutcome::Stepped) {
         return this->pop(retval);
       }
     }
@@ -3110,7 +3143,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       }
       retval = ValueFactory::createHardYield(this->getAllocator(), result);
       this->pop(HardValue::Void); // Outcome of the 'yield' statement itself
-      return false;
+      return StepOutcome::Yielded;
     }
     break;
   case IVMModule::Node::Kind::StmtYieldAll:
@@ -3150,7 +3183,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       auto result = function->vmCall(this->execution, arguments);
       if (result->getPrimitiveFlag() == ValueFlags::Continue) {
         // The invocation resulted in a tail call
-        return true;
+        return StepOutcome::Stepped;
       }
       return this->pop(result);
     }
@@ -3542,19 +3575,11 @@ bool VMRunner::stepNode(HardValue& retval) {
     return this->raise("Invalid program node kind in program runner");
   }
   // Keep going
-  return true;
+  return StepOutcome::Stepped;
 }
 
-bool VMRunner::stepNodeChecked(HardValue& retval) {
-  // Return false iff 'retval' has been set and the block has finished
-  assert(this->validate());
-  auto finished = this->stepNode(retval);
-  assert(this->validate());
-  return finished;
-}
-
-bool VMRunner::stepBlock(HardValue& retval, size_t first) {
-  // Return false iff 'retval' has been set and the block has finished
+VMRunner::StepOutcome VMRunner::stepBlock(HardValue& retval, size_t first) {
+  // Note we cannot return 'StepOutcome::Yielded' directly
   auto& top = this->stack.top();
   assert(top.index >= first);
   assert(top.index <= top.node->children.size());
@@ -3564,7 +3589,8 @@ bool VMRunner::stepBlock(HardValue& retval, size_t first) {
     auto& result = top.deque.back();
     if (result.hasFlowControl()) {
       retval = result;
-      return false;
+      top.deque.pop_back();
+      return StepOutcome::Finished;
     }
     if (result->getPrimitiveFlag() != ValueFlags::Void) {
       this->log(ILogger::Source::Runtime, ILogger::Severity::Warning, this->createString("Discarded value in statement")); // TODO
@@ -3578,9 +3604,9 @@ bool VMRunner::stepBlock(HardValue& retval, size_t first) {
   } else {
     // Reached the end of the list of statements
     retval = HardValue::Void;
-    return false;
+    return StepOutcome::Finished;
   }
-  return true;
+  return StepOutcome::Stepped;
 }
 
 HardPtr<IVMRunner> VMModule::createRunner(IVMProgram& program) {

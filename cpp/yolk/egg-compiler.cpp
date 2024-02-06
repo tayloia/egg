@@ -568,7 +568,7 @@ ModuleNode* ModuleCompiler::compileStmtDefineFunction(ParserNode& pnode, StmtCon
   }
   auto& ptail = *pnode.children.back();
   assert(ptail.kind == ParserNode::Kind::StmtBlock);
-  auto& invoke = this->mbuilder.stmtFunctionInvoke(pnode.range);
+  auto& invoke = (inner.canYield == nullptr) ? this->mbuilder.stmtFunctionInvoke(pnode.range) : this->mbuilder.stmtGeneratorInvoke(pnode.range);
   auto block = this->compileStmtBlockInto(ptail.children, inner, invoke);
   if (block == nullptr) {
     return nullptr;

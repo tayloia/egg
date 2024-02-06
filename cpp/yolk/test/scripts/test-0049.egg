@@ -4,11 +4,15 @@ int... countdown(int counter) {
     --counter;
   }
 }
-assert(type.of(countdown) == "int...(int)");
+assert(type.of(countdown) == "int!(int)");
 var f = countdown(5);
-assert(type.of(f) == "int...");
+assert(type.of(f) == "int!");
 while (var i = f()) {
   assert(type.of(i) == "int");
   print(i);
 }
-///<RUNTIME><ERROR><RESOURCE>(3,5-9): 'yield' statements are not yet supported
+///>5
+///>4
+///>3
+///>2
+///>1
