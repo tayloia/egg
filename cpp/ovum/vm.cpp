@@ -1656,41 +1656,55 @@ namespace {
     virtual void addBuiltin(const String& symbol, const HardValue& value) override {
       this->symtable.builtin(symbol, &this->vm.createSoftValue(value));
     }
-    virtual RunOutcome run(HardValue& retval, RunFlags flags) override {
+    virtual HardValue step() override {
       assert(this->validate());
-      if (flags == RunFlags::Step) {
-        auto outcome = this->stepNode(retval);
-        assert(this->validate());
-        switch (outcome) {
-        case StepOutcome::Stepped:
-          assert(!retval.hasAnyFlags(ValueFlags::Yield));
-          return RunOutcome::Stepped;
-        case StepOutcome::Yielded:
-          assert(retval.hasAnyFlags(ValueFlags::Yield));
-          return RunOutcome::Succeeded;
-        case StepOutcome::Finished:
-          break;
-        }
-      } else  if (flags != RunFlags::None) {
-        retval = this->raiseRuntimeError(this->createString("TODO: Run flags not yet supported in runner"));
-        return RunOutcome::Failed;
-      } else {
-        auto outcome = this->stepNode(retval);
-        assert(this->validate());
-        while (outcome == StepOutcome::Stepped) {
-          outcome = this->stepNode(retval);
-          assert(this->validate());
-        }
-        if (outcome == StepOutcome::Yielded) {
-          assert(retval.hasAnyFlags(ValueFlags::Yield));
-          return RunOutcome::Succeeded;
-        }
+      HardValue retval;
+      auto outcome = this->stepNode(retval);
+      assert(this->validate());
+      switch (outcome) {
+      case StepOutcome::Stepped:
+        return HardValue::Continue;
+      case StepOutcome::Yielded:
+        assert(!retval.hasAnyFlags(ValueFlags::Yield));
+        return ValueFactory::createHardYield(this->getAllocator(), retval);
+      case StepOutcome::Finished:
+        break;
       }
       assert(!retval.hasAnyFlags(ValueFlags::Yield));
-      if (retval.hasFlowControl()) {
-        return RunOutcome::Failed;
+      return retval;
+    }
+    virtual HardValue run() override {
+      assert(this->validate());
+      HardValue retval;
+      auto outcome = this->stepNode(retval);
+      assert(this->validate());
+      while (outcome == StepOutcome::Stepped) {
+        outcome = this->stepNode(retval);
+        assert(this->validate());
       }
-      return RunOutcome::Succeeded;
+      if (outcome == StepOutcome::Yielded) {
+        return ValueFactory::createHardYield(this->getAllocator(), retval);
+      }
+      assert(!retval.hasAnyFlags(ValueFlags::Yield));
+      return retval;
+    }
+    virtual HardValue yield() override {
+      assert(this->validate());
+      HardValue retval;
+      auto outcome = this->stepNode(retval);
+      assert(this->validate());
+      while (outcome == StepOutcome::Stepped) {
+        outcome = this->stepNode(retval);
+        assert(this->validate());
+      }
+      if (outcome == StepOutcome::Yielded) {
+        assert(!retval.hasAnyFlags(ValueFlags::Yield));
+        return retval;
+      }
+      if (!retval.hasFlowControl()) {
+        return this->raiseRuntimeError("Expected yield value, but instead got ", describe(retval.get()));
+      }
+      return retval;
     }
     const VMSymbolTable::Entry* addCapture(const VMCallCapture& capture) {
       return this->symtable.add(capture.kind, capture.name, capture.type, capture.soft);
@@ -2329,7 +2343,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       return StepOutcome::Yielded;
     case StepOutcome::Finished:
       if (retval->getVoid()) {
-        retval = HardValue::YieldBreak;
+        retval = HardValue::Break;
         return StepOutcome::Yielded;
       }
       return StepOutcome::Finished;
@@ -3152,7 +3166,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
         assert(!result.hasAnyFlags(ValueFlags::Yield));
         return this->pop(result);
       }
-      retval = ValueFactory::createHardYield(this->getAllocator(), result);
+      retval = result;
       this->pop(HardValue::Void); // Outcome of the 'yield' statement itself
       return StepOutcome::Yielded;
     }
@@ -3590,7 +3604,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
 }
 
 VMRunner::StepOutcome VMRunner::stepBlock(HardValue& retval, size_t first) {
-  // Note we cannot return 'StepOutcome::Yielded' directly
+  // Note we never return 'StepOutcome::Yielded' directly
   auto& top = this->stack.top();
   assert(top.index >= first);
   assert(top.index <= top.node->children.size());

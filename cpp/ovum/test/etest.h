@@ -133,8 +133,7 @@ namespace egg::test {
       this->addBuiltinSymtable(runner);
     }
     bool run(egg::ovum::IVMRunner& runner) {
-      egg::ovum::HardValue retval;
-      auto outcome = runner.run(retval);
+      auto retval = runner.run();
       if (retval.hasAnyFlags(egg::ovum::ValueFlags::Throw)) {
         // TODO better location information in the error message
         this->logger.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Error, this->allocator.concat(retval));
@@ -143,7 +142,7 @@ namespace egg::test {
       if (!retval->getVoid()) {
         this->logger.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::None, this->allocator.concat("<RETVAL>", retval->getPrimitiveFlag(), ':', retval));
       }
-      return outcome == egg::ovum::IVMRunner::RunOutcome::Succeeded;
+      return true;
     }
   };
 

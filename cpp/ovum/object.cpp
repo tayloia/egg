@@ -961,50 +961,40 @@ namespace {
       if (arguments.getArgumentCount() != 0) {
         return this->raisePrefixError(execution, " expects no arguments");
       }
-      return this->next(execution);
+      return this->next();
     }
     virtual HardValue vmIterate(IVMExecution& execution) override {
       return execution.createHardValueObject(HardObject{ this });
     }
   private:
     enum class FetchOutcome { Yield, Break, Continue, Error };
-    FetchOutcome fetch(IVMExecution& execution, HardValue& retval) {
+    FetchOutcome fetch(HardValue& retval) {
       // TODO better locking for thread safety
       HardPtr lock{ this->runner };
       if (lock == nullptr) {
         // Already finished
         return FetchOutcome::Break;
       }
-      if (lock->run(retval) == IVMRunner::RunOutcome::Succeeded) {
-        auto flags = Bits::mask(retval->getPrimitiveFlag(), ValueFlags::Yield | ValueFlags::Break | ValueFlags::Continue);
-        switch (Bits::underlying(flags)) {
-        case Bits::underlying(ValueFlags::Yield):
-          if (!retval->getInner(retval)) {
-            retval = this->raisePrefixError(execution, " failed to extract yield value");
-            return FetchOutcome::Error;
-          }
-          return FetchOutcome::Yield;
-        case Bits::underlying(ValueFlags::Yield | ValueFlags::Break):
-          this->runner = nullptr;
-          return FetchOutcome::Break;
-        case Bits::underlying(ValueFlags::Yield | ValueFlags::Continue):
-          return FetchOutcome::Continue;
-        }
-        retval = this->raisePrefixError(execution, " expected to yield values, but instead got ", describe(retval.get()));
-        return FetchOutcome::Error;
+      retval = lock->yield();
+      auto flags = retval->getPrimitiveFlag();
+      assert(Bits::hasNoneSet(flags, ValueFlags::Return | ValueFlags::Yield));
+      if (Bits::hasNoneSet(flags, ValueFlags::FlowControl)) {
+        return FetchOutcome::Yield;
       }
-      this->runner = nullptr;
-      if (!retval.hasFlowControl()) {
-        retval = this->raisePrefixError(execution, " failed with ", describe(retval.get()));
+      if (flags == ValueFlags::Break) {
+        return FetchOutcome::Break;
+      }
+      if (flags == ValueFlags::Continue) {
+        return FetchOutcome::Continue;
       }
       return FetchOutcome::Error;
     }
-    HardValue next(IVMExecution& execution) {
+    HardValue next() {
       HardValue retval;
-      auto outcome = this->fetch(execution, retval);
+      auto outcome = this->fetch(retval);
       while (outcome == FetchOutcome::Continue) {
         // Loop past 'yield continue'
-        outcome = this->fetch(execution, retval);
+        outcome = this->fetch(retval);
       }
       if (outcome == FetchOutcome::Break) {
         return HardValue::Void;

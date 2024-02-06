@@ -70,29 +70,25 @@ namespace {
     return runner;
   }
 
-  IVMRunner::RunOutcome buildAndRun(egg::test::VM& vm, IVMProgramBuilder& pbuilder, IVMModuleBuilder& mbuilder, HardValue& retval, IVMRunner::RunFlags flags = IVMRunner::RunFlags::Default) {
+  HardValue buildAndRun(egg::test::VM& vm, IVMProgramBuilder& pbuilder, IVMModuleBuilder& mbuilder) {
     auto module = mbuilder.build();
     auto program = pbuilder.build();
     auto runner = module->createRunner(*program);
     vm.addBuiltins(*runner);
-    auto outcome = runner->run(retval, flags);
+    auto retval = runner->run();
     if (retval.hasFlowControl()) {
       vm.logger.log(ILogger::Source::User, ILogger::Severity::Error, vm.allocator.concat(retval));
     }
-    return outcome;
+    return retval;
   }
 
-  void buildAndRunSucceeded(egg::test::VM& vm, IVMProgramBuilder& pbuilder, IVMModuleBuilder& mbuilder, IVMRunner::RunFlags flags = IVMRunner::RunFlags::Default) {
-    HardValue retval;
-    auto outcome = buildAndRun(vm, pbuilder, mbuilder, retval, flags);
-    ASSERT_EQ(egg::ovum::IVMRunner::RunOutcome::Succeeded, outcome);
+  void buildAndRunSucceeded(egg::test::VM& vm, IVMProgramBuilder& pbuilder, IVMModuleBuilder& mbuilder) {
+    auto retval = buildAndRun(vm, pbuilder, mbuilder);
     ASSERT_VALUE(egg::ovum::HardValue::Void, retval);
   }
 
   void buildAndRunFailed(egg::test::VM& vm, IVMProgramBuilder& pbuilder, IVMModuleBuilder& mbuilder, egg::ovum::ValueFlags expected = egg::ovum::ValueFlags::Throw | egg::ovum::ValueFlags::Object) {
-    HardValue retval;
-    auto outcome = buildAndRun(vm, pbuilder, mbuilder, retval);
-    ASSERT_EQ(egg::ovum::IVMRunner::RunOutcome::Failed, outcome);
+    auto retval = buildAndRun(vm, pbuilder, mbuilder);
     ASSERT_EQ(expected, retval->getPrimitiveFlag());
   }
 }
@@ -221,9 +217,7 @@ TEST(TestVM, RunProgram) {
   egg::test::VM vm;
   auto program = createHelloWorldProgram(vm);
   auto runner = createRunnerWithPrint(vm, *program);
-  egg::ovum::HardValue retval;
-  auto outcome = runner->run(retval);
-  ASSERT_EQ(egg::ovum::IVMRunner::RunOutcome::Succeeded, outcome);
+  auto retval = runner->run();
   ASSERT_VALUE(egg::ovum::HardValue::Void, retval);
   ASSERT_EQ("hello world\n", vm.logger.logged.str());
 }
@@ -232,10 +226,8 @@ TEST(TestVM, StepProgram) {
   egg::test::VM vm;
   auto program = createHelloWorldProgram(vm);
   auto runner = createRunnerWithPrint(vm, *program);
-  egg::ovum::HardValue retval;
-  auto outcome = runner->run(retval, egg::ovum::IVMRunner::RunFlags::Step);
-  ASSERT_EQ(egg::ovum::IVMRunner::RunOutcome::Stepped, outcome);
-  ASSERT_VALUE(egg::ovum::HardValue::Void, retval);
+  auto retval = runner->step();
+  ASSERT_VALUE(egg::ovum::HardValue::Continue, retval);
   ASSERT_EQ("", vm.logger.logged.str());
 }
 

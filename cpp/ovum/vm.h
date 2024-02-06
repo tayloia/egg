@@ -120,18 +120,10 @@ namespace egg::ovum {
 
   class IVMRunner : public IVMCollectable {
   public:
-    enum class RunFlags {
-      None = 0x0000,
-      Step = 0x0001,
-      Default = None
-    };
-    enum class RunOutcome {
-      Stepped = 1,
-      Succeeded = 2,
-      Failed = 3
-    };
     virtual void addBuiltin(const String& symbol, const HardValue& value) = 0;
-    virtual RunOutcome run(HardValue& retval, RunFlags flags = RunFlags::Default) = 0; // WIBBLE
+    virtual HardValue step() = 0;
+    virtual HardValue run() = 0;
+    virtual HardValue yield() = 0;
   };
 
   class IVMExecution : public ILogger, public IVMCommon {
