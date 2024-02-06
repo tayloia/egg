@@ -44,8 +44,10 @@ namespace egg::internal {
     virtual bool getInner(HardValue&) const override {
       return false;
     }
+    virtual Type getRuntimeType() const override {
+      return Type::None;
+    }
     virtual ValueFlags getPrimitiveFlag() const override {
-      static_assert(Bits::hasOneSet(FLAGS), "Exactly one primitive flag bit should be set");
       return FLAGS;
     }
     virtual int print(Printer& printer) const override {
@@ -71,38 +73,11 @@ namespace egg::internal {
     }
   };
 
-  class ValueBreak : public ValueImmutable<ValueFlags::Break> {
-    ValueBreak(const ValueBreak&) = delete;
-    ValueBreak& operator=(const ValueBreak&) = delete;
-  public:
-    ValueBreak() {}
-    virtual Type getRuntimeType() const override {
-      return Type::None;
-    }
-  };
-  const ValueBreak theBreak;
-
-  class ValueContinue : public ValueImmutable<ValueFlags::Continue> {
-    ValueContinue(const ValueContinue&) = delete;
-    ValueContinue& operator=(const ValueContinue&) = delete;
-  public:
-    ValueContinue() {}
-    virtual Type getRuntimeType() const override {
-      return Type::None;
-    }
-  };
-  const ValueContinue theContinue;
-
-  class ValueRethrow : public ValueImmutable<ValueFlags::Throw> {
-    ValueRethrow(const ValueRethrow&) = delete;
-    ValueRethrow& operator=(const ValueRethrow&) = delete;
-  public:
-    ValueRethrow() {}
-    virtual Type getRuntimeType() const override {
-      return Type::None;
-    }
-  };
-  const ValueRethrow theRethrow;
+  const ValueImmutable<ValueFlags::Break> theBreak;
+  const ValueImmutable<ValueFlags::Continue> theContinue;
+  const ValueImmutable<ValueFlags::Throw> theRethrow;
+  const ValueImmutable<ValueFlags::Yield | ValueFlags::Break> theYieldBreak;
+  const ValueImmutable<ValueFlags::Yield | ValueFlags::Continue> theYieldContinue;
 
   class ValueVoid : public ValueImmutable<ValueFlags::Void> {
     ValueVoid(const ValueVoid&) = delete;
@@ -1106,22 +1081,22 @@ namespace egg::internal {
   bool validateFlags(ValueFlags flags) {
     auto upper = Bits::mask(flags, ValueFlags::FlowControl);
     auto lower = Bits::clear(flags, ValueFlags::FlowControl);
-    EGG_WARNING_SUPPRESS_SWITCH_BEGIN
-    switch (upper) {
-    case ValueFlags::None:
-    case ValueFlags::Return:
-    case ValueFlags::Yield:
+    switch (Bits::underlying(upper)) {
+    case Bits::underlying(ValueFlags::None):
+    case Bits::underlying(ValueFlags::Return):
+    case Bits::underlying(ValueFlags::Yield):
       // Expect a simple value
       return Bits::hasOneSet(lower);
-    case ValueFlags::Break:
-    case ValueFlags::Continue:
+    case Bits::underlying(ValueFlags::Break):
+    case Bits::underlying(ValueFlags::Continue):
+    case Bits::underlying(ValueFlags::Yield | ValueFlags::Break):
+    case Bits::underlying(ValueFlags::Yield | ValueFlags::Continue):
       // Don't expect anything else
       return !Bits::hasAnySet(lower);
-    case ValueFlags::Throw:
+    case Bits::underlying(ValueFlags::Throw):
       // Throw with nothing is a rethrow
       return Bits::hasZeroOrOneSet(lower);
     }
-    EGG_WARNING_SUPPRESS_SWITCH_END
     return false;
   }
 
@@ -1166,6 +1141,8 @@ const egg::ovum::HardValue egg::ovum::HardValue::True{ theTrue.instance() };
 const egg::ovum::HardValue egg::ovum::HardValue::Break{ theBreak.instance() };
 const egg::ovum::HardValue egg::ovum::HardValue::Continue{ theContinue.instance() };
 const egg::ovum::HardValue egg::ovum::HardValue::Rethrow{ theRethrow.instance() };
+const egg::ovum::HardValue egg::ovum::HardValue::YieldBreak{ theYieldBreak.instance() };
+const egg::ovum::HardValue egg::ovum::HardValue::YieldContinue{ theYieldContinue.instance() };
 
 egg::ovum::HardValue::HardValue() : ptr(&theVoid) {
   assert(this->validate());

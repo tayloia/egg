@@ -76,6 +76,8 @@ namespace egg::ovum {
     static const HardValue Break;
     static const HardValue Continue;
     static const HardValue Rethrow;
+    static const HardValue YieldBreak;
+    static const HardValue YieldContinue;
   };
 
   class SoftKey {

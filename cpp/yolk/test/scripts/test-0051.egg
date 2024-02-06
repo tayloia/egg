@@ -12,6 +12,7 @@ int... countdown_explicit() {
   yield 1;
 }
 test("countdown_explicit", countdown_explicit());
+///>countdown_explicit:321
 
 int... countdown_while(int counter) {
   while (counter > 0) {
@@ -20,7 +21,7 @@ int... countdown_while(int counter) {
   }
 }
 test("countdown_while", countdown_while(3));
-///OLD>countdown_while:321
+///>countdown_while:321
 
 int... countdown_do(int counter) {
   do {
@@ -29,14 +30,12 @@ int... countdown_do(int counter) {
   } while (counter > 0);
 }
 test("countdown_do", countdown_do(3));
+///>countdown_do:321
 
 int... countdown_for(int counter) {
   for (var i = counter; i > 0; --i){
-    yield counter;
+    yield i;
   }
 }
-/* The following fails because 'var i' is not in its own context 2018-07-31
 test("countdown_for", countdown_for(3));
-*/
-
-///<RUNTIME><ERROR><RESOURCE>(10,3-7): 'yield' statements are not yet supported
+///>countdown_for:321

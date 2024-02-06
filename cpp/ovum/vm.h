@@ -95,7 +95,6 @@ namespace egg::ovum {
     IValue* soft;
   };
 
-  // WIBBLE replace with visitor pattern
   class IVMCallCaptures {
   public:
     // Interface
@@ -132,7 +131,7 @@ namespace egg::ovum {
       Failed = 3
     };
     virtual void addBuiltin(const String& symbol, const HardValue& value) = 0;
-    virtual RunOutcome run(HardValue& retval, RunFlags flags = RunFlags::Default) = 0;
+    virtual RunOutcome run(HardValue& retval, RunFlags flags = RunFlags::Default) = 0; // WIBBLE
   };
 
   class IVMExecution : public ILogger, public IVMCommon {

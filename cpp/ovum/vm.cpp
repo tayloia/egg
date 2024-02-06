@@ -1836,7 +1836,6 @@ namespace {
         (void)this->symtable.remove(symbol);
       }
       this->stack.pop();
-      if(this->stack.empty()) // WIBBLE
       assert(!this->stack.empty());
       this->stack.top().deque.emplace_back(std::move(value));
       return StepOutcome::Stepped;
@@ -2323,7 +2322,19 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
   case IVMModule::Node::Kind::StmtGeneratorInvoke:
     // Actually pushed on to the stack by 'VMRunner::initiateGeneratorCall()'
     assert(top.index <= top.node->children.size());
-    return this->stepBlock(retval);
+    switch (this->stepBlock(retval, 0)) {
+    case StepOutcome::Stepped:
+      return StepOutcome::Stepped;
+    case StepOutcome::Yielded:
+      return StepOutcome::Yielded;
+    case StepOutcome::Finished:
+      if (retval->getVoid()) {
+        retval = HardValue::YieldBreak;
+        return StepOutcome::Yielded;
+      }
+      return StepOutcome::Finished;
+    }
+    break;
   case IVMModule::Node::Kind::StmtVariableDeclare:
     assert(top.node->children.size() >= 1);
     assert(top.index <= top.node->children.size());

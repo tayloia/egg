@@ -933,7 +933,7 @@ namespace {
     VMObjectVanillaGeneratorIterator& operator=(const VMObjectVanillaGeneratorIterator&) = delete;
   private:
     Type ftype;
-    IVMRunner& runner;
+    IVMRunner* runner; // set to null when iteration finished
   protected:
     virtual void printPrefix(Printer& printer) const override {
       printer << "Generator iterator function";
@@ -942,11 +942,13 @@ namespace {
     VMObjectVanillaGeneratorIterator(IVM& vm, const Type& ftype, IVMRunner& runner)
       : VMObjectBase(vm),
         ftype(ftype),
-        runner(runner) {
+        runner(&runner) {
       assert(this->ftype != nullptr);
     }
     virtual void softVisit(ICollectable::IVisitor& visitor) const override {
-      visitor.visit(this->runner);
+      if (this->runner != nullptr) {
+        visitor.visit(*this->runner);
+      }
     }
     virtual int print(Printer& printer) const override {
       printer.describe(*this->ftype);
@@ -959,15 +961,53 @@ namespace {
       if (arguments.getArgumentCount() != 0) {
         return this->raisePrefixError(execution, " expects no arguments");
       }
-      HardValue retval;
-      if (this->runner.run(retval) == IVMRunner::RunOutcome::Succeeded) {
-        if (retval.hasAnyFlags(ValueFlags::Yield)) {
-          HardValue inner;
-          if (retval->getInner(inner)) {
-            return inner;
+      return this->next(execution);
+    }
+    virtual HardValue vmIterate(IVMExecution& execution) override {
+      return execution.createHardValueObject(HardObject{ this });
+    }
+  private:
+    enum class FetchOutcome { Yield, Break, Continue, Error };
+    FetchOutcome fetch(IVMExecution& execution, HardValue& retval) {
+      // TODO better locking for thread safety
+      HardPtr lock{ this->runner };
+      if (lock == nullptr) {
+        // Already finished
+        return FetchOutcome::Break;
+      }
+      if (lock->run(retval) == IVMRunner::RunOutcome::Succeeded) {
+        auto flags = Bits::mask(retval->getPrimitiveFlag(), ValueFlags::Yield | ValueFlags::Break | ValueFlags::Continue);
+        switch (Bits::underlying(flags)) {
+        case Bits::underlying(ValueFlags::Yield):
+          if (!retval->getInner(retval)) {
+            retval = this->raisePrefixError(execution, " failed to extract yield value");
+            return FetchOutcome::Error;
           }
+          return FetchOutcome::Yield;
+        case Bits::underlying(ValueFlags::Yield | ValueFlags::Break):
+          this->runner = nullptr;
+          return FetchOutcome::Break;
+        case Bits::underlying(ValueFlags::Yield | ValueFlags::Continue):
+          return FetchOutcome::Continue;
         }
-        assert(retval->getVoid());
+        retval = this->raisePrefixError(execution, " expected to yield values, but instead got ", describe(retval.get()));
+        return FetchOutcome::Error;
+      }
+      this->runner = nullptr;
+      if (!retval.hasFlowControl()) {
+        retval = this->raisePrefixError(execution, " failed with ", describe(retval.get()));
+      }
+      return FetchOutcome::Error;
+    }
+    HardValue next(IVMExecution& execution) {
+      HardValue retval;
+      auto outcome = this->fetch(execution, retval);
+      while (outcome == FetchOutcome::Continue) {
+        // Loop past 'yield continue'
+        outcome = this->fetch(execution, retval);
+      }
+      if (outcome == FetchOutcome::Break) {
+        return HardValue::Void;
       }
       return retval;
     }
