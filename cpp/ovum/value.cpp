@@ -1195,6 +1195,10 @@ egg::ovum::HardValue egg::ovum::ValueFactory::createHardReturn(IAllocator& alloc
   return makeHardValue<ValueHardInner>(allocator, ValueFlags::Return, value);
 }
 
+egg::ovum::HardValue egg::ovum::ValueFactory::createHardYield(IAllocator& allocator, const HardValue& value) {
+  return makeHardValue<ValueHardInner>(allocator, ValueFlags::Yield, value);
+}
+
 egg::ovum::HardValue egg::ovum::ValueFactory::createType(IAllocator& allocator, const Type& value) {
   return makeHardValue<ValueType>(allocator, value);
 }

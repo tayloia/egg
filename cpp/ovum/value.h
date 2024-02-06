@@ -161,6 +161,7 @@ namespace egg::ovum {
     static HardValue createHardObject(IAllocator& allocator, const HardObject& value);
     static HardValue createHardThrow(IAllocator& allocator, const HardValue& inner);
     static HardValue createHardReturn(IAllocator& allocator, const HardValue& inner);
+    static HardValue createHardYield(IAllocator& allocator, const HardValue& inner);
     static HardValue createType(IAllocator& allocator, const Type& value);
 
     // Helpers

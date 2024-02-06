@@ -141,7 +141,7 @@ namespace egg::test {
         return false;
       }
       if (!retval->getVoid()) {
-        this->logger.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::Information, this->allocator.concat(retval->getPrimitiveFlag(), ":", retval));
+        this->logger.log(egg::ovum::ILogger::Source::Runtime, egg::ovum::ILogger::Severity::None, this->allocator.concat("<RETVAL>", retval->getPrimitiveFlag(), ':', retval));
       }
       return outcome == egg::ovum::IVMRunner::RunOutcome::Succeeded;
     }

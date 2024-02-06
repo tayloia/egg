@@ -95,17 +95,13 @@ namespace egg::ovum {
     IValue* soft;
   };
 
+  // WIBBLE replace with visitor pattern
   class IVMCallCaptures {
   public:
     // Interface
     virtual ~IVMCallCaptures() {}
     virtual size_t getCaptureCount() const = 0;
     virtual const VMCallCapture* getCaptureByIndex(size_t index) const = 0;
-  };
-
-  class IVMCallHandler : public IHardAcquireRelease {
-  public:
-    virtual HardValue call(IVMExecution& execution, const ICallArguments& arguments, const IVMCallCaptures* captures) = 0;
   };
 
   class IVMCallStack : public IHardAcquireRelease {
@@ -123,30 +119,6 @@ namespace egg::ovum {
     virtual HardPtr<IVMRunner> createRunner(IVMProgram& program) = 0;
   };
 
-  class IVMExecution : public ILogger, public IVMCommon {
-  public:
-    // Exceptions
-    virtual HardValue raiseException(const HardValue& inner) = 0;
-    virtual HardValue raiseRuntimeError(const String& message, const SourceRange* source) = 0;
-    // Assignment
-    virtual bool assignValue(IValue& lhs, const Type& ltype, const IValue& rhs) = 0;
-    // Function calls
-    virtual HardValue initiateTailCall(const IFunctionSignature& signature, const ICallArguments& arguments, const IVMModule::Node& definition, const IVMCallCaptures* captures) = 0;
-    // Soft values
-    virtual HardValue getSoftValue(const SoftValue& soft) = 0;
-    virtual bool setSoftValue(SoftValue& lhs, const HardValue& rhs) = 0;
-    virtual HardValue mutateSoftValue(SoftValue& lhs, ValueMutationOp mutation, const HardValue& rhs) = 0;
-    // Operations
-    virtual HardValue evaluateValueUnaryOp(ValueUnaryOp op, const HardValue& arg) = 0;
-    virtual HardValue evaluateValueBinaryOp(ValueBinaryOp op, const HardValue& lhs, const HardValue& rhs) = 0;
-    virtual HardValue evaluateValueTernaryOp(ValueTernaryOp op, const HardValue& lhs, const HardValue& mid, const HardValue& rhs) = 0;
-    virtual HardValue precheckValueMutationOp(ValueMutationOp op, HardValue& lhs, ValueFlags rhs) = 0;
-    virtual HardValue evaluateValueMutationOp(ValueMutationOp op, HardValue& lhs, const HardValue& rhs) = 0;
-    virtual HardValue evaluateValuePredicateOp(ValuePredicateOp op, const HardValue& lhs, const HardValue& rhs) = 0;
-    // Debugging TODO remove
-    virtual HardValue debugSymtable() = 0;
-  };
-
   class IVMRunner : public IVMCollectable {
   public:
     enum class RunFlags {
@@ -161,6 +133,31 @@ namespace egg::ovum {
     };
     virtual void addBuiltin(const String& symbol, const HardValue& value) = 0;
     virtual RunOutcome run(HardValue& retval, RunFlags flags = RunFlags::Default) = 0;
+  };
+
+  class IVMExecution : public ILogger, public IVMCommon {
+  public:
+    // Exceptions
+    virtual HardValue raiseException(const HardValue& inner) = 0;
+    virtual HardValue raiseRuntimeError(const String& message, const SourceRange* source) = 0;
+    // Assignment
+    virtual bool assignValue(IValue& lhs, const Type& ltype, const IValue& rhs) = 0;
+    // Function calls
+    virtual HardValue initiateFunctionCall(const IFunctionSignature& signature, const IVMModule::Node& definition, const ICallArguments& arguments, const IVMCallCaptures* captures) = 0;
+    virtual HardValue initiateGeneratorCall(const IFunctionSignature& signature, const IVMModule::Node& definition, const ICallArguments& arguments, const IVMCallCaptures* captures) = 0;
+    // Soft values
+    virtual HardValue getSoftValue(const SoftValue& soft) = 0;
+    virtual bool setSoftValue(SoftValue& lhs, const HardValue& rhs) = 0;
+    virtual HardValue mutateSoftValue(SoftValue& lhs, ValueMutationOp mutation, const HardValue& rhs) = 0;
+    // Operations
+    virtual HardValue evaluateValueUnaryOp(ValueUnaryOp op, const HardValue& arg) = 0;
+    virtual HardValue evaluateValueBinaryOp(ValueBinaryOp op, const HardValue& lhs, const HardValue& rhs) = 0;
+    virtual HardValue evaluateValueTernaryOp(ValueTernaryOp op, const HardValue& lhs, const HardValue& mid, const HardValue& rhs) = 0;
+    virtual HardValue precheckValueMutationOp(ValueMutationOp op, HardValue& lhs, ValueFlags rhs) = 0;
+    virtual HardValue evaluateValueMutationOp(ValueMutationOp op, HardValue& lhs, const HardValue& rhs) = 0;
+    virtual HardValue evaluateValuePredicateOp(ValuePredicateOp op, const HardValue& lhs, const HardValue& rhs) = 0;
+    // Debugging TODO remove
+    virtual HardValue debugSymtable() = 0;
   };
 
   class IVMProgram : public IVMUncollectable {
@@ -342,5 +339,9 @@ namespace egg::ovum {
   public:
     // VM factories
     static HardPtr<IVM> createDefault(IAllocator& allocator, ILogger& logger);
+    // Function/generator factories
+    static HardObject createFunction(IVM& vm, const Type& ftype, const IFunctionSignature& signature, const IVMModule::Node& definition, std::vector<VMCallCapture>&& captures);
+    static HardObject createGenerator(IVM& vm, const Type& ftype, const IFunctionSignature& signature, const IVMModule::Node& definition, std::vector<VMCallCapture>&& captures);
+    static HardObject createGeneratorIterator(IVM& vm, const Type& ftype, IVMRunner& runner);
   };
 }

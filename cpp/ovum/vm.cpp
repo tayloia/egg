@@ -6,6 +6,7 @@
 
 namespace {
   class VMModule;
+  class VMRunner;
 
   egg::ovum::Type getHardTypeOrNone(const egg::ovum::HardValue& value) {
     egg::ovum::Type type;
@@ -120,7 +121,17 @@ namespace {
     return describe(value.get());
   }
 
-  class VMRunner;
+  std::string describe(VMSymbolKind value) {
+    switch (value) {
+    case VMSymbolKind::Builtin:
+      return "a builtin";
+    case VMSymbolKind::Variable:
+      return "a variable";
+    case VMSymbolKind::Type:
+      return "a type";
+    }
+    return "a symbol";
+  }
 
   class VMCallStack : public HardReferenceCountedAllocator<IVMCallStack> {
     VMCallStack(const VMCallStack&) = delete;
@@ -234,8 +245,6 @@ namespace {
       return this->vm.getAllocator();
     }
   };
-
-  class VMModule;
 
   class VMProgram : public VMUncollectable<IVMProgram> {
     VMProgram(const VMProgram&) = delete;
@@ -414,7 +423,8 @@ namespace {
       return ValueFactory::createHardThrow(allocator, inner);
     }
     virtual HardValue raiseRuntimeError(const String& message, const SourceRange* source) override;
-    virtual HardValue initiateTailCall(const IFunctionSignature& signature, const ICallArguments& arguments, const IVMModule::Node& definition, const IVMCallCaptures* captures) override;
+    virtual HardValue initiateFunctionCall(const IFunctionSignature& signature, const IVMModule::Node& definition, const ICallArguments& arguments, const IVMCallCaptures* captures) override;
+    virtual HardValue initiateGeneratorCall(const IFunctionSignature& signature, const IVMModule::Node& definition, const ICallArguments& arguments, const IVMCallCaptures* captures) override;
     virtual bool assignValue(IValue& lhs, const Type& ltype, const IValue& rhs) override {
       // Assign with int-to-float promotion
       assert(ltype != nullptr);
@@ -1595,37 +1605,6 @@ namespace {
     }
   };
 
-  class VMFunction : public HardReferenceCounted<IVMCallHandler> {
-    VMFunction(const VMFunction&) = delete;
-    VMFunction& operator=(const VMFunction&) = delete;
-  private:
-    IVM& vm;
-    Type ftype;
-    const IVMModule::Node& definition;
-  public:
-    VMFunction(IVM& vm, const Type& ftype, const IVMModule::Node& definition)
-      : vm(vm),
-        ftype(ftype),
-        definition(definition) {
-      assert(this->ftype.validate());
-      assert(this->definition.kind == IVMModule::Node::Kind::StmtFunctionDefine);
-    }
-    virtual HardValue call(IVMExecution& execution, const ICallArguments& arguments, const IVMCallCaptures* captures) override {
-      auto* signature = this->ftype.getOnlyFunctionSignature();
-      if (signature == nullptr) {
-        StringBuilder sb;
-        sb << "Missing function signature in '";
-        sb.describe(*this->ftype);
-        sb << "'";
-        return execution.raiseRuntimeError(sb.build(this->vm.getAllocator()), nullptr);
-      }
-      return execution.initiateTailCall(*signature, arguments, this->definition, captures);
-    }
-    virtual void hardDestroy() const override {
-      this->vm.getAllocator().destroy(this);
-    }
-  };
-
   class VMRunner : public VMCollectable<IVMRunner> {
     VMRunner(const VMRunner&) = delete;
     VMRunner& operator=(const VMRunner&) = delete;
@@ -1649,6 +1628,7 @@ namespace {
       this->execution.runner = this;
       this->symtable.push();
       this->push(root);
+      this->vm.getBasket().take(*this);
     }
     virtual void softVisit(ICollectable::IVisitor& visitor) const override {
       this->symtable.softVisit(visitor);
@@ -1688,6 +1668,12 @@ namespace {
       }
       return RunOutcome::Succeeded;
     }
+    const VMSymbolTable::Entry* addCapture(const VMCallCapture& capture) {
+      return this->symtable.add(capture.kind, capture.name, capture.type, capture.soft);
+    }
+    const VMSymbolTable::Entry* addVariable(const String& name, const Type& type, IValue* soft) {
+      return this->symtable.add(VMSymbolKind::Variable, name, type, soft);
+    }
     HardPtr<IVMCallStack> getCallStack(const SourceRange* source) const {
       // TODO full stack chain
       assert(!this->stack.empty());
@@ -1708,7 +1694,7 @@ namespace {
       auto message = this->execution.concat(std::forward<ARGS>(args)...);
       return this->execution.raiseRuntimeError(message, nullptr);
     }
-    HardValue initiateTailCall(const IFunctionSignature& signature, const ICallArguments& arguments, const IVMModule::Node& definition, const IVMCallCaptures* captures) {
+    HardValue initiateFunctionCall(const IFunctionSignature& signature, const IVMModule::Node& definition, const ICallArguments& arguments, const IVMCallCaptures* captures) {
       // We need to set the argument/capture symbols and initiate the execution of the block
       assert(definition.kind == IVMModule::Node::Kind::StmtFunctionDefine);
       assert(!this->stack.empty());
@@ -1724,14 +1710,7 @@ namespace {
           assert(capture->soft->softGetBasket() != nullptr);
           auto* extant = this->symtable.add(capture->kind, capture->name, capture->type, capture->soft);
           if (extant != nullptr) {
-            switch (extant->kind) {
-            case VMSymbolTable::Kind::Builtin:
-              return this->raiseRuntimeError("Captured symbol already declared as a builtin: '", capture->name, "'");
-            case VMSymbolTable::Kind::Variable:
-              return this->raiseRuntimeError("Captured symbol already declared as a variable: '", capture->name, "'");
-            case VMSymbolTable::Kind::Type:
-              return this->raiseRuntimeError("Captured symbol already declared as a type: '", capture->name, "'");
-            }
+            return this->raiseRuntimeError("Captured symbol already declared as ", describe(extant->kind), ": '", capture->name, "'");
           }
         }
       }
@@ -1755,14 +1734,7 @@ namespace {
         }
         auto* extant = this->symtable.add(VMSymbolTable::Kind::Variable, pname, ptype, &poly);
         if (extant != nullptr) {
-          switch (extant->kind) {
-          case VMSymbolTable::Kind::Builtin:
-            return this->raiseRuntimeError("Parameter symbol already declared as a builtin: '", pname, "'");
-          case VMSymbolTable::Kind::Variable:
-            return this->raiseRuntimeError("Parameter symbol already declared: '", pname, "'");
-          case VMSymbolTable::Kind::Type:
-            return this->raiseRuntimeError("Parameter symbol already declared as a type: '", pname, "'");
-          }
+          return this->raiseRuntimeError("Parameter symbol already declared as ", describe(extant->kind), ": '", pname, "'");
         }
       }
       // Push the invoke node
@@ -1770,6 +1742,53 @@ namespace {
       assert(invoke != nullptr);
       this->push(*invoke);
       return HardValue::Continue;
+    }
+    HardValue initiateGeneratorCall(const IFunctionSignature& signature, const IVMModule::Node& definition, const ICallArguments& arguments, const IVMCallCaptures* captures) {
+      // Create the generator iteration function instance
+      assert(definition.kind == IVMModule::Node::Kind::StmtFunctionDefine);
+      assert(!this->stack.empty());
+      assert(this->stack.top().node->kind == IVMModule::Node::Kind::ExprFunctionCall);
+      assert(this->stack.top().scope.empty());
+      auto runner = HardPtr(this->getAllocator().makeRaw<VMRunner>(this->vm, *this->program, definition));
+      assert(runner != nullptr);
+      assert(runner->softGetBasket() == this->basket);
+      if (captures != nullptr) {
+        for (size_t index = 0; index < captures->getCaptureCount(); ++index) {
+          auto* capture = captures->getCaptureByIndex(index);
+          assert(capture != nullptr);
+          assert(capture->soft != nullptr);
+          assert(capture->soft->softGetBasket() != nullptr);
+          auto* extant = runner->addCapture(*capture);
+          if (extant != nullptr) {
+            return this->raiseRuntimeError("Captured symbol already declared as ", describe(extant->kind), ": '", capture->name, "'");
+          }
+        }
+      }
+      for (size_t index = 0; index < signature.getParameterCount(); ++index) {
+        // TODO optional/variadic arguments
+        HardValue value;
+        if (!arguments.getArgumentValueByIndex(index, value)) {
+          return this->raiseRuntimeError("Argument count mismatch"); // TODO
+        }
+        auto& parameter = signature.getParameter(index);
+        auto pname = parameter.getName();
+        auto ptype = parameter.getType();
+        auto& poly = this->vm.createSoftValue();
+        if (!this->execution.assignValue(poly, ptype, value.get())) {
+          auto message = this->execution.concat("Type mismatch for parameter '", pname, "': Expected '", ptype, "', but instead got ", describe(value));
+          SourceRange source;
+          if (arguments.getArgumentSourceByIndex(index, source)) {
+            return this->execution.raiseRuntimeError(message, &source);
+          }
+          return this->execution.raiseRuntimeError(message, nullptr);
+        }
+        auto* extant = this->addVariable(pname, ptype, &poly);
+        if (extant != nullptr) {
+          return this->raiseRuntimeError("Parameter symbol already declared as ", describe(extant->kind), ": '", pname, "'");
+        }
+      }
+      // Return a newly-created stream object
+      return this->createHardValueObject(VMFactory::createGeneratorIterator(vm, signature.getReturnType(), *runner));
     }
     void printSymtable(Printer& printer) const {
       this->symtable.print(printer);
@@ -1937,8 +1956,10 @@ namespace {
     HardValue functionConstruct(const Type& ftype, const IVMModule::Node& definition) {
       // TODO optimize
       assert(ftype.validate());
-      auto handler = HardPtr(this->getAllocator().makeRaw<VMFunction>(this->vm, ftype, definition));
-      assert(handler != nullptr);
+      auto* signature = ftype.getOnlyFunctionSignature();
+      if (signature == nullptr) {
+        return this->raiseRuntimeError("Missing function signature in '", describe(*ftype), "'");
+      }
       std::vector<VMCallCapture> captures;
       for (size_t index = 1; index < definition.defaultIndex; ++index) {
         auto* capture = definition.children[index];
@@ -1954,13 +1975,12 @@ namespace {
         }
         captures.emplace_back(found->kind, found->type, symbol, found->soft);
       }
-      auto* signature = ftype.getOnlyFunctionSignature();
-      if ((signature != nullptr) && (signature->getGeneratedType() != nullptr)) {
-        auto object = ObjectFactory::createVanillaGenerator(this->vm, ftype, *handler, std::move(captures));
+      if (signature->getGeneratedType() != nullptr) {
+        auto object = VMFactory::createGenerator(this->vm, ftype, *signature, definition, std::move(captures));
         assert(object != nullptr);
         return this->createHardValueObject(object);
       }
-      auto object = ObjectFactory::createVanillaFunction(this->vm, ftype, *handler, std::move(captures));
+      auto object = VMFactory::createFunction(this->vm, ftype, *signature, definition, std::move(captures));
       assert(object != nullptr);
       return this->createHardValueObject(object);
     }
@@ -3066,7 +3086,7 @@ bool VMRunner::stepNode(HardValue& retval) {
       // Return the value
       assert(top.index == 1);
       assert(top.deque.size() == 1);
-      auto& result = top.deque.back();
+      auto& result = top.deque.front();
       if (result.hasFlowControl()) {
         return this->pop(result);
       }
@@ -3074,10 +3094,31 @@ bool VMRunner::stepNode(HardValue& retval) {
     }
     break;
   case IVMModule::Node::Kind::StmtYield:
+    assert(top.node->literal->getVoid());
+    assert(top.node->children.size() == 1);
+    if (top.index == 0) {
+      // Evaluate the expression
+      this->push(*top.node->children[top.index++]);
+    } else {
+      // Return the value
+      assert(top.index == 1);
+      assert(top.deque.size() == 1);
+      auto& result = top.deque.front();
+      if (result.hasFlowControl()) {
+        assert(!result.hasAnyFlags(ValueFlags::Yield));
+        return this->pop(result);
+      }
+      retval = ValueFactory::createHardYield(this->getAllocator(), result);
+      this->pop(HardValue::Void); // Outcome of the 'yield' statement itself
+      return false;
+    }
+    break;
   case IVMModule::Node::Kind::StmtYieldAll:
+    return this->raise("'yield ...' statements are not yet supported");
   case IVMModule::Node::Kind::StmtYieldBreak:
+    return this->raise("'yield break' statements are not yet supported");
   case IVMModule::Node::Kind::StmtYieldContinue:
-    return this->raise("'yield' statements are not yet supported");
+    return this->raise("'yield continue' statements are not yet supported");
   case IVMModule::Node::Kind::ExprFunctionCall:
     assert(top.node->literal->getVoid());
     assert(top.index <= top.node->children.size());
@@ -3543,11 +3584,8 @@ bool VMRunner::stepBlock(HardValue& retval, size_t first) {
 }
 
 HardPtr<IVMRunner> VMModule::createRunner(IVMProgram& program) {
-  auto runner = HardPtr(this->getAllocator().makeRaw<VMRunner>(this->vm, program, *this->root));
-  auto taken = this->vm.getBasket().take(*runner);
-  assert(taken == runner.get());
-  (void)taken;
-  return runner;
+  // The constructor takes the runner into the VM's basket
+  return HardPtr(this->getAllocator().makeRaw<VMRunner>(this->vm, program, *this->root));
 }
 
 HardPtr<IVMRunner> VMProgram::createRunner() {
@@ -3568,9 +3606,14 @@ HardValue VMExecution::raiseRuntimeError(const String& message, const SourceRang
   return this->raiseException(this->createHardValueObject(builder->build()));
 }
 
-HardValue VMExecution::initiateTailCall(const IFunctionSignature& signature, const ICallArguments& arguments, const IVMModule::Node& definition, const IVMCallCaptures* captures) {
+HardValue VMExecution::initiateFunctionCall(const IFunctionSignature& signature, const IVMModule::Node& definition, const ICallArguments& arguments, const IVMCallCaptures* captures) {
   assert(this->runner != nullptr);
-  return this->runner->initiateTailCall(signature, arguments, definition, captures);
+  return this->runner->initiateFunctionCall(signature, definition, arguments, captures);
+}
+
+HardValue VMExecution::initiateGeneratorCall(const IFunctionSignature& signature, const IVMModule::Node& definition, const ICallArguments& arguments, const IVMCallCaptures* captures) {
+  assert(this->runner != nullptr);
+  return this->runner->initiateGeneratorCall(signature, definition, arguments, captures);
 }
 
 egg::ovum::HardPtr<IVM> egg::ovum::VMFactory::createDefault(IAllocator& allocator, ILogger& logger) {

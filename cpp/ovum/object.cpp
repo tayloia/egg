@@ -840,32 +840,25 @@ namespace {
     }
   };
 
-  class VMObjectVanillaFunction : public VMObjectBase, public IVMCallCaptures {
-    VMObjectVanillaFunction(const VMObjectVanillaFunction&) = delete;
-    VMObjectVanillaFunction& operator=(const VMObjectVanillaFunction&) = delete;
-  private:
-    Type ftype;
-    HardPtr<IVMCallHandler> handler;
-    std::vector<VMCallCapture> captures;
+  class VMObjectVanillaCaptures : public VMObjectBase, public IVMCallCaptures {
+    VMObjectVanillaCaptures(const VMObjectVanillaCaptures&) = delete;
+    VMObjectVanillaCaptures& operator=(const VMObjectVanillaCaptures&) = delete;
   protected:
-    virtual void printPrefix(Printer& printer) const override {
-      printer << "Vanilla function";
-    }
+    Type ftype;
+    std::vector<VMCallCapture> captures;
   public:
-    VMObjectVanillaFunction(IVM& vm, const Type& ftype, IVMCallHandler& handler, std::vector<VMCallCapture>&& captures)
+    VMObjectVanillaCaptures(IVM& vm, const Type& ftype, std::vector<VMCallCapture>&& captures)
       : VMObjectBase(vm),
         ftype(ftype),
-        handler(&handler),
         captures(std::move(captures)) {
       assert(this->ftype != nullptr);
-      assert(this->handler != nullptr);
     }
     virtual void softVisit(ICollectable::IVisitor& visitor) const override {
       for (const auto& capture : this->captures) {
         assert(capture.type != nullptr);
-        capture.type->softVisit(visitor);
+        visitor.visit(*capture.type);
         assert(capture.soft != nullptr);
-        capture.soft->softVisit(visitor);
+        visitor.visit(*capture.soft);
       }
     }
     virtual int print(Printer& printer) const override {
@@ -874,9 +867,6 @@ namespace {
     }
     virtual Type vmRuntimeType() override {
       return this->ftype;
-    }
-    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
-      return this->handler->call(execution, arguments, this);
     }
     virtual size_t getCaptureCount() const override {
       return this->captures.size();
@@ -889,16 +879,96 @@ namespace {
     }
   };
 
-  class VMObjectVanillaGenerator : public VMObjectVanillaFunction {
-    VMObjectVanillaGenerator(const VMObjectVanillaGenerator&) = delete;
-    VMObjectVanillaGenerator& operator=(const VMObjectVanillaGenerator&) = delete;
+  class VMObjectVanillaFunction : public VMObjectVanillaCaptures {
+    VMObjectVanillaFunction(const VMObjectVanillaFunction&) = delete;
+    VMObjectVanillaFunction& operator=(const VMObjectVanillaFunction&) = delete;
+  private:
+    const IFunctionSignature& signature;
+    const IVMModule::Node& definition;
   protected:
     virtual void printPrefix(Printer& printer) const override {
-      printer << "Vanilla generator";
+      printer << "Function";
     }
   public:
-    VMObjectVanillaGenerator(IVM& vm, const Type& ftype, IVMCallHandler& handler, std::vector<VMCallCapture>&& captures)
-      : VMObjectVanillaFunction(vm, ftype, handler, std::move(captures)) {
+    VMObjectVanillaFunction(IVM& vm, const Type& ftype, const IFunctionSignature& signature, const IVMModule::Node& definition, std::vector<VMCallCapture>&& captures)
+      : VMObjectVanillaCaptures(vm, ftype, std::move(captures)),
+        signature(signature),
+        definition(definition)  {
+    }
+    virtual int print(Printer& printer) const override {
+      printer.describe(*this->ftype);
+      return 0;
+    }
+    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
+      return execution.initiateFunctionCall(this->signature, this->definition, arguments, this);
+    }
+  };
+
+  class VMObjectVanillaGenerator : public VMObjectVanillaCaptures {
+    VMObjectVanillaGenerator(const VMObjectVanillaGenerator&) = delete;
+    VMObjectVanillaGenerator& operator=(const VMObjectVanillaGenerator&) = delete;
+  private:
+    const IFunctionSignature& signature;
+    const IVMModule::Node& definition;
+  protected:
+    virtual void printPrefix(Printer& printer) const override {
+      printer << "Generator";
+    }
+  public:
+    VMObjectVanillaGenerator(IVM& vm, const Type& ftype, const IFunctionSignature& signature, const IVMModule::Node& definition, std::vector<VMCallCapture>&& captures)
+      : VMObjectVanillaCaptures(vm, ftype, std::move(captures)),
+        signature(signature),
+        definition(definition) {
+    }
+    virtual void softVisit(ICollectable::IVisitor& visitor) const override {
+      VMObjectVanillaCaptures::softVisit(visitor);
+    }
+    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
+      return execution.initiateGeneratorCall(this->signature, this->definition, arguments, this);
+    }
+  };
+
+  class VMObjectVanillaGeneratorIterator : public VMObjectBase {
+    VMObjectVanillaGeneratorIterator(const VMObjectVanillaGeneratorIterator&) = delete;
+    VMObjectVanillaGeneratorIterator& operator=(const VMObjectVanillaGeneratorIterator&) = delete;
+  private:
+    Type ftype;
+    IVMRunner& runner;
+  protected:
+    virtual void printPrefix(Printer& printer) const override {
+      printer << "Generator iterator function";
+    }
+  public:
+    VMObjectVanillaGeneratorIterator(IVM& vm, const Type& ftype, IVMRunner& runner)
+      : VMObjectBase(vm),
+        ftype(ftype),
+        runner(runner) {
+      assert(this->ftype != nullptr);
+    }
+    virtual void softVisit(ICollectable::IVisitor& visitor) const override {
+      visitor.visit(this->runner);
+    }
+    virtual int print(Printer& printer) const override {
+      printer.describe(*this->ftype);
+      return 0;
+    }
+    virtual Type vmRuntimeType() override {
+      return this->ftype;
+    }
+    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
+      if (arguments.getArgumentCount() != 0) {
+        return this->raisePrefixError(execution, " expects no arguments");
+      }
+      HardValue retval;
+      if (this->runner.run(retval) == IVMRunner::RunOutcome::Succeeded) {
+        if (retval.hasAnyFlags(ValueFlags::Yield)) {
+          HardValue inner;
+          if (retval->getInner(inner)) {
+            return inner;
+          }
+        }
+      }
+      return retval;
     }
   };
 
@@ -1855,14 +1925,6 @@ egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaKeyValue(IVM& vm, c
   return makeHardObject<VMObjectVanillaKeyValue>(vm, key, value);
 }
 
-egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaFunction(IVM& vm, const Type& ftype, IVMCallHandler& handler, std::vector<VMCallCapture>&& captures) {
-  return makeHardObject<VMObjectVanillaFunction>(vm, ftype, handler, std::move(captures));
-}
-
-egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaGenerator(IVM& vm, const Type& ftype, IVMCallHandler& handler, std::vector<VMCallCapture>&& captures) {
-  return makeHardObject<VMObjectVanillaGenerator>(vm, ftype, handler, std::move(captures));
-}
-
 egg::ovum::HardObject egg::ovum::ObjectFactory::createPointerToValue(IVM& vm, const HardValue& value, Modifiability modifiability) {
   return makeHardObject<VMObjectPointerToValue>(vm, value, modifiability);
 }
@@ -1981,4 +2043,16 @@ egg::ovum::HardPtr<egg::ovum::IObjectBuilder> egg::ovum::ObjectFactory::createRu
     instance->withPropertyOptional("function", callstack->getFunction());
   }
   return HardPtr{ allocator.makeRaw<ObjectBuilder>(vm, std::move(instance)) };
+}
+
+egg::ovum::HardObject egg::ovum::VMFactory::createFunction(IVM& vm, const Type& ftype, const IFunctionSignature& signature, const IVMModule::Node& definition, std::vector<VMCallCapture>&& captures) {
+  return makeHardObject<VMObjectVanillaFunction>(vm, ftype, signature, definition, std::move(captures));
+}
+
+egg::ovum::HardObject egg::ovum::VMFactory::createGenerator(IVM& vm, const Type& ftype, const IFunctionSignature& signature, const IVMModule::Node& definition, std::vector<VMCallCapture>&& captures) {
+  return makeHardObject<VMObjectVanillaGenerator>(vm, ftype, signature, definition, std::move(captures));
+}
+
+egg::ovum::HardObject egg::ovum::VMFactory::createGeneratorIterator(IVM& vm, const Type& ftype, IVMRunner& runner) {
+  return makeHardObject<VMObjectVanillaGeneratorIterator>(vm, ftype, runner);
 }

@@ -1451,33 +1451,13 @@ int egg::ovum::Type::print(Printer& printer, const IType::Shape& shape) {
 void egg::ovum::Type::print(Printer& printer, const IFunctionSignature& signature) {
   // Write the return type to a separate buffer in case it has to be wrapped in parentheses
   StringBuilder sb{ printer.options };
-  auto gtype = signature.getGeneratedType();
-  if (gtype != nullptr) {
-    // Generator function
-    auto precedence = gtype.print(sb);
-    if (precedence == 2) {
-      // Wrap 'a|b' in parentheses
-      printer << '(' << sb.toUTF8() << ")...";
-    } else {
-      // No need to wrap
-      auto generated = sb.toUTF8();
-      if (!generated.empty() && (generated.back() == '.')) {
-        // The generated type is itself a generator, so format like 'int... ...()'
-        printer << generated << " ...";
-      } else {
-        printer << generated << "...";
-      }
-    }
+  auto precedence = signature.getReturnType().print(sb);
+  if (precedence == 2) {
+    // Wrap 'a|b' in parentheses
+    printer << '(' << sb.toUTF8() << ')';
   } else {
-    // Plain function
-    auto precedence = signature.getReturnType().print(sb);
-    if (precedence == 2) {
-      // Wrap 'a|b' in parentheses
-      printer << '(' << sb.toUTF8() << ')';
-    } else {
-      // No need to wrap
-      printer << sb.toUTF8();
-    }
+    // No need to wrap
+    printer << sb.toUTF8();
   }
   if (printer.options.names) {
     auto name = signature.getName();
