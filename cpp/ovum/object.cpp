@@ -427,8 +427,10 @@ namespace {
     VMObjectVanillaContainer& operator=(const VMObjectVanillaContainer&) = delete;
   protected:
     mutable VMObjectVanillaMutex mutex;
-    explicit VMObjectVanillaContainer(IVM& vm)
-      : VMObjectBase(vm) {
+    Modifiability modifiability;
+    VMObjectVanillaContainer(IVM& vm, Modifiability modifiability)
+      : VMObjectBase(vm),
+        modifiability(modifiability) {
     }
   };
 
@@ -472,16 +474,18 @@ namespace {
     };
   private:
     std::deque<SoftValue> elements;
-    Type runtimeType;
+    Type containerType;
+    Type elementType;
   protected:
     virtual void printPrefix(Printer& printer) const override {
       printer << "Vanilla array";
     }
   public:
-    VMObjectVanillaArray(IVM& vm, const Type& runtimeType)
-      : VMObjectVanillaContainer(vm),
+    VMObjectVanillaArray(IVM& vm, const Type& containerType, const Type& elementType, Modifiability modifiability)
+      : VMObjectVanillaContainer(vm, modifiability),
         elements(),
-        runtimeType(runtimeType) {
+        containerType(containerType),
+        elementType(elementType) {
     }
     HardValue iteratorNext(IVMExecution& execution, IteratorState& state) {
       VMObjectVanillaMutex::ReadLock lock{ this->mutex };
@@ -516,7 +520,7 @@ namespace {
       return 0;
     }
     virtual Type vmRuntimeType() override {
-      return this->runtimeType;
+      return this->containerType;
     }
     virtual HardValue vmIterate(IVMExecution& execution) override;
     virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue& index) override {
@@ -672,8 +676,8 @@ namespace {
       printer << "Vanilla object";
     }
   public:
-    explicit VMObjectVanillaObject(IVM& vm)
-      : VMObjectVanillaContainer(vm) {
+    VMObjectVanillaObject(IVM& vm, Modifiability modifiability)
+      : VMObjectVanillaContainer(vm, modifiability) {
     }
     HardValue iteratorNext(IVMExecution& execution, IteratorState& state) {
       VMObjectVanillaMutex::ReadLock lock{ this->mutex };
@@ -691,7 +695,7 @@ namespace {
       }
       const auto& softvalue = found->second;
       auto value = this->vm.getSoftValue(softvalue);
-      auto object = ObjectFactory::createVanillaKeyValue(this->vm, key, value);
+      auto object = ObjectFactory::createVanillaKeyValue(this->vm, key, value, Modifiability::Read);
       return execution.createHardValueObject(object);
     }
     virtual void softVisit(ICollectable::IVisitor& visitor) const override {
@@ -833,8 +837,8 @@ namespace {
       printer << "Vanilla key-value pair";
     }
   public:
-    VMObjectVanillaKeyValue(IVM& vm, const HardValue& key, const HardValue& value)
-      : VMObjectVanillaObject(vm) {
+    VMObjectVanillaKeyValue(IVM& vm, const HardValue& key, const HardValue& value, Modifiability modifiability)
+      : VMObjectVanillaObject(vm, modifiability) {
       this->propertyAdd("key", key);
       this->propertyAdd("value", value);
     }
@@ -1812,7 +1816,7 @@ namespace {
     ObjectBuilderInstance& operator=(const ObjectBuilderInstance&) = delete;
   public:
     explicit ObjectBuilderInstance(IVM& vm)
-      : VMObjectVanillaObject(vm) {
+      : VMObjectVanillaObject(vm, Modifiability::All) {
     }
     virtual void withProperty(const HardValue& property, const HardValue& value, bool readonly) = 0;
   };
@@ -1943,17 +1947,17 @@ egg::ovum::HardObject egg::ovum::ObjectFactory::createBuiltinSymtable(IVM& vm) {
   return makeHardObject<VMObjectBuiltinSymtable>(vm);
 }
 
-egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaArray(IVM& vm) {
-  auto containerType = vm.getTypeForge().forgeArrayType(Type::AnyQ, Modifiability::All);
-  return makeHardObject<VMObjectVanillaArray>(vm, containerType);
+egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaArray(IVM& vm, const Type& elementType, Modifiability modifiability) {
+  auto containerType = vm.getTypeForge().forgeArrayType(elementType, modifiability);
+  return makeHardObject<VMObjectVanillaArray>(vm, containerType, elementType, modifiability);
 }
 
-egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaObject(IVM& vm) {
-  return makeHardObject<VMObjectVanillaObject>(vm);
+egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaObject(IVM& vm, Modifiability modifiability) {
+  return makeHardObject<VMObjectVanillaObject>(vm, modifiability);
 }
 
-egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaKeyValue(IVM& vm, const HardValue& key, const HardValue& value) {
-  return makeHardObject<VMObjectVanillaKeyValue>(vm, key, value);
+egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaKeyValue(IVM& vm, const HardValue& key, const HardValue& value, Modifiability modifiability) {
+  return makeHardObject<VMObjectVanillaKeyValue>(vm, key, value, modifiability);
 }
 
 egg::ovum::HardObject egg::ovum::ObjectFactory::createPointerToValue(IVM& vm, const HardValue& value, Modifiability modifiability) {

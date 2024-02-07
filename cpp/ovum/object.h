@@ -64,9 +64,9 @@ namespace egg::ovum {
     static HardObject createManifestationObject(IVM& vm);
     static HardObject createManifestationAny(IVM& vm);
     // Vanilla factories
-    static HardObject createVanillaArray(IVM& vm);
-    static HardObject createVanillaObject(IVM& vm);
-    static HardObject createVanillaKeyValue(IVM& vm, const HardValue& key, const HardValue& value);
+    static HardObject createVanillaArray(IVM& vm, const Type& elementType, Modifiability modifiability);
+    static HardObject createVanillaObject(IVM& vm, Modifiability modifiability);
+    static HardObject createVanillaKeyValue(IVM& vm, const HardValue& key, const HardValue& value, Modifiability modifiability);
     // Pointer factories
     static HardObject createPointerToValue(IVM& vm, const HardValue& value, Modifiability modifiability);
     static HardObject createPointerToIndex(IVM& vm, const HardObject& instance, const HardValue& index, Modifiability modifiability, const Type& pointerType);

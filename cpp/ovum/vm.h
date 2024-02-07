@@ -187,7 +187,7 @@ namespace egg::ovum {
     virtual Node& exprVariableRef(const String& symbol, const SourceRange& range) = 0;
     virtual Node& exprPropertyRef(Node& instance, Node& property, const SourceRange& range) = 0;
     virtual Node& exprIndexRef(Node& instance, Node& index, const SourceRange& range) = 0;
-    virtual Node& exprArray(const SourceRange& range) = 0;
+    virtual Node& exprArray(const Type& elementType, const SourceRange& range) = 0;
     virtual Node& exprObject(const SourceRange& range) = 0;
     virtual Node& exprGuard(const String& symbol, Node& value, const SourceRange& range) = 0;
     virtual Node& exprNamed(const HardValue& name, Node& value, const SourceRange& range) = 0;

@@ -1026,7 +1026,7 @@ namespace {
       case Node::Kind::ExprPredicateOp:
         return Type::Bool;
       case Node::Kind::ExprArray:
-        return this->forge.forgeArrayType(Type::AnyQ, Modifiability::All);
+        return this->deduceArray(node, Modifiability::All);
       case Node::Kind::ExprObject:
         return Type::Object;
       case Node::Kind::StmtBlock:
@@ -1208,6 +1208,14 @@ namespace {
       }
       return this->forge.forgeUnionType(ltype, rtype);
     }
+    Type deduceArray(Node& array, Modifiability modifiability) {
+      Type atype;
+      if (!array.literal->getHardType(atype)) {
+        // WIBBLE look at the elements
+        atype = Type::AnyQ;
+      }
+      return this->forge.forgeArrayType(atype, modifiability);
+    }
     Type deduceFunctionCall(Node& function, const SourceRange& range) {
       if (function.kind == Node::Kind::TypeManifestation) {
         Int flags;
@@ -1352,8 +1360,10 @@ namespace {
       node.addChild(index);
       return node;
     }
-    virtual Node& exprArray(const SourceRange& range) override {
+    virtual Node& exprArray(const Type& elementType, const SourceRange& range) override {
+      assert(elementType != nullptr);
       auto& node = this->module->createNode(Node::Kind::ExprArray, range);
+      node.literal = this->createHardValueType(elementType);
       return node;
     }
     virtual Node& exprObject(const SourceRange& range) override {
@@ -1956,10 +1966,10 @@ namespace {
       extant->kind = VMSymbolTable::Kind::Variable;
       return HardValue::True;
     }
-    HardValue arrayConstruct(const std::deque<HardValue>& elements, const std::vector<IVMModule::Node*>& mnodes) {
+    HardValue arrayConstruct(const Type& elementType, Modifiability modifiability, const std::deque<HardValue>& elements, const std::vector<IVMModule::Node*>& mnodes) {
       // TODO: support '...' inclusion
       assert(elements.size() == mnodes.size());
-      auto array = ObjectFactory::createVanillaArray(this->vm);
+      auto array = ObjectFactory::createVanillaArray(this->vm, elementType, modifiability);
       assert(array != nullptr);
       if (!elements.empty()) {
         auto push = array->vmPropertyGet(this->execution, this->createHardValue("push"));
@@ -1980,10 +1990,10 @@ namespace {
       }
       return this->createHardValueObject(array);
     }
-    HardValue objectConstruct(const std::deque<HardValue>& elements) {
+    HardValue objectConstruct(Modifiability modifiability, const std::deque<HardValue>& elements) {
       // TODO: support '...' inclusion
       assert((elements.size() % 2) == 0);
-      auto object = ObjectFactory::createVanillaObject(this->vm);
+      auto object = ObjectFactory::createVanillaObject(this->vm, modifiability);
       assert(object != nullptr);
       auto element = elements.cbegin();
       while (element != elements.cend()) {
@@ -3533,7 +3543,6 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
     }
     break;
   case IVMModule::Node::Kind::ExprArray:
-    assert(top.node->literal->getVoid());
     if (!top.deque.empty()) {
       // Check the last evaluation
       auto& latest = top.deque.back();
@@ -3546,7 +3555,11 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       this->push(*top.node->children[top.index++]);
     } else {
       // Construct the array
-      return this->pop(this->arrayConstruct(top.deque, top.node->children));
+      Type elementType;
+      if (!top.node->literal->getHardType(elementType) || (elementType == nullptr)) {
+        return this->raise("Invalid type literal module node for array expression");
+      }
+      return this->pop(this->arrayConstruct(elementType, Modifiability::All, top.deque, top.node->children));
     }
     break;
   case IVMModule::Node::Kind::ExprObject:
@@ -3566,7 +3579,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       this->push(*child.children.front());
     } else {
       // Construct the object
-      return this->pop(this->objectConstruct(top.deque));
+      return this->pop(this->objectConstruct(Modifiability::All, top.deque));
     }
     break;
   case IVMModule::Node::Kind::ExprGuard:

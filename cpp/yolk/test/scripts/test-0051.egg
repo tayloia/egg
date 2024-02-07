@@ -60,3 +60,10 @@ int... countdown_continue(int counter) {
 }
 test("countdown_continue", countdown_continue(3));
 ///>countdown_continue:321
+
+any... countdown_arraywise(int[] array) {
+  yield array;
+}
+int[] a = [3,2,1];
+test("countdown_arraywise", countdown_arraywise(a));
+///>countdown_arraywise:[3,2,1]

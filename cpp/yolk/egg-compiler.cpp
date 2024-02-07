@@ -35,7 +35,12 @@ namespace {
     virtual void report(const egg::ovum::SourceRange& range, const egg::ovum::String& problem) override {
       this->log(egg::ovum::ILogger::Severity::Error, this->resource, range, ": ", problem);
     }
-    class ExprContext : public egg::ovum::IVMModuleBuilder::TypeLookup {
+    struct ExprContextData {
+      egg::ovum::Type arrayElementType = nullptr;
+    };
+    class ExprContext : public ExprContextData, public egg::ovum::IVMModuleBuilder::TypeLookup {
+      ExprContext() = delete;
+      ExprContext(const ExprContext& parent) = delete;
     public:
       struct Symbol {
         enum class Kind {
@@ -52,8 +57,9 @@ namespace {
     protected:
       std::map<egg::ovum::String, Symbol> symbols;
       std::set<egg::ovum::String>* captures;
-      const StmtContext* chain;
-      ExprContext(const StmtContext* parent, std::set<egg::ovum::String>* captures = nullptr)
+      const ExprContext* chain;
+    public:
+      explicit ExprContext(const ExprContext* parent, std::set<egg::ovum::String>* captures = nullptr)
         : symbols(),
           captures(captures),
           chain(parent) {
@@ -170,7 +176,10 @@ namespace {
     ModuleNode* compileValueExprReference(ParserNode& ampersand, ParserNode& pexpr, const ExprContext& context);
     ModuleNode* compileValueExprDereference(ParserNode& star, ParserNode& pexpr, const ExprContext& context);
     ModuleNode* compileValueExprArray(ParserNode& pnode, const ExprContext& context);
-    ModuleNode* compileValueExprArrayElement(ParserNode& pnode, const ExprContext& context);
+    ModuleNode* compileValueExprArrayHinted(ParserNode& pnode, const ExprContext& context, const egg::ovum::Type& elementType);
+    ModuleNode* compileValueExprArrayHintedElement(ParserNode& pnode, const ExprContext& context, const egg::ovum::Type& elementType);
+    ModuleNode* compileValueExprArrayUnhinted(ParserNode& pnode, const ExprContext& context);
+    ModuleNode* compileValueExprArrayUnhintedElement(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileValueExprObject(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileValueExprObjectElement(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileValueExprGuard(ParserNode& pnode, ParserNode& ptype, ParserNode& pexpr, const ExprContext& context);
@@ -1530,19 +1539,66 @@ ModuleNode* ModuleCompiler::compileValueExprDereference(ParserNode& star, Parser
 }
 
 ModuleNode* ModuleCompiler::compileValueExprArray(ParserNode& pnode, const ExprContext& context) {
-  auto* array = &this->mbuilder.exprArray(pnode.range);
-  for (auto& child : pnode.children) {
-    auto* element = this->compileValueExprArrayElement(*child, context);
-    if (element == nullptr) {
-      array = nullptr;
-    } else if (array != nullptr) {
-      this->mbuilder.appendChild(*array, *element);
-    }
+  if (context.arrayElementType != nullptr) {
+    // There's a hint as to what each element should be
+    ExprContext inner{ &context };
+    assert(inner.arrayElementType == nullptr);
+    return this->compileValueExprArrayHinted(pnode, inner, context.arrayElementType);
   }
-  return array;
+  return this->compileValueExprArrayUnhinted(pnode, context);
 }
 
-ModuleNode* ModuleCompiler::compileValueExprArrayElement(ParserNode& pnode, const ExprContext& context) {
+ModuleNode* ModuleCompiler::compileValueExprArrayHinted(ParserNode& pnode, const ExprContext& context, const egg::ovum::Type& elementType) {
+  assert(elementType != nullptr);
+  auto* marray = &this->mbuilder.exprArray(elementType, pnode.range);
+  for (auto& pchild : pnode.children) {
+    auto* mchild = this->compileValueExprArrayHintedElement(*pchild, context, elementType);
+    if (mchild == nullptr) {
+      marray = nullptr;
+    } else if (marray != nullptr) {
+      this->mbuilder.appendChild(*marray, *mchild);
+    }
+  }
+  return marray;
+}
+
+ModuleNode* ModuleCompiler::compileValueExprArrayHintedElement(ParserNode& pnode, const ExprContext& context, const egg::ovum::Type&) {
+  // TODO: handle ellipsis '...'
+  // TODO: check assignability with elementType
+  return this->compileValueExpr(pnode, context);
+}
+
+ModuleNode* ModuleCompiler::compileValueExprArrayUnhinted(ParserNode& pnode, const ExprContext& context) {
+  auto& forge = this->vm.getTypeForge();
+  auto unionType = egg::ovum::Type::None;
+  std::vector<ModuleNode*> mchildren;
+  mchildren.reserve(pnode.children.size());
+  for (auto& pchild : pnode.children) {
+    auto* mchild = this->compileValueExprArrayUnhintedElement(*pchild, context);
+    if (mchild == nullptr) {
+      unionType = nullptr;
+    } else if (unionType != nullptr) {
+      auto elementType = this->deduceType(*mchild, context);
+      assert(elementType != nullptr);
+      unionType = forge.forgeUnionType(unionType, elementType);
+      assert(unionType != nullptr);
+      mchildren.push_back(mchild);
+    }
+  }
+  if (unionType == nullptr) {
+    return nullptr;
+  }
+  if (unionType == egg::ovum::Type::None) {
+    unionType = egg::ovum::Type::AnyQ;
+  }
+  auto* marray = &this->mbuilder.exprArray(unionType, pnode.range);
+  for (auto& mchild : mchildren) {
+    this->mbuilder.appendChild(*marray, *mchild);
+  }
+  return marray;
+}
+
+ModuleNode* ModuleCompiler::compileValueExprArrayUnhintedElement(ParserNode& pnode, const ExprContext& context) {
   // TODO: handle ellipsis '...'
   return this->compileValueExpr(pnode, context);
 }

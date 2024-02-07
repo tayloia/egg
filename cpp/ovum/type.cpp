@@ -738,7 +738,7 @@ namespace egg::internal {
         this->destroy(instance);
       }
     }
-    virtual TypeShape forgeArrayShape(const Type& element, Modifiability modifiability) override {
+    virtual TypeShape forgeArrayShape(const Type& elementType, Modifiability modifiability) override {
       TypeForgeShape shape;
       {
         // Properties
@@ -750,20 +750,20 @@ namespace egg::internal {
       {
         // Indexing
         auto builder = this->createIndexBuilder();
-        builder->setResultType(element);
+        builder->setResultType(elementType);
         builder->setModifiability(modifiability);
         shape.indexable = &builder->build();
       }
       {
         // Iteration
         auto builder = this->createIteratorBuilder();
-        builder->setIterationType(element);
+        builder->setIterationType(elementType);
         shape.iterable = &builder->build();
       }
       {
         // Taggable
         auto builder = this->createTaggableBuilder();
-        builder->setDescription(this->typeSuffix(element, "[]"), 1);
+        builder->setDescription(this->typeSuffix(elementType, "[]"), 1);
         shape.taggable = &builder->build();
       }
       return this->forgeShape(std::move(shape));
@@ -877,22 +877,22 @@ namespace egg::internal {
     virtual Type forgeVoidableType(const Type& type, bool voidable) override {
       return this->forgeFlags(type, ValueFlags::Void, voidable);
     }
-    virtual Type forgeArrayType(const Type& element, Modifiability modifiability) override {
-      return this->forgeShapeType(this->forgeArrayShape(element, modifiability));
+    virtual Type forgeArrayType(const Type& elementType, Modifiability modifiability) override {
+      return this->forgeShapeType(this->forgeArrayShape(elementType, modifiability));
     }
-    virtual Type forgeIterationType(const Type& type) override {
+    virtual Type forgeIterationType(const Type& elementType) override {
       // TODO optimize
       auto builder = this->createComplexBuilder();
-      auto flags = type->getPrimitiveFlags();
+      auto flags = elementType->getPrimitiveFlags();
       if (Bits::hasAnySet(flags, ValueFlags::Object)) {
         builder->addFlags(ValueFlags::AnyQ);
       }
       if (Bits::hasAnySet(flags, ValueFlags::String)) {
         builder->addFlags(ValueFlags::String);
       }
-      size_t count = type->getShapeCount();
+      size_t count = elementType->getShapeCount();
       for (size_t index = 0; index < count; ++index) {
-        auto* shape = type->getShape(index);
+        auto* shape = elementType->getShape(index);
         if ((shape != nullptr) && (shape->iterable != nullptr)) {
           builder->addType(shape->iterable->getIterationType());
         }
@@ -1222,7 +1222,7 @@ namespace egg::internal {
       return retval;
     }
     Assignability computeIndexSignatureAssignability(const IIndexSignature* dst, const IIndexSignature* src) {
-      // TODO more compatability checks
+      // TODO more compatability checks?
       auto retval = Assignability::Always;
       if (dst != src) {
         if (dst == nullptr) {
@@ -1233,8 +1233,21 @@ namespace egg::internal {
           // Index signature required but not supplied
           return Assignability::Never;
         }
-        // TODO index assignability
-        assert(false);
+        auto dsti = dst->getIndexType();
+        auto srci = src->getIndexType();
+        if (dst == nullptr) {
+          // Destination is an array; source must also be an array
+          if (srci != nullptr) {
+            return Assignability::Never;
+          }
+        } else {
+          // Destination is a map; source must also be a map
+          if (srci == nullptr) {
+            return Assignability::Never;
+          }
+          retval = assignabilityIntersection(retval, this->computeTypeAssignability(dsti, srci));
+        }
+        retval = assignabilityIntersection(retval, this->computeTypeAssignability(dst->getResultType(), src->getResultType()));
       }
       return retval;
     }
