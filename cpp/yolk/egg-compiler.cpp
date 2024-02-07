@@ -363,10 +363,10 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, StmtContext& context)
     EXPECT(pnode, (pnode.children.size() == 2) || (pnode.children.size() == 3));
     return this->compileStmtIf(pnode, context);
   case ParserNode::Kind::StmtReturn:
-    EXPECT(pnode, pnode.children.size() <= 2);
+    EXPECT(pnode, pnode.children.size() <= 1);
     return this->compileStmtReturn(pnode, context);
   case ParserNode::Kind::StmtYield:
-    EXPECT(pnode, pnode.children.size() <= 2);
+    EXPECT(pnode, pnode.children.size() == 1);
     return this->compileStmtYield(pnode, context);
   case ParserNode::Kind::StmtThrow:
     EXPECT(pnode, pnode.children.size() <= 2);
@@ -860,9 +860,16 @@ ModuleNode* ModuleCompiler::compileStmtYield(ParserNode& pnode, StmtContext& con
     return this->error(pnode, "'yield' statements are only valid within generator definitions");
   }
   // TODO: yield ... <expr> ;
-  // TODO: yield break ;
-  // TODO: yield continue ;
-  auto& pchild = *pnode.children.back();
+  auto& pchild = *pnode.children.front();
+  if (pchild.kind == ParserNode::Kind::StmtBreak) {
+    // return break ;
+    return &this->mbuilder.stmtYieldBreak(pchild.range);
+  }
+  if (pchild.kind == ParserNode::Kind::StmtContinue) {
+    // return continue ;
+    return &this->mbuilder.stmtYieldContinue(pchild.range);
+  }
+  // return <expr> ;
   auto* expr = this->compileValueExpr(pchild, context);
   if (expr == nullptr) {
     return nullptr;

@@ -653,6 +653,38 @@ TEST(TestEggParser, StatementReturnValue) {
   ASSERT_EQ(expected, actual);
 }
 
+TEST(TestEggParser, StatementYield) {
+  std::string actual = outputFromLines({
+    "yield;"
+    });
+  std::string expected = "<ERROR>: (1,1-6): Expected expression, 'break' or 'continue' after keyword 'yield', but instead got operator ';'\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementYieldValue) {
+  std::string actual = outputFromLines({
+    "yield 123;"
+    });
+  std::string expected = "(stmt-yield 123)\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementYieldBreak) {
+  std::string actual = outputFromLines({
+    "yield break;"
+    });
+  std::string expected = "(stmt-yield (stmt-break))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementYieldContinue) {
+  std::string actual = outputFromLines({
+    "yield continue;"
+    });
+  std::string expected = "(stmt-yield (stmt-continue))\n";
+  ASSERT_EQ(expected, actual);
+}
+
 TEST(TestEggParser, StatementTryCatch) {
   std::string actual = outputFromLines({
     "try {} catch (any e) {}"

@@ -33,9 +33,30 @@ test("countdown_do", countdown_do(3));
 ///>countdown_do:321
 
 int... countdown_for(int counter) {
-  for (var i = counter; i > 0; --i){
+  for (var i = counter; i > 0; --i) {
     yield i;
   }
 }
 test("countdown_for", countdown_for(3));
 ///>countdown_for:321
+
+int... countdown_break(int counter) {
+  for (;;) {
+    yield counter;
+    --counter;
+    if (counter < 1) {
+      yield break;
+    }
+  }
+}
+test("countdown_break", countdown_break(3));
+///>countdown_break:321
+
+int... countdown_continue(int counter) {
+  for (; counter > 0; --counter) {
+    yield counter;
+    yield continue;
+  }
+}
+test("countdown_continue", countdown_continue(3));
+///>countdown_continue:321

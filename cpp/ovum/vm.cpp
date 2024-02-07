@@ -3174,9 +3174,21 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
   case IVMModule::Node::Kind::StmtYieldAll:
     return this->raise("'yield ...' statements are not yet supported");
   case IVMModule::Node::Kind::StmtYieldBreak:
-    return this->raise("'yield break' statements are not yet supported");
+    assert(top.node->literal->getVoid());
+    assert(top.node->children.empty());
+    assert(top.index == 0);
+    assert(top.deque.empty());
+    retval = HardValue::Break;
+    this->pop(HardValue::Void); // Outcome of the 'yield break' statement itself
+    return StepOutcome::Yielded;
   case IVMModule::Node::Kind::StmtYieldContinue:
-    return this->raise("'yield continue' statements are not yet supported");
+    assert(top.node->literal->getVoid());
+    assert(top.node->children.empty());
+    assert(top.index == 0);
+    assert(top.deque.empty());
+    retval = HardValue::Continue;
+    this->pop(HardValue::Void); // Outcome of the 'yield continue' statement itself
+    return StepOutcome::Yielded;
   case IVMModule::Node::Kind::ExprFunctionCall:
     assert(top.node->literal->getVoid());
     assert(top.index <= top.node->children.size());

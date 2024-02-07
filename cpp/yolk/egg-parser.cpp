@@ -828,9 +828,25 @@ namespace {
       Context context(*this, tokidx);
       assert(context[0].isKeyword(EggTokenizerKeyword::Yield));
       if (context[1].isOperator(EggTokenizerOperator::Semicolon)) {
-        // yield ;
+        return context.expected(tokidx + 1, "expression, 'break' or 'continue' after keyword 'yield'");
+      }
+      if (context[1].isKeyword(EggTokenizerKeyword::Break)) {
+        // yield break ;
+        if (!context[2].isOperator(EggTokenizerOperator::Semicolon)) {
+          return context.expected(tokidx + 2, "';' after 'yield break' statement");
+        }
         auto stmt = this->makeNode(Node::Kind::StmtYield, context[0]);
-        return context.success(std::move(stmt), tokidx + 2);
+        stmt->children.emplace_back(std::move(this->makeNode(Node::Kind::StmtBreak, context[1])));
+        return context.success(std::move(stmt), tokidx + 3);
+      }
+      if (context[1].isKeyword(EggTokenizerKeyword::Continue)) {
+        // yield continue ;
+        if (!context[2].isOperator(EggTokenizerOperator::Semicolon)) {
+          return context.expected(tokidx + 2, "';' after 'yield continue' statement");
+        }
+        auto stmt = this->makeNode(Node::Kind::StmtYield, context[0]);
+        stmt->children.emplace_back(std::move(this->makeNode(Node::Kind::StmtContinue, context[1])));
+        return context.success(std::move(stmt), tokidx + 3);
       }
       // TODO yield ... <expr> ;
       auto expr = this->parseValueExpression(tokidx + 1);
