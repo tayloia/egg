@@ -848,7 +848,21 @@ namespace {
         stmt->children.emplace_back(std::move(this->makeNode(Node::Kind::StmtContinue, context[1])));
         return context.success(std::move(stmt), tokidx + 3);
       }
-      // TODO yield ... <expr> ;
+      if (context[1].isOperator(EggTokenizerOperator::Ellipsis)) {
+        // yield ... <expr> ;
+        auto expr = this->parseValueExpression(tokidx + 2);
+        if (expr.succeeded()) {
+          if (!expr.after(0).isOperator(EggTokenizerOperator::Semicolon)) {
+            return context.expected(expr.tokensAfter, "';' after 'yield ...' statement");
+          }
+          auto ellipsis = this->makeNode(Node::Kind::ExprEllipsis, context[1]);
+          ellipsis->children.emplace_back(std::move(expr.node));
+          auto stmt = this->makeNode(Node::Kind::StmtYield, context[0]);
+          stmt->children.emplace_back(std::move(ellipsis));
+          return context.success(std::move(stmt), expr.tokensAfter + 1);
+        }
+        return expr;
+      }
       auto expr = this->parseValueExpression(tokidx + 1);
       if (expr.succeeded()) {
         // return <expr> ;
@@ -1070,7 +1084,7 @@ namespace {
             case EggTokenizerOperator::Tilde: // '~'
             default:
               break;
-          }
+            }
           }
         }
       }

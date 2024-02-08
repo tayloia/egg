@@ -421,6 +421,7 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, StmtContext& context)
   case ParserNode::Kind::ExprDereference:
   case ParserNode::Kind::ExprArray:
   case ParserNode::Kind::ExprObject:
+  case ParserNode::Kind::ExprEllipsis:
   case ParserNode::Kind::ExprGuard:
   case ParserNode::Kind::TypeInfer:
   case ParserNode::Kind::TypeInferQ:
@@ -864,21 +865,43 @@ ModuleNode* ModuleCompiler::compileStmtReturn(ParserNode& pnode, StmtContext& co
 
 ModuleNode* ModuleCompiler::compileStmtYield(ParserNode& pnode, StmtContext& context) {
   assert(pnode.kind == ParserNode::Kind::StmtYield);
-  assert(pnode.children.size() <= 1);
+  assert(pnode.children.size() == 1);
   if (context.canYield == nullptr) {
     return this->error(pnode, "'yield' statements are only valid within generator definitions");
   }
-  // TODO: yield ... <expr> ;
   auto& pchild = *pnode.children.front();
   if (pchild.kind == ParserNode::Kind::StmtBreak) {
-    // return break ;
+    // yield break ;
     return &this->mbuilder.stmtYieldBreak(pchild.range);
   }
   if (pchild.kind == ParserNode::Kind::StmtContinue) {
-    // return continue ;
+    // yield continue ;
     return &this->mbuilder.stmtYieldContinue(pchild.range);
   }
-  // return <expr> ;
+  if (pchild.kind == ParserNode::Kind::ExprEllipsis) {
+    // yield ... <expr> ;
+    assert(pchild.children.size() == 1);
+    auto& pgrandchild = *pchild.children.front();
+    ExprContext inner{ &context };
+    inner.arrayElementType = context.canYield;
+    auto* expr = this->compileValueExpr(pgrandchild, inner);
+    if (expr == nullptr) {
+      return nullptr;
+    }
+    auto& forge = this->vm.getTypeForge();
+    auto xtype = this->deduceType(*expr, context);
+    assert(xtype != nullptr);
+    auto itype = forge.forgeIterationType(xtype);
+    if (itype == nullptr) {
+      return this->error(pgrandchild, "Value of type '", *xtype, "' is not iterable in 'yield ...' statement");
+    }
+    auto assignable = this->isAssignable(context.canYield, itype);
+    if (assignable == egg::ovum::Assignability::Never) {
+      return this->error(pchild, "Expected 'yield ...' statement with values of type '", *context.canYield, "', but instead got values of type '", *itype, "'");
+    }
+    return &this->mbuilder.stmtYieldAll(*expr, pnode.range);
+  }
+  // yield <expr> ;
   auto* expr = this->compileValueExpr(pchild, context);
   if (expr == nullptr) {
     return nullptr;
@@ -1248,6 +1271,7 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode, const ExprContex
     EXPECT(pnode, pnode.children.empty());
     return this->compileValueExprManifestation(pnode, egg::ovum::ValueFlags::Type);
   case ParserNode::Kind::ModuleRoot:
+  case ParserNode::Kind::ExprEllipsis:
   case ParserNode::Kind::TypeInfer:
   case ParserNode::Kind::TypeInferQ:
   case ParserNode::Kind::TypeUnary:
@@ -1706,7 +1730,7 @@ ModuleNode* ModuleCompiler::compileTypeInfer(ParserNode& pnode, ParserNode& ptyp
     auto& forge = this->vm.getTypeForge();
     auto itype = forge.forgeIterationType(type);
     if (itype == nullptr) {
-      return this->error(pexpr, "Value of type '", *actual, "' is not iterable");
+      return this->error(pexpr, "Value of type '", *actual, "' is not iterable in 'for' statement");
     }
     // TODO check 'actual' against 'type'
     type = forge.forgeVoidableType(itype, false);
@@ -1728,7 +1752,7 @@ ModuleNode* ModuleCompiler::compileTypeInferVar(ParserNode& pnode, ParserNode& p
     // We now have the type of 'iterable' in 'for (var[?] <iterator> : <iterable>)'
     auto itype = forge.forgeIterationType(type);
     if (itype == nullptr) {
-      return this->error(pexpr, "Value of type '", *type, "' is not iterable");
+      return this->error(pexpr, "Value of type '", *type, "' is not iterable in 'for' statement");
     }
     type = itype;
   }
@@ -2088,6 +2112,8 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
     return "array expression";
   case ParserNode::Kind::ExprObject:
     return "object expression";
+  case ParserNode::Kind::ExprEllipsis:
+    return "ellipsis";
   case ParserNode::Kind::ExprGuard:
     return "guard expression";
   case ParserNode::Kind::TypeInfer:

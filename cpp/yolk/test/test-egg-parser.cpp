@@ -146,6 +146,9 @@ namespace {
       return printNodeChildren(os, "expr-array", node, ranges);
     case Node::Kind::ExprObject:
       return printNodeChildren(os, "expr-object", node, ranges);
+    case Node::Kind::ExprEllipsis:
+      assert(node.children.size() == 1);
+      return printNodeChildren(os, "expr-ellipsis", node, ranges);
     case Node::Kind::ExprGuard:
       assert(node.children.size() == 2);
       return printNodeChildren(os, "expr-guard", node, ranges);

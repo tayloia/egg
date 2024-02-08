@@ -61,9 +61,32 @@ int... countdown_continue(int counter) {
 test("countdown_continue", countdown_continue(3));
 ///>countdown_continue:321
 
+int... countdown_array() {
+  yield ...[3,2,1];
+}
+test("countdown_array", countdown_array());
+///>countdown_array:321
+
 any... countdown_arraywise(int[] array) {
   yield array;
 }
-int[] a = [3,2,1];
-test("countdown_arraywise", countdown_arraywise(a));
+test("countdown_arraywise", countdown_arraywise([3,2,1]));
 ///>countdown_arraywise:[3,2,1]
+
+any... countdown_elementwise(int[] array) {
+  yield ...array;
+}
+test("countdown_elementwise", countdown_elementwise([3,2,1]));
+///>countdown_elementwise:321
+
+int... countdown_any(any value) {
+  yield ...value;
+}
+test("countdown_any_array", countdown_any([3,2,1]));
+///>countdown_any_array:321
+
+test("countdown_any_string", countdown_any("321"));
+///>countdown_any_string:321
+
+test("countdown_any_integer", countdown_any(321));
+///<RUNTIME><ERROR><RESOURCE>(83,3-7): Cannot 'yield ...' multiple values from a value of type 'int'

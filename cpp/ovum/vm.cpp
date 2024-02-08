@@ -1209,9 +1209,9 @@ namespace {
       return this->forge.forgeUnionType(ltype, rtype);
     }
     Type deduceArray(Node& array, Modifiability modifiability) {
+      assert(array.kind == Node::Kind::ExprArray);
       Type atype;
       if (!array.literal->getHardType(atype)) {
-        // WIBBLE look at the elements
         atype = Type::AnyQ;
       }
       return this->forge.forgeArrayType(atype, modifiability);
@@ -1850,6 +1850,7 @@ namespace {
     enum class StepOutcome { Stepped, Yielded, Finished };
     StepOutcome stepNode(HardValue& retval);
     StepOutcome stepBlock(HardValue& retval, size_t first = 0);
+    HardValue stepIteration(size_t first);
     NodeStack& push(const IVMModule::Node& node, const String& scope = {}, size_t index = 0) {
       return this->stack.emplace(&node, scope, index);
     }
@@ -2738,63 +2739,32 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       top.deque.clear();
       this->push(*top.node->children[top.index++]);
     } else {
-      assert(top.deque.size() >= 1);
-      auto& iterator = top.deque.front();
-      HardObject object;
-      if (top.index == 2) {
-        // Check the iterator
-        if (iterator.hasFlowControl()) {
-          return this->pop(iterator);
-        }
-        if (iterator->getHardObject(object)) {
-          // Make sure this object is iterable
-          iterator = object->vmIterate(execution);
-          if (iterator.hasFlowControl()) {
-            return this->pop(iterator);
-          }
-        }
-        assert(top.deque.size() == 1);
-      } else {
-        // We're executing the controlled block
+      if (top.index > 2) {
+        // We're executing the iterator
         assert(top.deque.size() == 2);
         auto& latest = top.deque.back();
         if (latest.hasFlowControl()) {
-          // TODO: handle break and continue
-          return this->pop(iterator);
+          return this->pop(latest);
         }
+        top.deque.resize(1);
       }
-      // Fetch the next iterated value
-      HardValue value;
-      if (iterator->getHardObject(object)) {
-        // Iterate over the values returned from a "<type>()" function
-        CallArguments empty{};
-        value = object->vmCall(execution, empty);
-        if (value.hasFlowControl() || value->getVoid()) {
-          // Failed or completed
-          return this->pop(value);
+      auto value = this->stepIteration(2);
+      if (value.hasFlowControl()) {
+        // Iteration failed
+        if (value->getPrimitiveFlag() == ValueFlags::Break) {
+          return this->raise("Iteration by 'for' each statement is not supported by ", describe(top.deque.front().get()));
         }
-        top.index++;
-      } else {
-        String string;
-        if (iterator->getString(string)) {
-          // Iterate over the codepoints in the string
-          auto cp = string.codePointAt(top.index++ - 2);
-          if (cp < 0) {
-            // Completed
-            return this->pop(HardValue::Void);
-          }
-          value = this->createHardValueString(String::fromUTF32(this->getAllocator(), &cp, 1));
-        } else {
-          // Object iteration
-          return this->raise("Iteration by 'for' each statement is not supported by ", describe(iterator));
-        }
+        return this->pop(value);
+      }
+      if (value->getVoid()) {
+        // Iteration completed successfully
+        return this->pop(value);
       }
       // Assign to the control variable
       if (!this->symbolSet(top.node, value)) {
         return StepOutcome::Stepped;
       }
       // Execute the controlled block
-      top.deque.resize(1);
       this->push(*top.node->children[2]);
     }
     break;
@@ -3182,7 +3152,28 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
     }
     break;
   case IVMModule::Node::Kind::StmtYieldAll:
-    return this->raise("'yield ...' statements are not yet supported");
+    assert(top.node->children.size() == 1);
+    if (top.index == 0) {
+      // Evaluate the expression
+      this->push(*top.node->children[top.index++]);
+    } else {
+      auto result = this->stepIteration(1);
+      if (result.hasFlowControl()) {
+        // Iteration failed
+        assert(!result.hasAnyFlags(ValueFlags::Yield));
+        if (result->getPrimitiveFlag() == ValueFlags::Break) {
+          return this->raise("Cannot 'yield ...' multiple values from ", describe(top.deque.front().get()));
+        }
+        return this->pop(result);
+      }
+      if (result->getVoid()) {
+        // Iteration completed successfully
+        return this->pop(HardValue::Void);
+      }
+      retval = result;
+      return StepOutcome::Yielded;
+    }
+    break;
   case IVMModule::Node::Kind::StmtYieldBreak:
     assert(top.node->literal->getVoid());
     assert(top.node->children.empty());
@@ -3657,6 +3648,46 @@ VMRunner::StepOutcome VMRunner::stepBlock(HardValue& retval, size_t first) {
     return StepOutcome::Finished;
   }
   return StepOutcome::Stepped;
+}
+
+HardValue VMRunner::stepIteration(size_t first) {
+  auto& top = this->stack.top();
+  assert(top.index >= first);
+  assert(top.deque.size() == 1);
+  auto& iterator = top.deque.front();
+  HardObject object;
+  if (top.index == first) {
+    // Check the iterator
+    if (iterator.hasFlowControl()) {
+      return iterator;
+    }
+    if (iterator->getHardObject(object)) {
+      // Make sure this object is iterable
+      iterator = object->vmIterate(this->execution);
+      if (iterator.hasFlowControl()) {
+        return iterator;
+      }
+    }
+  }
+  // Fetch the next iterated value
+  if (iterator->getHardObject(object)) {
+    // Iterate over the values returned from a "<type>()" function
+    top.index++;
+    CallArguments empty{};
+    return object->vmCall(execution, empty);
+  }
+  String string;
+  if (iterator->getString(string)) {
+    // Iterate over the codepoints in the string
+    auto cp = string.codePointAt(top.index++ - first);
+    if (cp < 0) {
+      // Completed
+      return HardValue::Void;
+    }
+    return this->createHardValueString(String::fromUTF32(this->getAllocator(), &cp, 1));
+  }
+  // Iteration is not supported
+  return HardValue::Break;
 }
 
 HardPtr<IVMRunner> VMModule::createRunner(IVMProgram& program) {
