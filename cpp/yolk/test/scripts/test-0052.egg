@@ -1,0 +1,4 @@
+type Integer = int;
+Integer i = 0.5;
+assert(type.of(i) == "int");
+///<COMPILER><ERROR><RESOURCE>(2,13-15): Cannot initialize 'i' of type 'int' with a value of type 'float'

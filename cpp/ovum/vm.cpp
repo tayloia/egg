@@ -2532,21 +2532,22 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
     if (top.index == 0) {
       // Evaluate the type
       this->push(*top.node->children[top.index++]);
-    } else if (top.index == 1) {
-      assert(top.deque.size() == 1);
-      auto& vtype = top.deque.front();
-      if (vtype.hasFlowControl()) {
-        return this->pop(vtype);
-      }
-      Type type;
-      if (!vtype->getHardType(type) || (type == nullptr)) {
-        return this->raise("Invalid type literal module node for type definition");
-      }
-      if (!this->typeScopeBegin(top, type)) {
-        return StepOutcome::Stepped;
-      }
-      top.deque.clear();
     } else {
+      if (top.index == 1) {
+        assert(top.deque.size() == 1);
+        auto& vtype = top.deque.front();
+        if (vtype.hasFlowControl()) {
+          return this->pop(vtype);
+        }
+        Type type;
+        if (!vtype->getHardType(type) || (type == nullptr)) {
+          return this->raise("Invalid type literal module node for type definition");
+        }
+        if (!this->typeScopeBegin(top, type)) {
+          return StepOutcome::Stepped;
+        }
+        top.deque.clear();
+      }
       if (this->stepBlock(retval, 1) != StepOutcome::Stepped) {
         return this->pop(retval);
       }
