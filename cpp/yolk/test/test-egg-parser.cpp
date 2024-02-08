@@ -212,6 +212,8 @@ namespace {
         return printNodeExtra(os, "type-parameter <unknown>", node.value, node, ranges);
       }
       break;
+    case Node::Kind::TypeDefinition:
+      return printNodeChildren(os, "type-definition", node, ranges);
     case Node::Kind::Literal:
       assert(node.children.empty());
       return printValue(os, node.value, '"');
@@ -832,9 +834,17 @@ TEST(TestEggParser, StatementOrphanFinally) {
 
 TEST(TestEggParser, StatementTypeAlias) {
   std::string actual = outputFromLines({
-    "type Whole = int;"
+    "type Number = int|float;"
     });
-  std::string expected = "(stmt-define-type 'Whole' (type-int))\n";
+  std::string expected = "(stmt-define-type 'Number' (type-binary '|' (type-int) (type-float)))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementTypeEmpty) {
+  std::string actual = outputFromLines({
+    "type Empty {};"
+    });
+  std::string expected = "(stmt-define-type 'Empty' (type-definition))\n";
   ASSERT_EQ(expected, actual);
 }
 

@@ -966,18 +966,30 @@ namespace {
       if (context[1].kind != EggTokenizerKind::Identifier) {
         return context.expected(tokidx, "identifier after 'type' in type definition");
       }
-      if (!context[2].isOperator(EggTokenizerOperator::Equal)) {
-        return context.expected(tokidx, "'=' after '", context[0].value.s, "' in type definition");
+      if (context[2].isOperator(EggTokenizerOperator::Equal)) {
+        // type <identifier> = <type>
+        auto type = this->parseTypeExpression(tokidx + 3);
+        if (type.succeeded()) {
+          auto stmt = this->makeNodeString(Node::Kind::StmtDefineType, context[1]);
+          stmt->range.end = type.node->range.end;
+          stmt->children.emplace_back(std::move(type.node));
+          return context.success(std::move(stmt), type.tokensAfter);
+        }
+        return type;
       }
-      // type <identifier> = <type>
-      auto type = this->parseTypeExpression(tokidx + 3);
-      if (type.succeeded()) {
-        auto stmt = this->makeNodeString(Node::Kind::StmtDefineType, context[1]);
-        stmt->range.end = type.node->range.end;
-        stmt->children.emplace_back(std::move(type.node));
-        return context.success(std::move(stmt), type.tokensAfter);
+      if (context[2].isOperator(EggTokenizerOperator::CurlyLeft)) {
+        // type <identifier> { <definition> }
+        auto type = this->parseTypeDefinition(tokidx + 2, context[1].value.s);
+        if (type.succeeded()) {
+          auto stmt = this->makeNodeString(Node::Kind::StmtDefineType, context[1]);
+          stmt->range.end = type.node->range.end;
+          stmt->children.emplace_back(std::move(type.node));
+          return context.success(std::move(stmt), type.tokensAfter);
+        }
+        return type;
+
       }
-      return type;
+      return context.expected(tokidx + 2, "'=' or '{' after identifier '", context[1].value.s, "' in type definition");
     }
     Partial parseStatementDefineVariableInferred(size_t tokidx, const EggTokenizerItem& var, Node::Kind flavour) {
       Context context(*this, tokidx);
@@ -1311,6 +1323,29 @@ namespace {
       auto node = this->makeNode(kind, context[0]);
       return context.success(std::move(node), context.tokensBefore + 1);
     }
+    Partial parseTypeDefinition(size_t tokidx, const egg::ovum::String& tname) {
+      // Type definition: { <clause> ... }
+      Context context(*this, tokidx);
+      auto& curly = context[0];
+      assert(curly.isOperator(EggTokenizerOperator::CurlyLeft));
+      auto definition = this->makeNode(Node::Kind::TypeDefinition, curly);
+      auto nxtidx = tokidx + 1;
+      while (!this->getAbsolute(nxtidx).isOperator(EggTokenizerOperator::CurlyRight)) {
+        auto inner = this->parseTypeDefinitionClause(tokidx, tname);
+        if (!inner.succeeded()) {
+          return inner;
+        }
+        definition->children.emplace_back(std::move(inner.node));
+        nxtidx = inner.tokensAfter;
+      }
+      auto outer = context.success(std::move(definition), tokidx);
+      outer.tokensAfter = nxtidx + 1;
+      return outer;
+    }
+    Partial parseTypeDefinitionClause(size_t tokidx, const egg::ovum::String& tname) {
+      Context context(*this, tokidx);
+      return context.failed(tokidx, "WIBBLE:", tname);
+    }
     Partial parseTypeFunctionSignature(Partial& rtype, Node::FunctionOp flavour, const EggTokenizerItem& fname, size_t tokidx) {
       assert(rtype.succeeded());
       Context context(*this, tokidx);
@@ -1402,7 +1437,7 @@ namespace {
         return context.expected(tokidx, "identifier after ", what, " in guard expression");
       }
       if (!context[1].isOperator(EggTokenizerOperator::Equal)) {
-        return context.expected(tokidx, "'=' after '", context[0].value.s, "' in guard expression");
+        return context.expected(tokidx + 1, "'=' after identifier '", context[0].value.s, "' in guard expression");
       }
       // <type> <identifier> = <expr>
       auto expr = this->parseValueExpression(tokidx + 2);

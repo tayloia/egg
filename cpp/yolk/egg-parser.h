@@ -66,6 +66,7 @@ namespace egg::yolk {
         TypeBinary,
         TypeFunctionSignature,
         TypeFunctionSignatureParameter,
+        TypeDefinition,
         Literal,
         Named,
         Missing

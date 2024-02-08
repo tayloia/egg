@@ -200,7 +200,6 @@ namespace {
     bool checkValueExprTernary(egg::ovum::ValueTernaryOp op, ModuleNode& lhs, ModuleNode& mid, ModuleNode& rhs, ParserNode& pnode, const ExprContext& context);
     egg::ovum::Type literalType(ParserNode& pnode);
     egg::ovum::Type forgeType(ParserNode& pnode, const ExprContext& context);
-    egg::ovum::Type forgeTypeFunctionSignature(ParserNode& pnode, const ExprContext& context);
     egg::ovum::Type deduceType(ModuleNode& mnode, const ExprContext& context) {
       return this->mbuilder.deduce(mnode, context, this);
     }
@@ -446,6 +445,7 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, StmtContext& context)
   case ParserNode::Kind::TypeBinary:
   case ParserNode::Kind::TypeFunctionSignature:
   case ParserNode::Kind::TypeFunctionSignatureParameter:
+  case ParserNode::Kind::TypeDefinition:
   case ParserNode::Kind::Literal:
   case ParserNode::Kind::Named:
   default:
@@ -621,7 +621,7 @@ ModuleNode* ModuleCompiler::compileStmtDefineFunction(ParserNode& pnode, StmtCon
   return stmt;
 }
 
-ModuleNode* ModuleCompiler::compileStmtDefineFunctionSignature(ParserNode& pnode, const ExprContext& context, const egg::ovum::IFunctionSignature*& signature, egg::ovum::Type& type) {
+ModuleNode* ModuleCompiler::compileStmtDefineFunctionSignature(ParserNode& pnode, const ExprContext& context, const egg::ovum::IFunctionSignature*& signature, egg::ovum::Type& ftype) {
   assert(pnode.kind == ParserNode::Kind::TypeFunctionSignature);
   assert((pnode.op.functionOp == ParserNode::FunctionOp::Function) || (pnode.op.functionOp == ParserNode::FunctionOp::Generator));
   egg::ovum::String symbol;
@@ -665,8 +665,8 @@ ModuleNode* ModuleCompiler::compileStmtDefineFunctionSignature(ParserNode& pnode
     }
   }
   signature = &fb->build();
-  type = forge.forgeFunctionType(*signature);
-  return &this->mbuilder.typeLiteral(type, pnode.range);
+  ftype = forge.forgeFunctionType(*signature);
+  return &this->mbuilder.typeLiteral(ftype, pnode.range);
 }
 
 ModuleNode* ModuleCompiler::compileStmtMutate(ParserNode& pnode, StmtContext& context) {
@@ -1356,6 +1356,7 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode, const ExprContex
   case ParserNode::Kind::TypeBinary:
   case ParserNode::Kind::TypeFunctionSignature:
   case ParserNode::Kind::TypeFunctionSignatureParameter:
+  case ParserNode::Kind::TypeDefinition:
   case ParserNode::Kind::StmtBlock:
   case ParserNode::Kind::StmtDeclareVariable:
   case ParserNode::Kind::StmtDefineVariable:
@@ -2004,6 +2005,14 @@ egg::ovum::Type ModuleCompiler::forgeType(ParserNode& pnode, const ExprContext& 
     this->warning(pnode, "Cannot get symbol for type definition");
     return nullptr;
   }
+  if (pnode.kind == ParserNode::Kind::TypeDefinition) {
+    if (pnode.children.empty()) {
+      // Empty type definition
+      return egg::ovum::Type::Object;
+    }
+    this->warning(pnode, "Non-trivial type definitions not yet supported"); // WIBBLE
+    return nullptr;
+  }
   if (pnode.kind == ParserNode::Kind::TypeUnary) {
     assert(pnode.children.size() == 1);
     auto rhs = this->forgeType(*pnode.children.front(), context);
@@ -2042,52 +2051,47 @@ egg::ovum::Type ModuleCompiler::forgeType(ParserNode& pnode, const ExprContext& 
     }
   }
   if (pnode.kind == ParserNode::Kind::TypeFunctionSignature) {
-    return this->forgeTypeFunctionSignature(pnode, context);
+    assert(pnode.children.size() >= 1);
+    auto& forge = this->vm.getTypeForge();
+    auto fb = forge.createFunctionBuilder();
+    assert(fb != nullptr);
+    egg::ovum::String symbol;
+    if (pnode.value->getString(symbol)) {
+      fb->setFunctionName(symbol);
+    }
+    auto& rnode = *pnode.children.front();
+    auto rtype = this->forgeType(rnode, context);
+    if (rtype == nullptr) {
+      this->error(pnode, "Expected function return type, but instead got ", ModuleCompiler::toString(rnode));
+      return nullptr;
+    }
+    fb->setReturnType(rtype);
+    for (size_t index = 1; index < pnode.children.size(); ++index) {
+      auto& pchild = *pnode.children[index];
+      assert(pchild.kind == ParserNode::Kind::TypeFunctionSignatureParameter);
+      assert(pchild.children.size() == 1);
+      egg::ovum::String pname;
+      (void)pchild.value->getString(pname);
+      auto ptype = this->forgeType(*pchild.children.front(), context);
+      if (ptype == nullptr) {
+        return nullptr;
+      }
+      switch (pchild.op.parameterOp) {
+      case ParserNode::ParameterOp::Required:
+        fb->addRequiredParameter(ptype, pname);
+        break;
+      case ParserNode::ParameterOp::Optional:
+      default:
+        fb->addOptionalParameter(ptype, pname);
+        break;
+      }
+    }
+    auto& signature = fb->build();
+    return forge.forgeFunctionType(signature);
   }
   // TODO
   assert(false);
   return nullptr;
-}
-
-egg::ovum::Type ModuleCompiler::forgeTypeFunctionSignature(ParserNode& pnode, const ExprContext& context) {
-  assert(pnode.kind == ParserNode::Kind::TypeFunctionSignature);
-  assert(pnode.children.size() >= 1);
-  auto& forge = this->vm.getTypeForge();
-  auto fb = forge.createFunctionBuilder();
-  assert(fb != nullptr);
-  egg::ovum::String symbol;
-  if (pnode.value->getString(symbol)) {
-    fb->setFunctionName(symbol);
-  }
-  auto& rnode = *pnode.children.front();
-  auto rtype = this->forgeType(rnode, context);
-  if (rtype == nullptr) {
-    this->error(pnode, "Expected function return type, but instead got ", ModuleCompiler::toString(rnode));
-    return nullptr;
-  }
-  fb->setReturnType(rtype);
-  for (size_t index = 1; index < pnode.children.size(); ++index) {
-    auto& pchild = *pnode.children[index];
-    assert(pchild.kind == ParserNode::Kind::TypeFunctionSignatureParameter);
-    assert(pchild.children.size() == 1);
-    egg::ovum::String pname;
-    (void)pchild.value->getString(pname);
-    auto ptype = this->forgeType(*pchild.children.front(), context);
-    if (ptype == nullptr) {
-      return nullptr;
-    }
-    switch (pchild.op.parameterOp) {
-    case ParserNode::ParameterOp::Required:
-      fb->addRequiredParameter(ptype, pname);
-      break;
-    case ParserNode::ParameterOp::Optional:
-    default:
-      fb->addOptionalParameter(ptype, pname);
-      break;
-    }
-  }
-  auto& signature = fb->build();
-  return forge.forgeFunctionType(signature);
 }
 
 std::string ModuleCompiler::toString(const ParserNode& pnode) {
@@ -2194,6 +2198,8 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
     return "type function signature";
   case ParserNode::Kind::TypeFunctionSignatureParameter:
     return "type function signature parameter";
+  case ParserNode::Kind::TypeDefinition:
+    return "type definition block";
   case ParserNode::Kind::Literal:
     return "literal";
   case ParserNode::Kind::Named:
