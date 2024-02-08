@@ -66,6 +66,8 @@ namespace {
       return printNodeExtra(os, "stmt-define-variable", node.value, node, ranges);
     case Node::Kind::StmtDefineFunction:
       return printNodeExtra(os, "stmt-define-function", node.value, node, ranges);
+    case Node::Kind::StmtDefineType:
+      return printNodeExtra(os, "stmt-define-type", node.value, node, ranges);
     case Node::Kind::StmtForLoop:
       assert(node.children.size() == 4);
       return printNodeChildren(os, "stmt-for-loop", node, ranges);
@@ -152,6 +154,9 @@ namespace {
     case Node::Kind::ExprGuard:
       assert(node.children.size() == 2);
       return printNodeChildren(os, "expr-guard", node, ranges);
+    case Node::Kind::TypeVariable:
+      assert(node.children.empty());
+      return printNodeExtra(os, "type-variable", node.value, node, ranges);
     case Node::Kind::TypeInfer:
       assert(node.children.empty());
       return printNodeChildren(os, "type-infer", node, ranges);
@@ -822,6 +827,14 @@ TEST(TestEggParser, StatementOrphanFinally) {
     "finally {}"
     });
   std::string expected = "<ERROR>: (1,1-7): Unexpected 'finally' without preceding 'try' statement\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementTypeAlias) {
+  std::string actual = outputFromLines({
+    "type Whole = int;"
+    });
+  std::string expected = "(stmt-define-type 'Whole' (type-int))\n";
   ASSERT_EQ(expected, actual);
 }
 

@@ -214,6 +214,7 @@ namespace egg::ovum {
     virtual Node& stmtVariableSet(const String& symbol, Node& value, const SourceRange& range) = 0;
     virtual Node& stmtVariableMutate(const String& symbol, ValueMutationOp op, Node& value, const SourceRange& range) = 0;
     virtual Node& stmtVariableUndeclare(const String& symbol, const SourceRange& range) = 0;
+    virtual Node& stmtTypeDefine(const String& symbol, Node& type, const SourceRange& range) = 0;
     virtual Node& stmtPropertySet(Node& instance, Node& property, Node& value, const SourceRange& range) = 0;
     virtual Node& stmtPropertyMutate(Node& instance, Node& property, ValueMutationOp op, Node& value, const SourceRange& range) = 0;
     virtual Node& stmtPointeeMutate(Node& instance, ValueMutationOp op, Node& value, const SourceRange& range) = 0;

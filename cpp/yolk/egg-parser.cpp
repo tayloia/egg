@@ -6,6 +6,16 @@
 using namespace egg::yolk;
 
 namespace {
+  const char* describe(IEggParser::Node::Kind flavour) {
+    if (flavour == IEggParser::Node::Kind::TypeInfer) {
+      return "var";
+    }
+    if (flavour == IEggParser::Node::Kind::TypeInferQ) {
+      return "var?";
+    }
+    return "<unknown>";
+  }
+
   const char* describe(IEggParser::Node::FunctionOp flavour) {
     switch (flavour) {
     case IEggParser::Node::FunctionOp::Function:
@@ -155,7 +165,8 @@ namespace {
       size_t issuesBefore;
       size_t tokensAfter;
       size_t issuesAfter;
-      Partial(const Context& context, std::unique_ptr<Node>&& node, size_t tokensAfter, size_t issuesAfter);
+      bool ambiguous;
+      Partial(const Context& context, std::unique_ptr<Node>&& node, size_t tokensAfter, size_t issuesAfter, bool ambiguous);
       bool succeeded() const {
         return this->node != nullptr;
       }
@@ -223,12 +234,12 @@ namespace {
       const EggTokenizerItem& operator[](size_t offset) const {
         return this->parser.getAbsolute(this->tokensBefore + offset);
       }
-      Partial success(std::unique_ptr<Node>&& node, size_t tokidx) const {
-        return Partial(*this, std::move(node), tokidx, this->parser.issues.size());
+      Partial success(std::unique_ptr<Node>&& node, size_t tokidx, bool ambiguous = false) const {
+        return Partial(*this, std::move(node), tokidx, this->parser.issues.size(), ambiguous);
       }
       Partial skip() const {
         this->parser.issues.resize(this->issuesBefore);
-        return Partial(*this, nullptr, this->tokensBefore, this->issuesBefore);
+        return Partial(*this, nullptr, this->tokensBefore, this->issuesBefore, false);
       }
       template<typename... ARGS>
       void warning(size_t tokensBefore, size_t tokensAfter, ARGS&&... args) const {
@@ -236,7 +247,7 @@ namespace {
       }
       Partial failed() const {
         assert(!this->parser.issues.empty());
-        return Partial(*this, nullptr, this->tokensBefore, this->parser.issues.size());
+        return Partial(*this, nullptr, this->tokensBefore, this->parser.issues.size(), false);
       }
       Partial failed(const Issue& issue) const {
         this->parser.issues.push_back(issue);
@@ -485,12 +496,15 @@ namespace {
       assert(context[0].isKeyword(EggTokenizerKeyword::For));
       assert(context[1].isOperator(EggTokenizerOperator::ParenthesisLeft));
       if (!context[2].isKeyword(EggTokenizerKeyword::Var)) {
-        // for ( <target> : <expr> ) { <bloc> }
+        // for ( <type> <target> : <expr> ) { <bloc> }
         auto type = this->parseTypeExpression(tokidx + 2);
         if (!type.succeeded()) {
           return context.skip();
         }
         if (type.after(0).kind != EggTokenizerKind::Identifier) {
+          if (type.ambiguous) {
+            return context.skip();
+          }
           return context.expected(type.tokensAfter, "identifier after type in 'for' statement");
         }
         return this->parseStatementForEachIdentifier(type);
@@ -881,7 +895,7 @@ namespace {
       if (!discard.skipped()) {
         return discard;
       }
-      auto define = this->parseDefinitionVariable(tokidx);
+      auto define = this->parseStatementDefine(tokidx);
       if (!define.skipped()) {
         return define;
       }
@@ -927,33 +941,56 @@ namespace {
       }
       return context.skip();
     }
-    Partial parseDefinitionVariable(size_t tokidx) {
+    Partial parseStatementDefine(size_t tokidx) {
       Context context(*this, tokidx);
+      if (context[0].isKeyword(EggTokenizerKeyword::Type)) {
+        // Type definition
+        return this->parseStatementDefineType(tokidx);
+      }
       if (context[0].isKeyword(EggTokenizerKeyword::Var)) {
         // Inferred type
         if (context[1].isOperator(EggTokenizerOperator::Query)) {
-          return this->parseDefinitionVariableInferred(tokidx + 2, context[0], true);
+          return this->parseStatementDefineVariableInferred(tokidx + 2, context[0], Node::Kind::TypeInferQ);
         }
-        return this->parseDefinitionVariableInferred(tokidx + 1, context[0], false);
+        return this->parseStatementDefineVariableInferred(tokidx + 1, context[0], Node::Kind::TypeInfer);
       }
       auto partial = this->parseTypeExpression(tokidx);
       if (partial.succeeded()) {
-        return this->parseDefinitionVariableExplicit(partial.tokensAfter, partial.node);
+        return this->parseStatementDefineVariableExplicit(partial.tokensAfter, partial.node, partial.ambiguous);
       }
-      return partial;
+      return context.skip();
     }
-    Partial parseDefinitionVariableInferred(size_t tokidx, const EggTokenizerItem& var, bool nullable) {
+    Partial parseStatementDefineType(size_t tokidx) {
+      Context context(*this, tokidx);
+      assert(context[0].isKeyword(EggTokenizerKeyword::Type));
+      if (context[1].kind != EggTokenizerKind::Identifier) {
+        return context.expected(tokidx, "identifier after 'type' in type definition");
+      }
+      if (!context[2].isOperator(EggTokenizerOperator::Equal)) {
+        return context.expected(tokidx, "'=' after '", context[0].value.s, "' in type definition");
+      }
+      // type <identifier> = <type>
+      auto type = this->parseTypeExpression(tokidx + 3);
+      if (type.succeeded()) {
+        auto stmt = this->makeNodeString(Node::Kind::StmtDefineType, context[1]);
+        stmt->range.end = type.node->range.end;
+        stmt->children.emplace_back(std::move(type.node));
+        return context.success(std::move(stmt), type.tokensAfter);
+      }
+      return type;
+    }
+    Partial parseStatementDefineVariableInferred(size_t tokidx, const EggTokenizerItem& var, Node::Kind flavour) {
       Context context(*this, tokidx);
       if (context[0].kind != EggTokenizerKind::Identifier) {
-        return context.expected(tokidx, "identifier after '", nullable ? "var?" : "var", "' in variable definition");
+        return context.expected(tokidx, "identifier after '", describe(flavour), "' in variable definition");
       }
       if (!context[1].isOperator(EggTokenizerOperator::Equal)) {
-        return context.failed(tokidx, "Cannot declare variable '", context[0].value.s, "' using '", nullable ? "var?" : "var", "' without an initial value");
+        return context.failed(tokidx, "Cannot declare variable '", context[0].value.s, "' using '", describe(flavour), "' without an initial value");
       }
-      // var? <identifier> = <expr>
+      // var[?] <identifier> = <expr>
       auto expr = this->parseValueExpression(tokidx + 2);
       if (expr.succeeded()) {
-        auto type = this->makeNode(nullable ? Node::Kind::TypeInferQ : Node::Kind::TypeInfer, var);
+        auto type = this->makeNode(flavour, var);
         auto stmt = this->makeNodeString(Node::Kind::StmtDefineVariable, context[0]);
         stmt->range.end = expr.node->range.end;
         stmt->children.emplace_back(std::move(type));
@@ -962,10 +999,13 @@ namespace {
       }
       return expr;
     }
-    Partial parseDefinitionVariableExplicit(size_t tokidx, std::unique_ptr<Node>& ptype) {
+    Partial parseStatementDefineVariableExplicit(size_t tokidx, std::unique_ptr<Node>& ptype, bool ambiguous) {
       assert(ptype != nullptr);
       Context context(*this, tokidx);
       if (context[0].kind != EggTokenizerKind::Identifier) {
+        if (ambiguous) {
+          return context.skip();
+        }
         return context.expected(tokidx, "identifier after type in definition");
       }
       if (context[1].isOperator(EggTokenizerOperator::ParenthesisLeft)) {
@@ -1124,6 +1164,7 @@ namespace {
           lhs.node->children.emplace_back(std::move(rhs.node));
           lhs.node->op.typeBinaryOp = egg::ovum::TypeBinaryOp::Union;
           lhs.tokensAfter = rhs.tokensAfter;
+          lhs.ambiguous |= rhs.ambiguous;
           return lhs;
         }
         return rhs;
@@ -1158,6 +1199,7 @@ namespace {
           partial.node->range.end = { next.line, next.column + 1 };
           partial.node->op.typeUnaryOp = egg::ovum::TypeUnaryOp::Iterator;
           partial.tokensAfter++;
+          partial.ambiguous = false;
         } else if (next.isOperator(EggTokenizerOperator::BracketLeft)) {
           auto& last = partial.after(1);
           if (last.isOperator(EggTokenizerOperator::BracketRight)) {
@@ -1166,6 +1208,7 @@ namespace {
             partial.node->range.end = { last.line, last.column + 1 };
             partial.node->op.typeUnaryOp = egg::ovum::TypeUnaryOp::Array;
             partial.tokensAfter += 2;
+            partial.ambiguous = false;
           } else {
             // type[indextype]
             auto index = this->parseTypeExpression(partial.tokensAfter + 1);
@@ -1181,6 +1224,7 @@ namespace {
             partial.node->children.emplace_back(std::move(index.node));
             partial.node->op.typeBinaryOp = egg::ovum::TypeBinaryOp::Map;
             partial.tokensAfter = index.tokensAfter + 1;
+            partial.ambiguous |= index.ambiguous;
           }
         } else if (next.isOperator(EggTokenizerOperator::ParenthesisLeft)) {
           auto& last = partial.after(1);
@@ -1232,8 +1276,6 @@ namespace {
           return this->parseTypeExpressionPrimaryKeyword(context, Node::Kind::TypeObject);
         case EggTokenizerKeyword::Type:
           return this->parseTypeExpressionPrimaryKeyword(context, Node::Kind::TypeType);
-        case EggTokenizerKeyword::Var:
-          return context.skip();
         case EggTokenizerKeyword::Break:
         case EggTokenizerKeyword::Case:
         case EggTokenizerKeyword::Catch:
@@ -1251,10 +1293,17 @@ namespace {
         case EggTokenizerKeyword::Throw:
         case EggTokenizerKeyword::True:
         case EggTokenizerKeyword::Try:
+        case EggTokenizerKeyword::Var:
         case EggTokenizerKeyword::While:
         case EggTokenizerKeyword::Yield:
           break;
         }
+        return context.skip();
+      }
+      if (next.kind == EggTokenizerKind::Identifier) {
+        // Assume the identifier is a type name
+        auto node = this->makeNodeString(Node::Kind::TypeVariable, next);
+        return context.success(std::move(node), tokidx + 1, true);
       }
       return context.skip();
     }
@@ -1275,12 +1324,14 @@ namespace {
         return context.success(std::move(signature), tokidx + 2);
       }
       auto nxtidx = tokidx + 1;
+      auto ambiguous = false;
       for (;;) {
         // Parse the parameters
         auto parameter = this->parseTypeFunctionSignatureParameter(flavour, nxtidx);
         if (!parameter.succeeded()) {
           return parameter;
         }
+        ambiguous |= parameter.ambiguous;
         nxtidx = parameter.tokensAfter;
         auto& next = parameter.after(0);
         signature->children.emplace_back(std::move(parameter.node));
@@ -1327,21 +1378,27 @@ namespace {
         // Inferred type
         if (context[1].isOperator(EggTokenizerOperator::Query)) {
           auto varq = this->makeNode(Node::Kind::TypeInferQ, context[0]);
-          return this->parseGuardExpressionIdentifier(tokidx + 2, varq, "'var?'");
+          return this->parseGuardExpressionIdentifier(tokidx + 2, varq, "'var?'", false);
         }
         auto var = this->makeNode(Node::Kind::TypeInfer, context[0]);
-        return this->parseGuardExpressionIdentifier(tokidx + 1, var, "'var'");
+        return this->parseGuardExpressionIdentifier(tokidx + 1, var, "'var'", false);
       }
       auto partial = this->parseTypeExpression(tokidx);
       if (partial.succeeded()) {
-        return this->parseGuardExpressionIdentifier(partial.tokensAfter, partial.node, "type");
+        auto guarded = this->parseGuardExpressionIdentifier(partial.tokensAfter, partial.node, "type", partial.ambiguous);
+        if (!guarded.skipped()) {
+          return guarded;
+        }
       }
       return this->parseValueExpression(tokidx);
     }
-    Partial parseGuardExpressionIdentifier(size_t tokidx, std::unique_ptr<Node>& ptype, const char* what) {
+    Partial parseGuardExpressionIdentifier(size_t tokidx, std::unique_ptr<Node>& ptype, const char* what, bool ambiguous) {
       assert(ptype != nullptr);
       Context context(*this, tokidx);
       if (context[0].kind != EggTokenizerKind::Identifier) {
+        if (ambiguous) {
+          return context.skip();
+        }
         return context.expected(tokidx, "identifier after ", what, " in guard expression");
       }
       if (!context[1].isOperator(EggTokenizerOperator::Equal)) {
@@ -1933,13 +1990,14 @@ namespace {
     }
   };
 
-  EggParser::Partial::Partial(const Context& context, std::unique_ptr<Node>&& node, size_t tokensAfter, size_t issuesAfter)
+  EggParser::Partial::Partial(const Context& context, std::unique_ptr<Node>&& node, size_t tokensAfter, size_t issuesAfter, bool ambiguous)
     : parser(context.parser),
       node(std::move(node)),
       tokensBefore(context.tokensBefore),
       issuesBefore(context.issuesBefore),
       tokensAfter(tokensAfter),
-      issuesAfter(issuesAfter) {
+      issuesAfter(issuesAfter),
+      ambiguous(ambiguous) {
       assert(this->tokensBefore <= this->tokensAfter);
       assert(this->issuesBefore <= this->issuesAfter);
   }

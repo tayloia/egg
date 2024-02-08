@@ -56,6 +56,7 @@ public:
     StmtVariableSet,
     StmtVariableMutate,
     StmtVariableUndeclare,
+    StmtTypeDefine,
     StmtPropertySet,
     StmtPropertyMutate,
     StmtIndexMutate,
@@ -322,8 +323,6 @@ namespace {
       std::map<String, Entry> entries;
       Entry* insert(Kind kind, const String& name, const Type& type, IValue* soft) {
         // Returns any extant entry
-        assert(soft != nullptr);
-        assert(soft->softGetBasket() != nullptr);
         auto iterator = this->entries.emplace(name, Entry{ kind, type, soft });
         return iterator.second ? nullptr : &iterator.first->second;
       }
@@ -350,6 +349,8 @@ namespace {
     void builtin(const String& name, IValue* soft) {
       // You can only add builtins to the base of the chain
       assert(this->stack.size() == 1);
+      assert(soft != nullptr);
+      assert(soft->softGetBasket() != nullptr);
       auto extant = this->stack.front().insert(Kind::Builtin, name, soft->getRuntimeType(), soft);
       assert(extant == nullptr);
       (void)extant;
@@ -357,6 +358,7 @@ namespace {
     Entry* add(Kind kind, const String& name, const Type& type, IValue* soft) {
       // Returns any extant entry
       assert(!this->stack.empty());
+      assert((soft == nullptr) || (soft->softGetBasket() != nullptr));
       return this->stack.front().insert(kind, name, type, soft);
     }
     bool remove(const String& name) {
@@ -1039,6 +1041,7 @@ namespace {
       case Node::Kind::StmtVariableSet:
       case Node::Kind::StmtVariableMutate:
       case Node::Kind::StmtVariableUndeclare:
+      case Node::Kind::StmtTypeDefine:
       case Node::Kind::StmtPropertySet:
       case Node::Kind::StmtPropertyMutate:
       case Node::Kind::StmtIndexMutate:
@@ -1500,6 +1503,12 @@ namespace {
       node.literal = this->createHardValueString(symbol);
       return node;
     }
+    virtual Node& stmtTypeDefine(const String& symbol, Node& type, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtTypeDefine, range);
+      node.literal = this->createHardValueString(symbol);
+      node.addChild(type);
+      return node;
+    }
     virtual Node& stmtPropertySet(Node& instance, Node& property, Node& value, const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::StmtPropertySet, range);
       node.addChild(instance);
@@ -1879,6 +1888,31 @@ namespace {
         return this->raise("Strings do not support modification of properties");
       }
       return this->raise("Expected left-hand side of property operator '.' to be an object, but instead got ", describe(instance));
+    }
+    bool typeScopeBegin(NodeStack& top, const Type& type) {
+      assert(top.scope.empty());
+      assert(type != nullptr);
+      if (!top.node->literal->getString(top.scope)) {
+        // No symbol declared
+        return true;
+      }
+      assert(!top.scope.empty());
+      auto& poly = this->vm.createSoftValue();
+      auto* extant = this->symtable.add(VMSymbolTable::Kind::Type, top.scope, type, &poly);
+      if (extant != nullptr) {
+        switch (extant->kind) {
+        case VMSymbolTable::Kind::Builtin:
+          this->raise("Variable symbol already declared as a builtin: '", top.scope, "'");
+          return false;
+        case VMSymbolTable::Kind::Variable:
+          this->raise("Variable symbol already declared: '", top.scope, "'");
+          return false;
+        case VMSymbolTable::Kind::Type:
+          this->raise("Variable symbol already declared as a type: '", top.scope, "'");
+          return false;
+        }
+      }
+      return true;
     }
     bool variableScopeBegin(NodeStack& top, const Type& type) {
       assert(top.scope.empty());
@@ -2492,6 +2526,32 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       this->variableScopeEnd(top);
     }
     return this->pop(HardValue::Void);
+  case IVMModule::Node::Kind::StmtTypeDefine:
+    assert(top.node->children.size() >= 1);
+    assert(top.index <= top.node->children.size());
+    if (top.index == 0) {
+      // Evaluate the type
+      this->push(*top.node->children[top.index++]);
+    } else if (top.index == 1) {
+      assert(top.deque.size() == 1);
+      auto& vtype = top.deque.front();
+      if (vtype.hasFlowControl()) {
+        return this->pop(vtype);
+      }
+      Type type;
+      if (!vtype->getHardType(type) || (type == nullptr)) {
+        return this->raise("Invalid type literal module node for type definition");
+      }
+      if (!this->typeScopeBegin(top, type)) {
+        return StepOutcome::Stepped;
+      }
+      top.deque.clear();
+    } else {
+      if (this->stepBlock(retval, 1) != StepOutcome::Stepped) {
+        return this->pop(retval);
+      }
+    }
+    break;
   case IVMModule::Node::Kind::StmtPropertySet:
     assert(top.node->literal->getVoid());
     assert(top.node->children.size() == 3);

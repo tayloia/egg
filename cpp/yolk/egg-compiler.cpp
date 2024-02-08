@@ -144,6 +144,7 @@ namespace {
     ModuleNode* compileStmtDeclareVariable(ParserNode& pnode, StmtContext& context);
     ModuleNode* compileStmtDefineVariable(ParserNode& pnode, StmtContext& context);
     ModuleNode* compileStmtDefineFunction(ParserNode& pnode, StmtContext& context);
+    ModuleNode* compileStmtDefineType(ParserNode& pnode, StmtContext& context);
     ModuleNode* compileStmtMutate(ParserNode& pnode, StmtContext& context);
     ModuleNode* compileStmtForEach(ParserNode& pnode, StmtContext& context);
     ModuleNode* compileStmtForLoop(ParserNode& pnode, StmtContext& context);
@@ -362,6 +363,9 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, StmtContext& context)
   case ParserNode::Kind::StmtDefineFunction:
     EXPECT(pnode, pnode.children.size() == 2);
     return this->compileStmtDefineFunction(pnode, context);
+  case ParserNode::Kind::StmtDefineType:
+    EXPECT(pnode, pnode.children.size() == 1);
+    return this->compileStmtDefineType(pnode, context);
   case ParserNode::Kind::StmtForEach:
     EXPECT(pnode, pnode.children.size() == 3);
     return this->compileStmtForEach(pnode, context);
@@ -423,6 +427,7 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, StmtContext& context)
   case ParserNode::Kind::ExprObject:
   case ParserNode::Kind::ExprEllipsis:
   case ParserNode::Kind::ExprGuard:
+  case ParserNode::Kind::TypeVariable:
   case ParserNode::Kind::TypeInfer:
   case ParserNode::Kind::TypeInferQ:
   case ParserNode::Kind::TypeVoid:
@@ -534,6 +539,24 @@ ModuleNode* ModuleCompiler::compileStmtDefineVariable(ParserNode& pnode, StmtCon
     return nullptr;
   }
   auto* stmt = &this->mbuilder.stmtVariableDefine(symbol, *lnode, *rnode, pnode.range);
+  context.target = stmt;
+  return stmt;
+}
+
+ModuleNode* ModuleCompiler::compileStmtDefineType(ParserNode& pnode, StmtContext& context) {
+  assert(pnode.kind == ParserNode::Kind::StmtDefineType);
+  assert(pnode.children.size() == 1);
+  egg::ovum::String symbol;
+  EXPECT(pnode, pnode.value->getString(symbol));
+  egg::ovum::Type type;
+  auto mnode = this->compileTypeExpr(*pnode.children.front(), context, type);
+  if (mnode == nullptr) {
+    return nullptr;
+  }
+  if (!this->addSymbol(context, pnode, StmtContext::Symbol::Kind::Type, symbol, type)) {
+    return nullptr;
+  }
+  auto* stmt = &this->mbuilder.stmtTypeDefine(symbol, *mnode, pnode.range);
   context.target = stmt;
   return stmt;
 }
@@ -1272,6 +1295,7 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode, const ExprContex
     return this->compileValueExprManifestation(pnode, egg::ovum::ValueFlags::Type);
   case ParserNode::Kind::ModuleRoot:
   case ParserNode::Kind::ExprEllipsis:
+  case ParserNode::Kind::TypeVariable:
   case ParserNode::Kind::TypeInfer:
   case ParserNode::Kind::TypeInferQ:
   case ParserNode::Kind::TypeUnary:
@@ -1282,6 +1306,7 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode, const ExprContex
   case ParserNode::Kind::StmtDeclareVariable:
   case ParserNode::Kind::StmtDefineVariable:
   case ParserNode::Kind::StmtDefineFunction:
+  case ParserNode::Kind::StmtDefineType:
   case ParserNode::Kind::StmtForEach:
   case ParserNode::Kind::StmtForLoop:
   case ParserNode::Kind::StmtIf:
@@ -1958,6 +1983,10 @@ egg::ovum::Type ModuleCompiler::forgeType(ParserNode& pnode) {
   if (type != nullptr) {
     return type;
   }
+  if (pnode.kind == ParserNode::Kind::TypeVariable) {
+    this->error(pnode, "Type definitions not yet supported"); // WIBBLE
+    return nullptr;
+  }
   if (pnode.kind == ParserNode::Kind::TypeUnary) {
     assert(pnode.children.size() == 1);
     auto rhs = this->forgeType(*pnode.children.front());
@@ -2056,6 +2085,8 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
     return "variable definition statement";
   case ParserNode::Kind::StmtDefineFunction:
     return "function definition statement";
+  case ParserNode::Kind::StmtDefineType:
+    return "type definition statement";
   case ParserNode::Kind::StmtForEach:
     return "for each statement";
   case ParserNode::Kind::StmtForLoop:
@@ -2118,6 +2149,8 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
     return "guard expression";
   case ParserNode::Kind::TypeInfer:
     return "type infer";
+  case ParserNode::Kind::TypeVariable:
+    return "type variable";
   case ParserNode::Kind::TypeInferQ:
     return "type infer?";
   case ParserNode::Kind::TypeBool:
