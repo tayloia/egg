@@ -212,8 +212,10 @@ namespace {
         return printNodeExtra(os, "type-parameter <unknown>", node.value, node, ranges);
       }
       break;
-    case Node::Kind::TypeDefinition:
-      return printNodeChildren(os, "type-definition", node, ranges);
+    case Node::Kind::TypeSpecification:
+      return printNodeChildren(os, "type-specification", node, ranges);
+    case Node::Kind::TypeSpecificationClassData:
+      return printNodeExtra(os, "type-specification-class-data", node.value, node, ranges);
     case Node::Kind::Literal:
       assert(node.children.empty());
       return printValue(os, node.value, '"');
@@ -844,7 +846,17 @@ TEST(TestEggParser, StatementTypeEmpty) {
   std::string actual = outputFromLines({
     "type Empty {};"
     });
-  std::string expected = "(stmt-define-type 'Empty' (type-definition))\n";
+  std::string expected = "(stmt-define-type 'Empty' (type-specification))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementTypeHolder) {
+  std::string actual = outputFromLines({
+    "type Holder {",
+    " int i = 123;",
+    "}; "
+    });
+  std::string expected = "(stmt-define-type 'Holder' (type-specification (type-specification-class-data 'i' (type-int) 123)))\n";
   ASSERT_EQ(expected, actual);
 }
 

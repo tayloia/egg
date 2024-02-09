@@ -987,7 +987,6 @@ namespace {
           return context.success(std::move(stmt), type.tokensAfter);
         }
         return type;
-
       }
       return context.expected(tokidx + 2, "'=' or '{' after identifier '", context[1].value.s, "' in type definition");
     }
@@ -1018,7 +1017,7 @@ namespace {
         if (ambiguous) {
           return context.skip();
         }
-        return context.expected(tokidx, "identifier after type in definition");
+        return context.expected(tokidx, "identifier after type in variable declaration");
       }
       if (context[1].isOperator(EggTokenizerOperator::ParenthesisLeft)) {
         // <type> <identifier> (
@@ -1328,10 +1327,10 @@ namespace {
       Context context(*this, tokidx);
       auto& curly = context[0];
       assert(curly.isOperator(EggTokenizerOperator::CurlyLeft));
-      auto definition = this->makeNode(Node::Kind::TypeDefinition, curly);
+      auto definition = this->makeNode(Node::Kind::TypeSpecification, curly);
       auto nxtidx = tokidx + 1;
       while (!this->getAbsolute(nxtidx).isOperator(EggTokenizerOperator::CurlyRight)) {
-        auto inner = this->parseTypeDefinitionClause(tokidx, tname);
+        auto inner = this->parseTypeDefinitionClause(nxtidx, tname);
         if (!inner.succeeded()) {
           return inner;
         }
@@ -1344,7 +1343,40 @@ namespace {
     }
     Partial parseTypeDefinitionClause(size_t tokidx, const egg::ovum::String& tname) {
       Context context(*this, tokidx);
-      return context.failed(tokidx, "WIBBLE:", tname);
+      auto type = this->parseTypeExpression(tokidx);
+      assert(!type.skipped());
+      if (!type.succeeded()) {
+        return type;
+      }
+      auto& identifier = type.after(0);
+      if (identifier.kind != EggTokenizerKind::Identifier) {
+        if (type.ambiguous) {
+          return context.skip();
+        }
+        return context.expected(type.tokensAfter, "identifier after type in type definition of '", tname, "'");
+      }
+      if (type.after(1).isOperator(EggTokenizerOperator::ParenthesisLeft)) {
+        // <type> <identifier> (
+        // TODO: Looks like a function
+        return context.skip();
+      }
+      if (type.after(1).isOperator(EggTokenizerOperator::Equal)) {
+        // <type> <identifier> = <expr>
+        auto expr = this->parseValueExpression(type.tokensAfter + 2);
+        if (expr.succeeded()) {
+          if (!expr.after(0).isOperator(EggTokenizerOperator::Semicolon)) {
+            return context.expected(expr.tokensAfter, "';' after value of '", tname, ".", identifier.value.s, "'");
+          }
+          auto stmt = this->makeNodeString(Node::Kind::TypeSpecificationClassData, identifier);
+          stmt->children.emplace_back(std::move(type.node));
+          stmt->children.emplace_back(std::move(expr.node));
+          return context.success(std::move(stmt), expr.tokensAfter + 1);
+        }
+        return expr;
+      }
+      // <type> <identifier>
+      // TODO: Looks like a data member
+      return context.skip();
     }
     Partial parseTypeFunctionSignature(Partial& rtype, Node::FunctionOp flavour, const EggTokenizerItem& fname, size_t tokidx) {
       assert(rtype.succeeded());

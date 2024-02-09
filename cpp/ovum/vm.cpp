@@ -45,7 +45,14 @@ public:
     ExprNamed,
     TypeInfer,
     TypeLiteral,
+    TypeVariableGet,
+    TypeUnaryOp,
+    TypeBinaryOp,
     TypeManifestation,
+    TypeFunctionSignature,
+    TypeFunctionSignatureParameter,
+    TypeGenerator,
+    TypeSpecification,
     StmtBlock,
     StmtFunctionDefine,
     StmtFunctionCapture,
@@ -85,11 +92,14 @@ public:
   SourceRange range; // May be zero
   HardValue literal; // Only stores simple literals
   union {
-    ValueUnaryOp unaryOp;
-    ValueBinaryOp binaryOp;
-    ValueTernaryOp ternaryOp;
-    ValueMutationOp mutationOp;
-    ValuePredicateOp predicateOp;
+    ValueUnaryOp valueUnaryOp;
+    ValueBinaryOp valueBinaryOp;
+    ValueTernaryOp valueTernaryOp;
+    ValueMutationOp valueMutationOp;
+    ValuePredicateOp valuePredicateOp;
+    TypeUnaryOp typeUnaryOp;
+    TypeBinaryOp typeBinaryOp;
+    IFunctionSignatureParameter::Flags parameterFlags;
     size_t defaultIndex;
   };
   std::vector<Node*> children; // Reference-counting hard pointers are stored in the chain
@@ -986,51 +996,68 @@ namespace {
       case Node::Kind::ExprFunctionCall:
         assert(node.literal->getVoid());
         assert(node.children.size() >= 1);
-        return this->deduceFunctionCall(*node.children.front(), node.range);
+        return this->deduceExprFunctionCall(*node.children.front(), node.range);
       case Node::Kind::ExprVariableGet:
         assert(node.children.empty());
-        return this->deduceVariableGet(node.literal, node.range);
+        return this->deduceExprVariableGet(node.literal, node.range);
       case Node::Kind::ExprPropertyGet:
         assert(node.literal->getVoid());
         assert(node.children.size() == 2);
-        return this->deducePropertyGet(*node.children.front(), *node.children.back(), node.range);
+        return this->deduceExprPropertyGet(*node.children.front(), *node.children.back(), node.range);
       case Node::Kind::ExprIndexGet:
         assert(node.literal->getVoid());
         assert(node.children.size() == 2);
-        return this->deduceIndexGet(*node.children.front(), node.range);
+        return this->deduceExprIndexGet(*node.children.front(), node.range);
       case Node::Kind::ExprPointeeGet:
         assert(node.literal->getVoid());
         assert(node.children.size() == 1);
-        return this->deducePointeeGet(*node.children.front(), node.range);
+        return this->deduceExprPointeeGet(*node.children.front(), node.range);
       case Node::Kind::ExprVariableRef:
         assert(node.children.empty());
-        return this->deduceReference(this->deduceVariableGet(node.literal, node.range));
+        return this->deduceExprReference(this->deduceExprVariableGet(node.literal, node.range));
       case Node::Kind::ExprPropertyRef:
         assert(node.literal->getVoid());
         assert(node.children.size() == 2);
-        return this->deduceReference(this->deducePropertyGet(*node.children.front(), *node.children.back(), node.range));
+        return this->deduceExprReference(this->deduceExprPropertyGet(*node.children.front(), *node.children.back(), node.range));
       case Node::Kind::ExprIndexRef:
         assert(node.literal->getVoid());
         assert(node.children.size() == 2);
-        return this->deduceReference(this->deduceIndexGet(*node.children.front(), node.range));
+        return this->deduceExprReference(this->deduceExprIndexGet(*node.children.front(), node.range));
       case Node::Kind::ExprUnaryOp:
         assert(node.literal->getVoid());
         assert(node.children.size() == 1);
-        return this->deduceUnaryOp(node.unaryOp, *node.children.front(), node.range);
+        return this->deduceExprUnaryOp(node.valueUnaryOp, *node.children.front(), node.range);
       case Node::Kind::ExprBinaryOp:
         assert(node.literal->getVoid());
         assert(node.children.size() == 2);
-        return this->deduceBinaryOp(node.binaryOp, *node.children.front(), *node.children.back(), node.range);
+        return this->deduceExprBinaryOp(node.valueBinaryOp, *node.children.front(), *node.children.back(), node.range);
       case Node::Kind::ExprTernaryOp:
         assert(node.literal->getVoid());
         assert(node.children.size() == 3);
-        return this->deduceTernaryOp(node.ternaryOp, *node.children[0], *node.children[1], *node.children[2], node.range);
+        return this->deduceExprTernaryOp(node.valueTernaryOp, *node.children[0], *node.children[1], *node.children[2], node.range);
       case Node::Kind::ExprPredicateOp:
         return Type::Bool;
       case Node::Kind::ExprArray:
-        return this->deduceArray(node, Modifiability::All);
+        return this->deduceExprArray(node, Modifiability::All);
       case Node::Kind::ExprObject:
         return Type::Object;
+      case Node::Kind::TypeVariableGet:
+        assert(node.children.empty());
+        return this->deduceTypeVariableGet(node.literal, node.range);
+      case Node::Kind::TypeUnaryOp:
+        assert(node.children.size() == 1);
+        return this->deduceTypeUnaryOp(node.typeUnaryOp, *node.children.front(), node.range);
+      case Node::Kind::TypeBinaryOp:
+        assert(node.children.size() == 2);
+        return this->deduceTypeBinaryOp(node.typeBinaryOp, *node.children.front(), *node.children.back(), node.range);
+      case Node::Kind::TypeFunctionSignature:
+        assert(!node.children.empty());
+        return this->deduceTypeFunctionSignature(node, node.range);
+      case Node::Kind::TypeFunctionSignatureParameter:
+        assert(!node.children.empty());
+        return this->deduce(*node.children.front());
+      case Node::Kind::TypeSpecification:
+        return this->deduceTypeSpecification(node, node.range);
       case Node::Kind::StmtBlock:
       case Node::Kind::StmtFunctionDefine:
       case Node::Kind::StmtFunctionCapture:
@@ -1068,6 +1095,7 @@ namespace {
       case Node::Kind::Root:
       case Node::Kind::ExprGuard:
       case Node::Kind::ExprNamed:
+      case Node::Kind::TypeGenerator:
       case Node::Kind::TypeInfer:
       case Node::Kind::TypeManifestation:
         // Should not be deduced directly
@@ -1076,10 +1104,10 @@ namespace {
       return this->fail(node.range, "TODO: Cannot deduce type for unexpected module node kind");
     }
   private:
-    Type deduceVariableGet(const HardValue& literal, const SourceRange& range) {
+    Type deduceExprVariableGet(const HardValue& literal, const SourceRange& range) {
       String symbol;
       if (!literal->getString(symbol)) {
-        return this->fail(range, "Invalid variable literal: ", literal);
+        return this->fail(range, "Invalid variable symbol literal: ", literal);
       }
       auto type = this->lookup.typeLookup(symbol);
       if (type == nullptr) {
@@ -1087,7 +1115,7 @@ namespace {
       }
       return type;
     }
-    Type deducePropertyGet(Node& instance, Node& property, const SourceRange& range) {
+    Type deduceExprPropertyGet(Node& instance, Node& property, const SourceRange& range) {
       // TODO
       if (instance.kind == Node::Kind::TypeLiteral) {
         auto type = getHardTypeOrNone(instance.literal);
@@ -1095,7 +1123,7 @@ namespace {
       }
       return Type::AnyQ;
     }
-    Type deduceIndexGet(Node& instance, const SourceRange& range) {
+    Type deduceExprIndexGet(Node& instance, const SourceRange& range) {
       auto itype = this->deduce(instance);
       if (itype == nullptr) {
         return nullptr;
@@ -1118,7 +1146,7 @@ namespace {
       }
       return etype;
     }
-    Type deducePointeeGet(Node& instance, const SourceRange& range) {
+    Type deduceExprPointeeGet(Node& instance, const SourceRange& range) {
       auto itype = this->deduce(instance);
       if (itype == nullptr) {
         return nullptr;
@@ -1141,13 +1169,13 @@ namespace {
       }
       return ptype;
     }
-    Type deduceReference(Type pointee) {
+    Type deduceExprReference(Type pointee) {
       if (pointee == nullptr) {
         return nullptr;
       }
       return this->forge.forgePointerType(pointee, Modifiability::All);
     }
-    Type deduceUnaryOp(ValueUnaryOp op, Node& rhs, const SourceRange& range) {
+    Type deduceExprUnaryOp(ValueUnaryOp op, Node& rhs, const SourceRange& range) {
       switch (op) {
       case ValueUnaryOp::Negate:
         return this->deduce(rhs);
@@ -1158,7 +1186,7 @@ namespace {
       }
       return this->fail(range, "TODO: Cannot deduce type for unary operator: ", op);
     }
-    Type deduceBinaryOp(ValueBinaryOp op, Node& lhs, Node& rhs, const SourceRange& range) {
+    Type deduceExprBinaryOp(ValueBinaryOp op, Node& lhs, Node& rhs, const SourceRange& range) {
       switch (op) {
       case ValueBinaryOp::Add: // a + b
       case ValueBinaryOp::Subtract: // a - b
@@ -1197,7 +1225,7 @@ namespace {
       }
       return this->fail(range, "TODO: Cannot deduce type for binary operator: ", op);
     }
-    Type deduceTernaryOp(ValueTernaryOp op, Node&, Node& lhs, Node& rhs, const SourceRange& range) {
+    Type deduceExprTernaryOp(ValueTernaryOp op, Node&, Node& lhs, Node& rhs, const SourceRange& range) {
       if (op != ValueTernaryOp::IfThenElse) {
         return this->fail(range, "TODO: Cannot deduce type for ternary operator: ", op);
       }
@@ -1211,7 +1239,7 @@ namespace {
       }
       return this->forge.forgeUnionType(ltype, rtype);
     }
-    Type deduceArray(Node& array, Modifiability modifiability) {
+    Type deduceExprArray(Node& array, Modifiability modifiability) {
       assert(array.kind == Node::Kind::ExprArray);
       Type atype;
       if (!array.literal->getHardType(atype)) {
@@ -1219,7 +1247,7 @@ namespace {
       }
       return this->forge.forgeArrayType(atype, modifiability);
     }
-    Type deduceFunctionCall(Node& function, const SourceRange& range) {
+    Type deduceExprFunctionCall(Node& function, const SourceRange& range) {
       if (function.kind == Node::Kind::TypeManifestation) {
         Int flags;
         if (function.literal->getInt(flags)) {
@@ -1248,6 +1276,107 @@ namespace {
         return this->fail(range, "Values of type '", *ftype,"' do not support function call semantics");
       }
       return rtype;
+    }
+    Type deduceTypeVariableGet(const HardValue& literal, const SourceRange& range) {
+      String symbol;
+      if (!literal->getString(symbol)) {
+        return this->fail(range, "Invalid type symbol literal: ", literal);
+      }
+      auto type = this->lookup.typeLookup(symbol);
+      if (type == nullptr) {
+        return this->fail(range, "Cannot deduce type for unknown symbol: '", symbol, "'");
+      }
+      return type;
+    }
+    Type deduceTypeUnaryOp(TypeUnaryOp op, Node& arg, const SourceRange& range) {
+      auto atype = this->deduce(arg);
+      if (atype == nullptr) {
+        return nullptr;
+      }
+      switch (op) {
+      case TypeUnaryOp::Array:
+        return this->forge.forgeArrayType(atype, egg::ovum::Modifiability::All);
+      case TypeUnaryOp::Iterator:
+        return this->forge.forgeIteratorType(atype);
+      case TypeUnaryOp::Nullable:
+        return this->forge.forgeNullableType(atype, true);
+      case TypeUnaryOp::Pointer:
+        return this->forge.forgePointerType(atype, egg::ovum::Modifiability::ReadWriteMutate);
+      }
+      return this->fail(range, "TODO: Cannot deduce type for type unary operator: ", op);
+    }
+    Type deduceTypeBinaryOp(TypeBinaryOp op, Node& lhs, Node& rhs, const SourceRange& range) {
+      auto ltype = this->deduce(lhs);
+      if (ltype == nullptr) {
+        return nullptr;
+      }
+      auto rtype = this->deduce(rhs);
+      if (rtype == nullptr) {
+        return nullptr;
+      }
+      switch (op) {
+      case TypeBinaryOp::Map:
+        return this->fail(range, "TODO: Map types not yet supported: ", op);
+      case TypeBinaryOp::Union:
+        return this->forge.forgeUnionType(ltype, rtype);
+      }
+      return this->fail(range, "TODO: Cannot deduce type for type binary operator: ", op);
+    }
+    Type deduceTypeFunctionSignature(Node& function, const SourceRange& range) {
+      assert(function.kind == Node::Kind::TypeFunctionSignature);
+      auto count = function.children.size();
+      assert(count > 0);
+      auto* rnode = function.children.front();
+      assert(rnode != nullptr);
+      auto generator = (rnode->kind == Node::Kind::TypeGenerator);
+      if (generator) {
+        rnode = rnode->children.front();
+      }
+      auto rtype = this->deduce(*rnode);
+      if (rtype == nullptr) {
+        return nullptr;
+      }
+      auto fb = this->forge.createFunctionBuilder();
+      if (generator) {
+        fb->setGeneratedType(rtype);
+      } else {
+        fb->setReturnType(rtype);
+      }
+      for (size_t index = 1; index < count; ++index) {
+        auto* parameter = function.children[index];
+        if ((parameter == nullptr) || (parameter->kind != Node::Kind::TypeFunctionSignatureParameter)) {
+          return this->fail(range, "Invalid function signature parameter node");
+        }
+        String pname;
+        if (!parameter->literal->getString(pname) || pname.empty()) {
+          return this->fail(parameter->range, "Invalid function signature parameter name");
+        }
+        auto ptype = this->deduce(*parameter);
+        if (ptype == nullptr) {
+          return this->fail(parameter->range, "Invalid function signature parameter type for '", pname, "'");
+        }
+        switch (parameter->parameterFlags) {
+        case IFunctionSignatureParameter::Flags::None:
+          fb->addOptionalParameter(ptype, pname);
+          break;
+        case IFunctionSignatureParameter::Flags::Required:
+          fb->addRequiredParameter(ptype, pname);
+          break;
+        case IFunctionSignatureParameter::Flags::Variadic:
+        case IFunctionSignatureParameter::Flags::Predicate:
+        default:
+          return this->fail(parameter->range, "Invalid function signature parameter flags for '", pname, "'");
+        }
+      }
+      auto& signature = fb->build();
+      return this->forge.forgeFunctionType(signature);
+    }
+    Type deduceTypeSpecification(Node& specification, const SourceRange& range) {
+      assert(specification.kind == Node::Kind::TypeSpecification);
+      // WIBBLE
+      (void)specification;
+      (void)range;
+      return Type::Object;
     }
     bool isDeducedAsFloat(Node& node) {
       auto type = this->deduce(node);
@@ -1290,20 +1419,20 @@ namespace {
     }
     virtual Node& exprValueUnaryOp(ValueUnaryOp op, Node& arg, const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::ExprUnaryOp, range);
-      node.unaryOp = op;
+      node.valueUnaryOp = op;
       node.addChild(arg);
       return node;
     }
     virtual Node& exprValueBinaryOp(ValueBinaryOp op, Node& lhs, Node& rhs, const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::ExprBinaryOp, range);
-      node.binaryOp = op;
+      node.valueBinaryOp = op;
       node.addChild(lhs);
       node.addChild(rhs);
       return node;
     }
     virtual Node& exprValueTernaryOp(ValueTernaryOp op, Node& lhs, Node& mid, Node& rhs, const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::ExprTernaryOp, range);
-      node.ternaryOp = op;
+      node.valueTernaryOp = op;
       node.addChild(lhs);
       node.addChild(mid);
       node.addChild(rhs);
@@ -1311,7 +1440,7 @@ namespace {
     }
     virtual Node& exprValuePredicateOp(ValuePredicateOp op, const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::ExprPredicateOp, range);
-      node.predicateOp = op;
+      node.valuePredicateOp = op;
       return node;
     }
     virtual Node& exprLiteral(const HardValue& literal, const SourceRange& range) override {
@@ -1390,9 +1519,49 @@ namespace {
       node.literal = this->createHardValueType(type);
       return node;
     }
+    virtual Node& typeVariableGet(const String& symbol, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::TypeVariableGet, range);
+      node.literal = this->createHardValueString(symbol);
+      return node;
+    }
+    virtual Node& typeUnaryOp(TypeUnaryOp op, Node& arg, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::TypeUnaryOp, range);
+      node.typeUnaryOp = op;
+      node.addChild(arg);
+      return node;
+    }
+    virtual Node& typeBinaryOp(TypeBinaryOp op, Node& lhs, Node& rhs, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::TypeBinaryOp, range);
+      node.typeBinaryOp = op;
+      node.addChild(lhs);
+      node.addChild(rhs);
+      return node;
+    }
     virtual Node& typeManifestation(ValueFlags flags, const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::TypeManifestation, range);
       node.literal = this->createHardValueInt(Int(flags));
+      return node;
+    }
+    virtual Node& typeFunctionSignature(const String& fname, Node& ptype, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::TypeFunctionSignature, range);
+      node.literal = this->createHardValueString(fname);
+      node.addChild(ptype);
+      return node;
+    }
+    virtual Node& typeFunctionSignatureParameter(const String& pname, IFunctionSignatureParameter::Flags pflags, Node& ptype, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::TypeFunctionSignatureParameter, range);
+      node.literal = this->createHardValueString(pname);
+      node.parameterFlags = pflags;
+      node.addChild(ptype);
+      return node;
+    }
+    virtual Node& typeGenerator(Node& etype, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::TypeGenerator, range);
+      node.addChild(etype);
+      return node;
+    }
+    virtual Node& typeSpecification(const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::TypeSpecification, range);
       return node;
     }
     virtual Node& stmtBlock(const SourceRange& range) override {
@@ -1494,7 +1663,7 @@ namespace {
     virtual Node& stmtVariableMutate(const String& symbol, ValueMutationOp op, Node& value, const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::StmtVariableMutate, range);
       node.literal = this->createHardValueString(symbol);
-      node.mutationOp = op;
+      node.valueMutationOp = op;
       node.addChild(value);
       return node;
     }
@@ -1518,7 +1687,7 @@ namespace {
     }
     virtual Node& stmtPropertyMutate(Node& instance, Node& property, ValueMutationOp op, Node& value, const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::StmtPropertyMutate, range);
-      node.mutationOp = op;
+      node.valueMutationOp = op;
       node.addChild(instance);
       node.addChild(property);
       node.addChild(value);
@@ -1526,7 +1695,7 @@ namespace {
     }
     virtual Node& stmtIndexMutate(Node& instance, Node& index, ValueMutationOp op, Node& value, const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::StmtIndexMutate, range);
-      node.mutationOp = op;
+      node.valueMutationOp = op;
       node.addChild(instance);
       node.addChild(index);
       node.addChild(value);
@@ -1534,7 +1703,7 @@ namespace {
     }
     virtual Node& stmtPointeeMutate(Node& instance, ValueMutationOp op, Node& value, const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::StmtPointerMutate, range);
-      node.mutationOp = op;
+      node.valueMutationOp = op;
       node.addChild(instance);
       node.addChild(value);
       return node;
@@ -1635,7 +1804,7 @@ namespace {
     VMRunner& operator=(const VMRunner&) = delete;
   private:
     struct NodeStack {
-      const IVMModule::Node* node;
+      IVMModule::Node* node;
       String scope; // Name of variable declared here
       size_t index; // Node-specific state variable
       std::deque<HardValue> deque; // Results of child nodes computation
@@ -1646,7 +1815,7 @@ namespace {
     VMSymbolTable symtable;
     VMExecution execution;
   public:
-    VMRunner(IVM& vm, IVMProgram& program, const IVMModule::Node& root)
+    VMRunner(IVM& vm, IVMProgram& program, IVMModule::Node& root)
       : VMCollectable(vm),
         program(&program),
         execution(vm) {
@@ -1859,8 +2028,9 @@ namespace {
     enum class StepOutcome { Stepped, Yielded, Finished };
     StepOutcome stepNode(HardValue& retval);
     StepOutcome stepBlock(HardValue& retval, size_t first = 0);
+    StepOutcome stepType();
     HardValue stepIteration(size_t first);
-    NodeStack& push(const IVMModule::Node& node, const String& scope = {}, size_t index = 0) {
+    NodeStack& push(IVMModule::Node& node, const String& scope = {}, size_t index = 0) {
       return this->stack.emplace(&node, scope, index);
     }
     StepOutcome pop(HardValue value) { // sic byval
@@ -2484,7 +2654,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
         return this->raise("Unknown identifier: '", symbol, "'");
       }
       if (extant->kind == VMSymbolTable::Kind::Builtin) {
-        if (top.node->mutationOp == ValueMutationOp::Assign) {
+        if (top.node->valueMutationOp == ValueMutationOp::Assign) {
           return this->raise("Cannot re-assign built-in value: '", symbol, "'");
         }
         return this->raise("Cannot modify built-in value: '", symbol, "'");
@@ -2493,7 +2663,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       if (top.index == 0) {
         assert(top.deque.empty());
         // TODO: Get correct rhs static type
-        auto result = this->execution.precheckValueMutationOp(top.node->mutationOp, lhs, ValueFlags::AnyQ);
+        auto result = this->execution.precheckValueMutationOp(top.node->valueMutationOp, lhs, ValueFlags::AnyQ);
         if (!result.hasFlowControl()) {
           // Short-circuit (discard result)
           return this->pop(HardValue::Void);
@@ -2510,7 +2680,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
         if (rhs.hasFlowControl()) {
           return this->pop(rhs);
         }
-        auto before = this->execution.evaluateValueMutationOp(top.node->mutationOp, lhs, rhs);
+        auto before = this->execution.evaluateValueMutationOp(top.node->valueMutationOp, lhs, rhs);
         if (before.hasFlowControl()) {
           return this->pop(before);
         }
@@ -2604,7 +2774,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
         return this->raiseBadPropertyModification(instance, property);
       }
       auto& value = top.deque.back();
-      auto result = object->vmPropertyMut(this->execution, property, top.node->mutationOp, value);
+      auto result = object->vmPropertyMut(this->execution, property, top.node->valueMutationOp, value);
       return this->pop(result.hasFlowControl() ? result : HardValue::Void);
     }
     break;
@@ -2632,7 +2802,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       }
       auto& index = top.deque[1];
       auto& value = top.deque.back();
-      auto result = object->vmIndexMut(this->execution, index, top.node->mutationOp, value);
+      auto result = object->vmIndexMut(this->execution, index, top.node->valueMutationOp, value);
       return this->pop(result.hasFlowControl() ? result : HardValue::Void);
     }
     break;
@@ -2659,7 +2829,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
         return this->raise("Expected expression after pointer operator '*' to be an object, but instead got ", describe(pointer));
       }
       auto& value = top.deque.back();
-      auto result = object->vmPointeeMut(this->execution, top.node->mutationOp, value);
+      auto result = object->vmPointeeMut(this->execution, top.node->valueMutationOp, value);
       return this->pop(result.hasFlowControl() ? result : HardValue::Void);
     }
     break;
@@ -3301,7 +3471,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       if (latest.hasFlowControl()) {
         return this->pop(latest);
       }
-      auto result = this->execution.evaluateValueUnaryOp(top.node->unaryOp, top.deque.front());
+      auto result = this->execution.evaluateValueUnaryOp(top.node->valueUnaryOp, top.deque.front());
       return this->pop(result);
     }
     break;
@@ -3319,20 +3489,20 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       }
       if (top.index == 1) {
         assert(top.deque.size() == 1);
-        if (top.node->binaryOp == ValueBinaryOp::IfNull) {
+        if (top.node->valueBinaryOp == ValueBinaryOp::IfNull) {
           // Short-circuit '??'
           if (!latest->getNull()) {
             // lhs is not null; no need to evaluate rhs
             return this->pop(latest);
           }
-        } else if (top.node->binaryOp == ValueBinaryOp::IfFalse) {
+        } else if (top.node->valueBinaryOp == ValueBinaryOp::IfFalse) {
           // Short-circuit '||'
           Bool lhs;
           if (latest->getBool(lhs) && lhs) {
             // lhs is true; no need to evaluate rhs
             return this->pop(HardValue::True);
           }
-        } else if (top.node->binaryOp == ValueBinaryOp::IfTrue) {
+        } else if (top.node->valueBinaryOp == ValueBinaryOp::IfTrue) {
           // Short-circuit '&&'
           Bool lhs;
           if (latest->getBool(lhs) && !lhs) {
@@ -3343,13 +3513,13 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
         this->push(*top.node->children[top.index++]);
       } else {
         assert(top.deque.size() == 2);
-        auto result = this->execution.evaluateValueBinaryOp(top.node->binaryOp, top.deque.front(), top.deque.back());
+        auto result = this->execution.evaluateValueBinaryOp(top.node->valueBinaryOp, top.deque.front(), top.deque.back());
         return this->pop(result);
       }
     }
     break;
   case IVMModule::Node::Kind::ExprTernaryOp:
-    assert(top.node->ternaryOp == ValueTernaryOp::IfThenElse);
+    assert(top.node->valueTernaryOp == ValueTernaryOp::IfThenElse);
     assert(top.node->children.size() == 3);
     assert(top.index <= 3);
     if (top.index == 0) {
@@ -3367,7 +3537,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
         Bool condition;
         if (!latest->getBool(condition)) {
           // The second and third operands are irrelevant; we just want the error message
-          auto fail = this->execution.evaluateValueTernaryOp(top.node->ternaryOp, latest, HardValue::Void, HardValue::Void);
+          auto fail = this->execution.evaluateValueTernaryOp(top.node->valueTernaryOp, latest, HardValue::Void, HardValue::Void);
           return this->pop(fail);
         }
         this->push(*top.node->children[condition ? 1u : 2u]);
@@ -3394,9 +3564,9 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       // Execute the predicate
       switch (top.deque.size()) {
       case 1:
-        return this->pop(this->execution.evaluateValuePredicateOp(top.node->predicateOp, top.deque.front(), HardValue::Void));
+        return this->pop(this->execution.evaluateValuePredicateOp(top.node->valuePredicateOp, top.deque.front(), HardValue::Void));
       case 2:
-        return this->pop(this->execution.evaluateValuePredicateOp(top.node->predicateOp, top.deque.front(), top.deque.back()));
+        return this->pop(this->execution.evaluateValuePredicateOp(top.node->valuePredicateOp, top.deque.front(), top.deque.back()));
       }
       return this->raise("Invalid predicate values");
     }
@@ -3418,6 +3588,9 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       auto extant = this->symtable.find(symbol);
       if (extant == nullptr) {
         return this->raise("Unknown identifier: '", symbol, "'");
+      }
+      if (extant->kind == VMSymbolKind::Type) {
+        return this->raise("Identifier '", symbol, "' is a type");
       }
       HardValue result{ *extant->soft };
       if (result->getVoid()) {
@@ -3651,6 +3824,25 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
     break;
   case IVMModule::Node::Kind::ExprNamed:
     return this->raise("TODO: Named expression unexpected at this time");
+  case IVMModule::Node::Kind::TypeVariableGet:
+    assert(top.node->children.empty());
+    assert(top.index == 0);
+    assert(top.deque.empty());
+    {
+      String symbol;
+      if (!top.node->literal->getString(symbol)) {
+        return this->raise("Invalid program node literal for type identifier");
+      }
+      auto extant = this->symtable.find(symbol);
+      if (extant == nullptr) {
+        return this->raise("Unknown identifier: '", symbol, "'");
+      }
+      if (extant->kind != VMSymbolKind::Type) {
+        return this->raise("Identifier '", symbol, "' is not a type");
+      }
+      return this->pop(this->createHardValueType(extant->type));
+    }
+    break;
   case IVMModule::Node::Kind::TypeInfer:
     assert(top.node->children.empty());
     assert(top.index == 0);
@@ -3673,6 +3865,13 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       auto manifestation = this->vm.getManifestation(ValueFlags(flags));
       return this->pop(this->createHardValueObject(manifestation));
     }
+  case IVMModule::Node::Kind::TypeUnaryOp:
+  case IVMModule::Node::Kind::TypeBinaryOp:
+  case IVMModule::Node::Kind::TypeFunctionSignature:
+  case IVMModule::Node::Kind::TypeFunctionSignatureParameter:
+  case IVMModule::Node::Kind::TypeGenerator:
+  case IVMModule::Node::Kind::TypeSpecification:
+    return this->stepType();
   default:
     return this->raise("Invalid program node kind in program runner");
   }
@@ -3709,6 +3908,41 @@ VMRunner::StepOutcome VMRunner::stepBlock(HardValue& retval, size_t first) {
     return StepOutcome::Finished;
   }
   return StepOutcome::Stepped;
+}
+
+VMRunner::StepOutcome VMRunner::stepType() {
+  assert(!this->stack.empty());
+  auto* node = this->stack.top().node;
+  assert(node != nullptr);
+  Type type;
+  if (node->literal->getHardType(type)) {
+    // Return the memoized value
+    assert(type != nullptr);
+    return this->pop(node->literal);
+  }
+  struct Helper : public IVMModuleBuilder::TypeLookup, public IVMModuleBuilder::Reporter {
+    VMRunner* runner;
+    String latest;
+    virtual Type typeLookup(const String& symbol) const override {
+      // WIBBLE
+      (void)symbol;
+      return nullptr;
+    }
+    virtual void report(const SourceRange& range, const String& problem) override {
+      // WIBBLE
+      (void)range;
+      this->latest = problem;
+    }
+  };
+  Helper helper;
+  helper.runner = this;
+  VMTypeDeducer deducer{ this->getAllocator(), this->vm.getTypeForge(), helper, &helper };
+  type = deducer.deduce(*node);
+  if (type == nullptr) {
+    return this->raise(helper.latest);
+  }
+  node->literal = this->createHardValueType(type);
+  return this->pop(node->literal);
 }
 
 HardValue VMRunner::stepIteration(size_t first) {
