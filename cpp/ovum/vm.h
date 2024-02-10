@@ -197,7 +197,7 @@ namespace egg::ovum {
     virtual Node& typePropertyGet(Node& type, Node& property, const SourceRange& range) = 0;
     virtual Node& typeUnaryOp(TypeUnaryOp op, Node& arg, const SourceRange& range) = 0;
     virtual Node& typeBinaryOp(TypeBinaryOp op, Node& lhs, Node& rhs, const SourceRange& range) = 0;
-    virtual Node& typeManifestation(ValueFlags flags, const SourceRange& range) = 0;
+    virtual Node& typeManifestation(const Type& type, const SourceRange& range) = 0;
     virtual Node& typeFunctionSignature(const String& fname, Node& rtype, const SourceRange& range) = 0;
     virtual Node& typeFunctionSignatureParameter(const String& pname, IFunctionSignatureParameter::Flags pflags, Node& ptype, const SourceRange& range) = 0;
     virtual Node& typeGenerator(Node& etype, const SourceRange& range) = 0;
@@ -271,7 +271,7 @@ namespace egg::ovum {
     virtual ILogger& getLogger() const = 0;
     virtual ITypeForge& getTypeForge() const = 0;
     // Manifestation cache
-    virtual HardObject getManifestation(ValueFlags flags) = 0;
+    virtual HardObject getManifestation(const Type& type) = 0;
     // Builder factories
     virtual HardPtr<IVMProgramBuilder> createProgramBuilder() = 0;
     // Builtin factories

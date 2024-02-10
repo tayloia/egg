@@ -1262,10 +1262,11 @@ namespace {
     }
     Type deduceExprFunctionCall(Node& function, const SourceRange& range) {
       if (function.kind == Node::Kind::TypeManifestation) {
-        Int flags;
-        if (function.literal->getInt(flags)) {
-          return this->forge.forgePrimitiveType(ValueFlags(flags));
+        Type type;
+        if (!function.literal->getHardType(type)) {
+          return this->fail(range, "Cannot deduce type manifestation from ", describe(function.literal));
         }
+        return type;
       }
       auto ftype = this->deduce(function);
       if (ftype == nullptr) {
@@ -1595,9 +1596,13 @@ namespace {
       node.addChild(rhs);
       return node;
     }
-    virtual Node& typeManifestation(ValueFlags flags, const SourceRange& range) override {
+    virtual Node& typeManifestation(const Type& type, const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::TypeManifestation, range);
-      node.literal = this->createHardValueInt(Int(flags));
+      if (type == nullptr) {
+        node.literal = this->createHardValueNull();
+      } else {
+        node.literal = this->createHardValueType(type);
+      }
       return node;
     }
     virtual Node& typeFunctionSignature(const String& fname, Node& ptype, const SourceRange& range) override {
@@ -2415,21 +2420,21 @@ namespace {
     HardPtr<IBasket> basket;
     ILogger& logger;
     HardPtr<ITypeForge> forge;
-    std::map<ValueFlags, HardObject> manifestations;
+    std::map<const IType*, HardObject> manifestations;
   public:
     VMDefault(IAllocator& allocator, ILogger& logger)
       : HardReferenceCountedAllocator<IVM>(allocator),
         basket(BasketFactory::createBasket(allocator)),
         logger(logger) {
       this->forge = TypeForgeFactory::createTypeForge(allocator, *this->basket);
-      this->manifestations.emplace(ValueFlags::Type, ObjectFactory::createManifestationType(*this));
-      this->manifestations.emplace(ValueFlags::Void, ObjectFactory::createManifestationVoid(*this));
-      this->manifestations.emplace(ValueFlags::Bool, ObjectFactory::createManifestationBool(*this));
-      this->manifestations.emplace(ValueFlags::Int, ObjectFactory::createManifestationInt(*this));
-      this->manifestations.emplace(ValueFlags::Float, ObjectFactory::createManifestationFloat(*this));
-      this->manifestations.emplace(ValueFlags::String, ObjectFactory::createManifestationString(*this));
-      this->manifestations.emplace(ValueFlags::Object, ObjectFactory::createManifestationObject(*this));
-      this->manifestations.emplace(ValueFlags::Any, ObjectFactory::createManifestationAny(*this));
+      this->manifestations.emplace(nullptr, ObjectFactory::createManifestationType(*this));
+      this->manifestations.emplace(Type::Void.get(), ObjectFactory::createManifestationVoid(*this));
+      this->manifestations.emplace(Type::Bool.get(), ObjectFactory::createManifestationBool(*this));
+      this->manifestations.emplace(Type::Int.get(), ObjectFactory::createManifestationInt(*this));
+      this->manifestations.emplace(Type::Float.get(), ObjectFactory::createManifestationFloat(*this));
+      this->manifestations.emplace(Type::String.get(), ObjectFactory::createManifestationString(*this));
+      this->manifestations.emplace(Type::Object.get(), ObjectFactory::createManifestationObject(*this));
+      this->manifestations.emplace(Type::Any.get(), ObjectFactory::createManifestationAny(*this));
     }
     virtual IAllocator& getAllocator() const override {
       return this->allocator;
@@ -2443,8 +2448,8 @@ namespace {
     virtual ITypeForge& getTypeForge() const override {
       return *this->forge;
     }
-    virtual HardObject getManifestation(ValueFlags flags) override {
-      auto found = this->manifestations.find(flags);
+    virtual HardObject getManifestation(const Type& type) override {
+      auto found = this->manifestations.find(type.get());
       if (found != this->manifestations.end()) {
         return found->second;
       }
@@ -3957,11 +3962,13 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
     assert(top.index == 0);
     assert(top.deque.empty());
     {
-      Int flags;
-      if (!top.node->literal->getInt(flags)) {
-        return this->raise("Invalid program node literal for type manifestation");
+      // WIBBLE
+      Type type;
+      if (!top.node->literal->getHardType(type)) {
+        // type.of() et al
+        type = nullptr;
       }
-      auto manifestation = this->vm.getManifestation(ValueFlags(flags));
+      auto manifestation = this->vm.getManifestation(type);
       return this->pop(this->createHardValueObject(manifestation));
     }
   case IVMModule::Node::Kind::TypeUnaryOp:

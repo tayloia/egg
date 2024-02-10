@@ -188,7 +188,7 @@ namespace {
     ModuleNode* compileValueExprObject(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileValueExprObjectElement(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileValueExprGuard(ParserNode& pnode, ParserNode& ptype, ParserNode& pexpr, const ExprContext& context);
-    ModuleNode* compileValueExprManifestation(ParserNode& pnode, egg::ovum::ValueFlags flags);
+    ModuleNode* compileValueExprManifestation(ParserNode& pnode, const egg::ovum::Type& type);
     ModuleNode* compileValueExprMissing(ParserNode& pnode);
     ModuleNode* compileTypeExpr(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileTypeExprVariable(ParserNode& pnode, const ExprContext& context);
@@ -1296,28 +1296,28 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode, const ExprContex
     return this->compileValueExprMissing(pnode);
   case ParserNode::Kind::TypeVoid:
     EXPECT(pnode, pnode.children.empty());
-    return this->compileValueExprManifestation(pnode, egg::ovum::ValueFlags::Void);
+    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Void.get());
   case ParserNode::Kind::TypeBool:
     EXPECT(pnode, pnode.children.empty());
-    return this->compileValueExprManifestation(pnode, egg::ovum::ValueFlags::Bool);
+    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Bool.get());
   case ParserNode::Kind::TypeInt:
     EXPECT(pnode, pnode.children.empty());
-    return this->compileValueExprManifestation(pnode, egg::ovum::ValueFlags::Int);
+    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Int.get());
   case ParserNode::Kind::TypeFloat:
     EXPECT(pnode, pnode.children.empty());
-    return this->compileValueExprManifestation(pnode, egg::ovum::ValueFlags::Float);
+    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Float.get());
   case ParserNode::Kind::TypeString:
     EXPECT(pnode, pnode.children.empty());
-    return this->compileValueExprManifestation(pnode, egg::ovum::ValueFlags::String);
+    return this->compileValueExprManifestation(pnode, egg::ovum::Type::String.get());
   case ParserNode::Kind::TypeObject:
     EXPECT(pnode, pnode.children.empty());
-    return this->compileValueExprManifestation(pnode, egg::ovum::ValueFlags::Object);
+    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Object.get());
   case ParserNode::Kind::TypeAny:
     EXPECT(pnode, pnode.children.empty());
-    return this->compileValueExprManifestation(pnode, egg::ovum::ValueFlags::Any);
+    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Any.get());
   case ParserNode::Kind::TypeType:
     EXPECT(pnode, pnode.children.empty());
-    return this->compileValueExprManifestation(pnode, egg::ovum::ValueFlags::Type);
+    return this->compileValueExprManifestation(pnode, nullptr);
   case ParserNode::Kind::ModuleRoot:
   case ParserNode::Kind::ExprEllipsis:
   case ParserNode::Kind::TypeInfer:
@@ -1509,7 +1509,7 @@ ModuleNode* ModuleCompiler::compileValueExprCall(ParserNodes& pnodes, const Expr
   ModuleNode* call = nullptr;
   auto type = this->literalType(**pnode);
   if (type != nullptr) {
-    call = &this->mbuilder.typeManifestation(type->getPrimitiveFlags(), (*pnode)->range);
+    call = &this->mbuilder.typeManifestation(type, (*pnode)->range);
   } else {
     call = this->compileValueExpr(**pnode, context);
   }
@@ -1717,8 +1717,8 @@ ModuleNode* ModuleCompiler::compileValueExprGuard(ParserNode& pnode, ParserNode&
   return nullptr;
 }
 
-ModuleNode* ModuleCompiler::compileValueExprManifestation(ParserNode& pnode, egg::ovum::ValueFlags flags) {
-  return &this->mbuilder.typeManifestation(flags, pnode.range);
+ModuleNode* ModuleCompiler::compileValueExprManifestation(ParserNode& pnode, const egg::ovum::Type& type) {
+  return &this->mbuilder.typeManifestation(type, pnode.range);
 }
 
 ModuleNode* ModuleCompiler::compileValueExprMissing(ParserNode& pnode) {

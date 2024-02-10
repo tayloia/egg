@@ -198,9 +198,9 @@ TEST(TestVM, CreateHardValue) {
 
 TEST(TestVM, GetManifestion) {
   egg::test::VM vm;
-  auto manifestation = vm->getManifestation(ValueFlags::None);
+  auto manifestation = vm->getManifestation(Type::None);
   ASSERT_EQ(nullptr, manifestation);
-  manifestation = vm->getManifestation(ValueFlags::String);
+  manifestation = vm->getManifestation(Type::String);
   ASSERT_NE(nullptr, manifestation);
   auto type = manifestation->vmRuntimeType();
   ASSERT_NE(nullptr, type);
