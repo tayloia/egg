@@ -46,6 +46,7 @@ public:
     TypeInfer,
     TypeLiteral,
     TypeVariableGet,
+    TypePropertyGet,
     TypeUnaryOp,
     TypeBinaryOp,
     TypeManifestation,
@@ -53,6 +54,8 @@ public:
     TypeFunctionSignatureParameter,
     TypeGenerator,
     TypeSpecification,
+    TypeSpecificationDescription,
+    TypeSpecificationStaticData,
     StmtBlock,
     StmtFunctionDefine,
     StmtFunctionCapture,
@@ -989,8 +992,6 @@ namespace {
     }
     Type deduce(Node& node) {
       switch (node.kind) {
-      case Node::Kind::TypeLiteral:
-        return getHardTypeOrNone(node.literal);
       case Node::Kind::ExprLiteral:
         return node.literal->getRuntimeType();
       case Node::Kind::ExprFunctionCall:
@@ -1041,9 +1042,14 @@ namespace {
         return this->deduceExprArray(node, Modifiability::All);
       case Node::Kind::ExprObject:
         return Type::Object;
+      case Node::Kind::TypeLiteral:
+        return getHardTypeOrNone(node.literal);
       case Node::Kind::TypeVariableGet:
         assert(node.children.empty());
         return this->deduceTypeVariableGet(node.literal, node.range);
+      case Node::Kind::TypePropertyGet:
+        assert(node.children.size() == 2);
+        return this->deduceTypePropertyGet(*node.children.front(), *node.children.back(), node.range);
       case Node::Kind::TypeUnaryOp:
         assert(node.children.size() == 1);
         return this->deduceTypeUnaryOp(node.typeUnaryOp, *node.children.front(), node.range);
@@ -1058,6 +1064,12 @@ namespace {
         return this->deduce(*node.children.front());
       case Node::Kind::TypeSpecification:
         return this->deduceTypeSpecification(node, node.range);
+      case Node::Kind::TypeSpecificationDescription:
+        assert(node.children.size() == 0);
+        return Type::String;
+      case Node::Kind::TypeSpecificationStaticData:
+        assert(node.children.size() == 2);
+        return this->deduce(*node.children.front());
       case Node::Kind::StmtBlock:
       case Node::Kind::StmtFunctionDefine:
       case Node::Kind::StmtFunctionCapture:
@@ -1098,7 +1110,7 @@ namespace {
       case Node::Kind::TypeGenerator:
       case Node::Kind::TypeInfer:
       case Node::Kind::TypeManifestation:
-        // Should not be deduced directly
+        // Should not be infratype directly
         break;
       }
       return this->fail(node.range, "TODO: Cannot deduce type for unexpected module node kind");
@@ -1117,6 +1129,7 @@ namespace {
     }
     Type deduceExprPropertyGet(Node& instance, Node& property, const SourceRange& range) {
       // TODO
+      assert(instance.kind != Node::Kind::TypeLiteral);
       if (instance.kind == Node::Kind::TypeLiteral) {
         auto type = getHardTypeOrNone(instance.literal);
         return this->fail(range, "Type '", *type, "' does not support the property '", property.literal.get(), "'");
@@ -1288,6 +1301,27 @@ namespace {
       }
       return type;
     }
+    Type deduceTypePropertyGet(Node& type, Node& property, const SourceRange& range) {
+      if (property.kind == Node::Kind::ExprLiteral) {
+        String pname;
+        if (property.literal->getString(pname)) {
+          auto infratype = this->deduce(type);
+          if (infratype != nullptr) {
+            auto metashape = this->forge.getMetashape(infratype);
+            if ((metashape == nullptr) || (metashape->dotable == nullptr)) {
+              return this->fail(range, "Type '", describe(*infratype), "' does not support properties");
+            }
+            auto ptype = metashape->dotable->getType(pname);
+            if (ptype == nullptr) {
+              return this->fail(range, "Type '", describe(*infratype), "' does not support the property '", pname, "'");
+            }
+            return ptype;
+          }
+          return this->fail(range, "Cannot deduce type of property '", pname, "' for type");
+        }
+      }
+      return this->fail(range, "Cannot deduce type of property for type");
+    }
     Type deduceTypeUnaryOp(TypeUnaryOp op, Node& arg, const SourceRange& range) {
       auto atype = this->deduce(arg);
       if (atype == nullptr) {
@@ -1371,12 +1405,30 @@ namespace {
       auto& signature = fb->build();
       return this->forge.forgeFunctionType(signature);
     }
-    Type deduceTypeSpecification(Node& specification, const SourceRange& range) {
+    Type deduceTypeSpecification(Node& specification, const SourceRange&) {
       assert(specification.kind == Node::Kind::TypeSpecification);
-      // WIBBLE
-      (void)specification;
-      (void)range;
-      return Type::Object;
+      auto sb = this->forge.createSpecificationBuilder();
+      for (auto* clause : specification.children) {
+        assert(clause != nullptr);
+        if (clause->kind == Node::Kind::TypeSpecificationDescription) {
+          String description;
+          if (clause->literal->getString(description)) {
+            sb->setDescription(description, 2);
+          }
+        } else if (clause->kind == Node::Kind::TypeSpecificationStaticData) {
+          String name;
+          if (!clause->literal->getString(name)) {
+            return this->fail(clause->range, "Missing name of type specification static data");
+          }
+          assert(!clause->children.empty());
+          auto type = this->deduce(*clause->children.front());
+          if (type == nullptr) {
+            return nullptr;
+          }
+          sb->addStaticData(name, type);
+        }
+      }
+      return sb->build();
     }
     bool isDeducedAsFloat(Node& node) {
       auto type = this->deduce(node);
@@ -1524,6 +1576,12 @@ namespace {
       node.literal = this->createHardValueString(symbol);
       return node;
     }
+    virtual Node& typePropertyGet(Node& type, Node& property, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::TypePropertyGet, range);
+      node.addChild(type);
+      node.addChild(property);
+      return node;
+    }
     virtual Node& typeUnaryOp(TypeUnaryOp op, Node& arg, const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::TypeUnaryOp, range);
       node.typeUnaryOp = op;
@@ -1562,6 +1620,18 @@ namespace {
     }
     virtual Node& typeSpecification(const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::TypeSpecification, range);
+      return node;
+    }
+    virtual Node& typeSpecificationDescription(const String& description, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::TypeSpecificationDescription, range);
+      node.literal = this->createHardValueString(description);
+      return node;
+    }
+    virtual Node& typeSpecificationStaticData(const String& symbol, Node& type, Node& value, const SourceRange& range) {
+      auto& node = this->module->createNode(Node::Kind::TypeSpecificationStaticData, range);
+      node.literal = this->createHardValueString(symbol);
+      node.addChild(type);
+      node.addChild(value);
       return node;
     }
     virtual Node& stmtBlock(const SourceRange& range) override {
@@ -2306,11 +2376,19 @@ namespace {
     HardValue typePropertyGet(const Type& type, const HardValue& property) {
       // TODO
       assert(type != nullptr);
-      String name;
-      if (!property->getString(name)) {
+      String pname;
+      if (!property->getString(pname)) {
         return this->raiseRuntimeError("Expected right-hand side of type operator '.' to be a property name, but instead got ", describe(property));
       }
-      return this->raiseRuntimeError("Type '", *type, "' does not support the property '", name, "'");
+      auto metashape = this->vm.getTypeForge().getMetashape(type);
+      if ((metashape == nullptr) || (metashape->dotable == nullptr)) {
+        return this->raiseRuntimeError("Type '", describe(*type), "' does not support properties");
+      }
+      auto ptype = metashape->dotable->getType(pname);
+      if (ptype == nullptr) {
+        return this->raiseRuntimeError("Type '", describe(*type), "' does not support the property '", pname, "'");
+      }
+      return this->createHardValue(123); // WIBBLE
     }
     HardValue typePropertyRef(const Type& type, const HardValue& property) {
       auto value = this->typePropertyGet(type, property);
@@ -2529,7 +2607,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       }
       // Skip the function invocation block
       top.index++;
-      // Perform the first statement of the scope of the function name
+      // Perform the first statement of the scope of the function pname
       this->push(*top.node->children[top.index++]);
     } else if (this->stepBlock(retval, 2) != StepOutcome::Stepped) {
       return this->pop(retval);
@@ -3703,10 +3781,6 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       if (lhs->getString(string)) {
         return this->pop(this->stringPropertyGet(string, rhs));
       }
-      Type type;
-      if (lhs->getHardType(type)) {
-        return this->pop(this->typePropertyGet(type, rhs));
-      }
       return this->raise("Expected left-hand side of property operator '.' to support properties, but instead got ", describe(lhs));
     }
     break;
@@ -3843,6 +3917,31 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       return this->pop(this->createHardValueType(extant->type));
     }
     break;
+  case IVMModule::Node::Kind::TypePropertyGet:
+    assert(top.node->literal->getVoid());
+    assert(top.node->children.size() == 2);
+    if (!top.deque.empty()) {
+      // Check the last evaluation
+      auto& latest = top.deque.back();
+      if (latest.hasFlowControl()) {
+        return this->pop(latest);
+      }
+    }
+    if (top.index < 2) {
+      // Assemble the arguments
+      this->push(*top.node->children[top.index++]);
+    } else {
+      // Perform the property fetch
+      assert(top.deque.size() == 2);
+      auto& lhs = top.deque.front();
+      Type type;
+      if (lhs->getHardType(type)) {
+        auto& rhs = top.deque.back();
+        return this->pop(this->typePropertyGet(type, rhs));
+      }
+      return this->raise("Expected left-hand side of type operator '.' to support properties, but instead got ", describe(lhs));
+    }
+    break;
   case IVMModule::Node::Kind::TypeInfer:
     assert(top.node->children.empty());
     assert(top.index == 0);
@@ -3871,6 +3970,8 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
   case IVMModule::Node::Kind::TypeFunctionSignatureParameter:
   case IVMModule::Node::Kind::TypeGenerator:
   case IVMModule::Node::Kind::TypeSpecification:
+  case IVMModule::Node::Kind::TypeSpecificationDescription:
+  case IVMModule::Node::Kind::TypeSpecificationStaticData:
     return this->stepType();
   default:
     return this->raise("Invalid program node kind in program runner");

@@ -38,7 +38,6 @@ namespace egg::yolk {
         StmtBreak,
         StmtContinue,
         StmtMutate,
-        ExprVariable,
         ExprUnary,
         ExprBinary,
         ExprTernary,
@@ -51,7 +50,6 @@ namespace egg::yolk {
         ExprObject,
         ExprEllipsis,
         ExprGuard,
-        TypeVariable,
         TypeInfer,
         TypeInferQ,
         TypeVoid,
@@ -61,14 +59,15 @@ namespace egg::yolk {
         TypeString,
         TypeObject,
         TypeAny,
-        TypeType,
+        TypeType, // WIBBLE
         TypeUnary,
         TypeBinary,
         TypeFunctionSignature,
         TypeFunctionSignatureParameter,
         TypeSpecification,
-        TypeSpecificationClassData,
+        TypeSpecificationStaticData,
         Literal,
+        Variable,
         Named,
         Missing
       };

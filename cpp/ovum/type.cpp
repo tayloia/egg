@@ -81,25 +81,47 @@ namespace egg::internal {
     }
   };
 
-  template<typename K, typename V>
-  class TypeForgeCacheMap {
-    TypeForgeCacheMap(const TypeForgeCacheMap&) = delete;
-    TypeForgeCacheMap& operator=(const TypeForgeCacheMap&) = delete;
-  private:
+  struct TypeForgeCacheHelper {
     struct Hash {
+      size_t operator()(const IType* key) const {
+        return Hasher<size_t>::hash(key);
+      }
+      template<typename K>
       size_t operator()(const K* key) const {
         return key->cacheHash();
       }
     };
     struct Equals {
+      bool operator()(const IType* lhs, const IType* rhs) const {
+        return lhs == rhs;
+      }
+      template<typename K>
       bool operator()(const K* lhs, const K* rhs) const {
         return K::cacheEquals(*lhs, *rhs);
       }
     };
-    std::unordered_map<const K*, V*, Hash, Equals> cache;
+  };
+
+  template<typename K, typename V>
+  class TypeForgeCacheMap {
+    TypeForgeCacheMap(const TypeForgeCacheMap&) = delete;
+    TypeForgeCacheMap& operator=(const TypeForgeCacheMap&) = delete;
+  private:
+    std::unordered_map<const K*, V*, TypeForgeCacheHelper::Hash, TypeForgeCacheHelper::Equals> cache;
     std::mutex mutex;
   public:
     TypeForgeCacheMap() {}
+    const IType::Shape& add(const IType& key, const IType::Shape& value) {
+      return *this->cache.emplace(&key, &value).first->second;
+    }
+    const IType::Shape* find(const IType& key) {
+      std::lock_guard<std::mutex> lock{ this->mutex };
+      auto found = this->cache.find(&key);
+      if (found != this->cache.end()) {
+        return found->second;
+      }
+      return nullptr;
+    }
     const V& fetch(K&& key, const std::function<V*(K&&)>& factory) {
       std::lock_guard<std::mutex> lock{ this->mutex };
       auto found = this->cache.find(&key);
@@ -713,6 +735,48 @@ namespace egg::internal {
     virtual Type build() override;
   };
 
+  class TypeForgeMetashapeBuilder : public TypeForgeBaseBuilder<ITypeForgeMetashapeBuilder> {
+    TypeForgeMetashapeBuilder(const TypeForgeMetashapeBuilder&) = delete;
+    TypeForgeMetashapeBuilder& operator=(const TypeForgeMetashapeBuilder&) = delete;
+  private:
+    HardPtr<ITypeForgePropertyBuilder> propertyBuilder;
+    HardPtr<ITypeForgeTaggableBuilder> taggableBuilder;
+  public:
+    explicit TypeForgeMetashapeBuilder(TypeForgeDefault& forge)
+      : TypeForgeBaseBuilder(forge) {
+    }
+    virtual void setDescription(const String& description, int precedence) override {
+      this->getTaggableBuilder().setDescription(description, precedence);
+    }
+    virtual void addProperty(const String& name, const Type& type, Modifiability modifiability) override {
+      this->getPropertyBuilder().addProperty(name, type, modifiability);
+    }
+    virtual TypeShape build(const Type& infratype) override;
+    ITypeForgePropertyBuilder& getPropertyBuilder();
+    ITypeForgeTaggableBuilder& getTaggableBuilder();
+  };
+
+  class TypeForgeSpecificationBuilder : public TypeForgeBaseBuilder<ITypeForgeSpecificationBuilder> {
+    TypeForgeSpecificationBuilder(const TypeForgeSpecificationBuilder&) = delete;
+    TypeForgeSpecificationBuilder& operator=(const TypeForgeSpecificationBuilder&) = delete;
+  private:
+    TypeForgeMetashapeBuilder infrashaper;
+    TypeForgeMetashapeBuilder metashaper;
+  public:
+    explicit TypeForgeSpecificationBuilder(TypeForgeDefault& forge)
+      : TypeForgeBaseBuilder(forge),
+        infrashaper(forge),
+        metashaper(forge) {
+    }
+    virtual void setDescription(const String& description, int precedence) override {
+      this->infrashaper.setDescription(description, precedence);
+    }
+    virtual void addStaticData(const String& name, const Type& type) override {
+      this->metashaper.addProperty(name, type, Modifiability::Read);
+    }
+    virtual Type build() override;
+  };
+
   class TypeForgeDefault : public HardReferenceCountedAllocator<ITypeForge> {
     TypeForgeDefault(const TypeForgeDefault&) = delete;
     TypeForgeDefault& operator=(const TypeForgeDefault&) = delete;
@@ -727,11 +791,13 @@ namespace egg::internal {
     TypeForgeCacheSet<TypeForgePointerSignature> cachePointerSignature;
     TypeForgeCacheSet<TypeForgeTaggableSignature> cacheTaggableSignature;
     TypeForgeCacheMap<TypeForgeComplex::Detail, TypeForgeComplex> cacheComplex;
+    TypeForgeCacheMap<IType, const IType::Shape> cacheMetashape;
     std::set<const ICollectable*> owned;
   public:
     TypeForgeDefault(IAllocator& allocator, IBasket& basket)
       : HardReferenceCountedAllocator(allocator),
         basket(&basket) {
+      this->addMetashapes();
     }
     virtual ~TypeForgeDefault() override {
       for (auto* instance : this->owned) {
@@ -922,6 +988,9 @@ namespace egg::internal {
     virtual Assignability isFunctionSignatureAssignable(const IFunctionSignature& dst, const IFunctionSignature& src) override {
       return this->computeFunctionSignatureAssignability(&dst, &src);
     }
+    virtual const IType::Shape* getMetashape(const Type& infratype) override {
+      return this->cacheMetashape.find(*infratype);
+    }
     virtual HardPtr<ITypeForgeFunctionBuilder> createFunctionBuilder() override {
       return this->createBuilder<TypeForgeFunctionBuilder>();
     }
@@ -942,6 +1011,12 @@ namespace egg::internal {
     }
     virtual HardPtr<ITypeForgeComplexBuilder> createComplexBuilder() override {
       return this->createBuilder<TypeForgeComplexBuilder>();
+    }
+    virtual HardPtr<ITypeForgeSpecificationBuilder> createSpecificationBuilder() override {
+      return this->createBuilder<TypeForgeSpecificationBuilder>();
+    }
+    virtual HardPtr<ITypeForgeMetashapeBuilder> createMetashapeBuilder() override {
+      return this->createBuilder<TypeForgeMetashapeBuilder>();
     }
     TypeShape forgeShape(TypeForgeShape&& shape) {
       return TypeShape(this->cacheShape.fetch(std::move(shape)));
@@ -992,6 +1067,13 @@ namespace egg::internal {
     }
     const ITaggableSignature& forgeTaggableSignature(TypeForgeTaggableSignature&& signature) {
       return this->cacheTaggableSignature.fetch(std::move(signature));
+    }
+    TypeShape forgeMetashape(const Type& infratype, TypeForgeShape&& metashape) {
+      auto& forged = this->cacheShape.fetch(std::move(metashape));
+      if (infratype == nullptr) {
+        return TypeShape(forged);
+      }
+      return TypeShape(this->cacheMetashape.add(*infratype, forged));
     }
     template<typename T>
     HardPtr<T> createBuilder() {
@@ -1301,6 +1383,14 @@ namespace egg::internal {
       sb << suffix;
       return sb.build(this->allocator);
     }
+    void addMetashapes() {
+      this->addMetashapeString();
+    }
+    void addMetashapeString() {
+      auto mb = this->createMetashapeBuilder();
+      mb->addProperty(StringBuilder::concat(this->allocator, "WIBBLE"), Type::String, Modifiability::ReadWriteMutate);
+      mb->build(Type::String);
+    }
   };
 
   template<typename T>
@@ -1360,6 +1450,37 @@ namespace egg::internal {
 
   Type TypeForgeComplexBuilder::build() {
     return this->forge.forgeComplexType(this->flags, this->shapeset);
+  }
+
+  Type TypeForgeSpecificationBuilder::build() {
+    auto infratype = this->forge.forgeShapeType(this->infrashaper.build(nullptr));
+    this->metashaper.build(infratype);
+    return infratype;
+  }
+
+  ITypeForgePropertyBuilder& TypeForgeMetashapeBuilder::getPropertyBuilder() {
+    if (this->propertyBuilder == nullptr) {
+      this->propertyBuilder = this->forge.createPropertyBuilder();
+    }
+    return *this->propertyBuilder;
+  }
+
+  ITypeForgeTaggableBuilder& TypeForgeMetashapeBuilder::getTaggableBuilder() {
+    if (this->taggableBuilder == nullptr) {
+      this->taggableBuilder = this->forge.createTaggableBuilder();
+    }
+    return *this->taggableBuilder;
+  }
+
+  TypeShape TypeForgeMetashapeBuilder::build(const Type& infratype) {
+    TypeForgeShape metashape;
+    if (this->propertyBuilder != nullptr) {
+      metashape.dotable = &this->propertyBuilder->build();
+    }
+    if (this->taggableBuilder != nullptr) {
+      metashape.taggable = &this->taggableBuilder->build();
+    }
+    return this->forge.forgeMetashape(infratype, std::move(metashape));
   }
 
   const char* valueFlagsComponent(ValueFlags flags) {

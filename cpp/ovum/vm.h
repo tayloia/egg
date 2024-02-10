@@ -194,6 +194,7 @@ namespace egg::ovum {
     // Type expression factories
     virtual Node& typeLiteral(const Type& type, const SourceRange& range) = 0;
     virtual Node& typeVariableGet(const String& symbol, const SourceRange& range) = 0;
+    virtual Node& typePropertyGet(Node& type, Node& property, const SourceRange& range) = 0;
     virtual Node& typeUnaryOp(TypeUnaryOp op, Node& arg, const SourceRange& range) = 0;
     virtual Node& typeBinaryOp(TypeBinaryOp op, Node& lhs, Node& rhs, const SourceRange& range) = 0;
     virtual Node& typeManifestation(ValueFlags flags, const SourceRange& range) = 0;
@@ -201,6 +202,8 @@ namespace egg::ovum {
     virtual Node& typeFunctionSignatureParameter(const String& pname, IFunctionSignatureParameter::Flags pflags, Node& ptype, const SourceRange& range) = 0;
     virtual Node& typeGenerator(Node& etype, const SourceRange& range) = 0;
     virtual Node& typeSpecification(const SourceRange& range) = 0;
+    virtual Node& typeSpecificationDescription(const String& description, const SourceRange& range) = 0;
+    virtual Node& typeSpecificationStaticData(const String& symbol, Node& type, Node& value, const SourceRange& range) = 0;
     // Statement factories
     virtual Node& stmtBlock(const SourceRange& range) = 0;
     virtual Node& stmtIf(Node& condition, const SourceRange& range) = 0;

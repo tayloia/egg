@@ -1,0 +1,4 @@
+type Holder {
+  int i = 123;
+};
+assert(Holder.i == 123);

@@ -1313,7 +1313,7 @@ namespace {
       }
       if (next.kind == EggTokenizerKind::Identifier) {
         // Assume the identifier is a type name
-        auto node = this->makeNodeString(Node::Kind::TypeVariable, next);
+        auto node = this->makeNodeString(Node::Kind::Variable, next);
         return context.success(std::move(node), tokidx + 1, true);
       }
       return context.skip();
@@ -1327,7 +1327,8 @@ namespace {
       Context context(*this, tokidx);
       auto& curly = context[0];
       assert(curly.isOperator(EggTokenizerOperator::CurlyLeft));
-      auto definition = this->makeNode(Node::Kind::TypeSpecification, curly);
+      auto description = egg::ovum::ValueFactory::createString(this->allocator, tname);
+      auto definition = this->makeNodeValue(Node::Kind::TypeSpecification, curly, description);
       auto nxtidx = tokidx + 1;
       while (!this->getAbsolute(nxtidx).isOperator(EggTokenizerOperator::CurlyRight)) {
         auto inner = this->parseTypeDefinitionClause(nxtidx, tname);
@@ -1367,7 +1368,7 @@ namespace {
           if (!expr.after(0).isOperator(EggTokenizerOperator::Semicolon)) {
             return context.expected(expr.tokensAfter, "';' after value of '", tname, ".", identifier.value.s, "'");
           }
-          auto stmt = this->makeNodeString(Node::Kind::TypeSpecificationClassData, identifier);
+          auto stmt = this->makeNodeString(Node::Kind::TypeSpecificationStaticData, identifier);
           stmt->children.emplace_back(std::move(type.node));
           stmt->children.emplace_back(std::move(expr.node));
           return context.success(std::move(stmt), expr.tokensAfter + 1);
@@ -1746,7 +1747,7 @@ namespace {
         node = this->makeNodeString(Node::Kind::Literal, next);
         return context.success(std::move(node), tokidx + 1);
       case EggTokenizerKind::Identifier:
-        node = this->makeNodeString(Node::Kind::ExprVariable, next);
+        node = this->makeNodeString(Node::Kind::Variable, next);
         return context.success(std::move(node), tokidx + 1);
       case EggTokenizerKind::Keyword:
         return this->parseValueExpressionPrimaryPrefixKeyword(tokidx);

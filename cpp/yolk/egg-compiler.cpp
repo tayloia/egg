@@ -17,6 +17,11 @@ namespace {
   using ParserNode = egg::yolk::IEggParser::Node;
   using ParserNodes = std::vector<std::unique_ptr<ParserNode>>;
 
+  enum class Ambiguous {
+    Value,
+    Type
+  };
+
   class ModuleCompiler final : public egg::ovum::IVMModuleBuilder::Reporter {
     ModuleCompiler(const ModuleCompiler&) = delete;
     ModuleCompiler& operator=(const ModuleCompiler&) = delete;
@@ -186,14 +191,17 @@ namespace {
     ModuleNode* compileValueExprManifestation(ParserNode& pnode, egg::ovum::ValueFlags flags);
     ModuleNode* compileValueExprMissing(ParserNode& pnode);
     ModuleNode* compileTypeExpr(ParserNode& pnode, const ExprContext& context);
-    ModuleNode* compileTypeExprVariableGet(ParserNode& pnode, const ExprContext& context);
+    ModuleNode* compileTypeExprVariable(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileTypeExprUnary(ParserNode& op, ParserNode& lhs, const ExprContext& context);
     ModuleNode* compileTypeExprBinary(ParserNode& op, ParserNode& lhs, ParserNode& rhs, const ExprContext& context);
     ModuleNode* compileTypeExprFunctionSignature(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileTypeExprSpecification(ParserNode& pnode, const ExprContext& context);
+    ModuleNode* compileTypeExprSpecificationStaticData(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileTypeGuard(ParserNode& pnode, const ExprContext& context, egg::ovum::Type& type, ModuleNode*& mcond);
     ModuleNode* compileTypeInfer(ParserNode& pnode, ParserNode& ptype, ParserNode& pexpr, const ExprContext& context, egg::ovum::Type& type, ModuleNode*& mexpr);
     ModuleNode* compileTypeInferVar(ParserNode& pnode, ParserNode& ptype, ParserNode& pexpr, const ExprContext& context, egg::ovum::Type& type, ModuleNode*& mexpr, bool nullable);
+    ModuleNode* compileAmbiguousExpr(ParserNode& pnode, const ExprContext& context, Ambiguous& ambiguous);
+    ModuleNode* compileAmbiguousVariable(ParserNode& pnode, const ExprContext& context, Ambiguous& ambiguous);
     ModuleNode* compileLiteral(ParserNode& pnode);
     ModuleNode* checkCompilation(ModuleNode& mnode, const ExprContext& context);
     bool checkValueExprOperand(const char* expected, ModuleNode& mnode, ParserNode& pnode, egg::ovum::ValueFlags required, const ExprContext& context);
@@ -420,7 +428,6 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, StmtContext& context)
   case ParserNode::Kind::StmtDefault:
   case ParserNode::Kind::StmtCatch:
   case ParserNode::Kind::StmtFinally:
-  case ParserNode::Kind::ExprVariable:
   case ParserNode::Kind::ExprUnary:
   case ParserNode::Kind::ExprBinary:
   case ParserNode::Kind::ExprTernary:
@@ -432,7 +439,6 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, StmtContext& context)
   case ParserNode::Kind::ExprObject:
   case ParserNode::Kind::ExprEllipsis:
   case ParserNode::Kind::ExprGuard:
-  case ParserNode::Kind::TypeVariable:
   case ParserNode::Kind::TypeInfer:
   case ParserNode::Kind::TypeInferQ:
   case ParserNode::Kind::TypeVoid:
@@ -448,8 +454,9 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, StmtContext& context)
   case ParserNode::Kind::TypeFunctionSignature:
   case ParserNode::Kind::TypeFunctionSignatureParameter:
   case ParserNode::Kind::TypeSpecification:
-  case ParserNode::Kind::TypeSpecificationClassData:
+  case ParserNode::Kind::TypeSpecificationStaticData:
   case ParserNode::Kind::Literal:
+  case ParserNode::Kind::Variable:
   case ParserNode::Kind::Named:
   default:
     break;
@@ -640,7 +647,7 @@ ModuleNode* ModuleCompiler::compileStmtMutate(ParserNode& pnode, StmtContext& co
     EXPECT(pnode, pnode.children.size() == 2);
   }
   auto& plhs = *pnode.children.front();
-  if (plhs.kind == ParserNode::Kind::ExprVariable) {
+  if (plhs.kind == ParserNode::Kind::Variable) {
     // 'variable'
     EXPECT(plhs, plhs.children.empty());
     egg::ovum::String symbol;
@@ -1234,7 +1241,7 @@ ModuleNode* ModuleCompiler::compileStmtMissing(ParserNode& pnode, StmtContext&) 
 
 ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode, const ExprContext& context) {
   switch (pnode.kind) {
-  case ParserNode::Kind::ExprVariable:
+  case ParserNode::Kind::Variable:
     return this->compileValueExprVariable(pnode, context);
   case ParserNode::Kind::ExprUnary:
     EXPECT(pnode, pnode.children.size() == 1);
@@ -1313,7 +1320,6 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode, const ExprContex
     return this->compileValueExprManifestation(pnode, egg::ovum::ValueFlags::Type);
   case ParserNode::Kind::ModuleRoot:
   case ParserNode::Kind::ExprEllipsis:
-  case ParserNode::Kind::TypeVariable:
   case ParserNode::Kind::TypeInfer:
   case ParserNode::Kind::TypeInferQ:
   case ParserNode::Kind::TypeUnary:
@@ -1321,7 +1327,7 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode, const ExprContex
   case ParserNode::Kind::TypeFunctionSignature:
   case ParserNode::Kind::TypeFunctionSignatureParameter:
   case ParserNode::Kind::TypeSpecification:
-  case ParserNode::Kind::TypeSpecificationClassData:
+  case ParserNode::Kind::TypeSpecificationStaticData:
   case ParserNode::Kind::StmtBlock:
   case ParserNode::Kind::StmtDeclareVariable:
   case ParserNode::Kind::StmtDefineVariable:
@@ -1360,7 +1366,7 @@ ModuleNode* ModuleCompiler::compileValueExprVariable(ParserNode& pnode, const Ex
     return this->error(pnode, "Unknown identifier: '", symbol, "'");
   }
   if (extant->kind == ExprContext::Symbol::Kind::Type) {
-    return this->error(pnode, "Identifier '", symbol, "' is a type");
+    return &this->mbuilder.typeVariableGet(symbol, pnode.range);
   }
   return &this->mbuilder.exprVariableGet(symbol, pnode.range);
 }
@@ -1548,25 +1554,23 @@ ModuleNode* ModuleCompiler::compileValueExprIndex(ParserNode& bracket, ParserNod
 }
 
 ModuleNode* ModuleCompiler::compileValueExprProperty(ParserNode& dot, ParserNode& lhs, ParserNode& rhs, const ExprContext& context) {
-  ModuleNode* lexpr;
-  auto type = this->literalType(lhs);
-  if (type != nullptr) {
-    // Something like 'string.from'
-    lexpr = &this->mbuilder.typeLiteral(type, lhs.range);
-  } else {
-    lexpr = this->compileValueExpr(lhs, context);
+  Ambiguous ambiguous;
+  auto* lexpr = this->compileAmbiguousExpr(lhs, context, ambiguous);
+  if (lexpr == nullptr) {
+    return nullptr;
   }
-  if (lexpr != nullptr) {
-    auto* rexpr = this->compileValueExpr(rhs, context);
-    if (rexpr != nullptr) {
-      return this->checkCompilation(this->mbuilder.exprPropertyGet(*lexpr, *rexpr, dot.range), context);
-    }
+  auto* rexpr = this->compileValueExpr(rhs, context);
+  if (rexpr == nullptr) {
+    return nullptr;
   }
-  return nullptr;
+  if (ambiguous == Ambiguous::Type) {
+    return this->checkCompilation(this->mbuilder.typePropertyGet(*lexpr, *rexpr, dot.range), context);
+  }
+  return this->checkCompilation(this->mbuilder.exprPropertyGet(*lexpr, *rexpr, dot.range), context);
 }
 
 ModuleNode* ModuleCompiler::compileValueExprReference(ParserNode& ampersand, ParserNode& pexpr, const ExprContext& context) {
-  if (pexpr.kind == ParserNode::Kind::ExprVariable) {
+  if (pexpr.kind == ParserNode::Kind::Variable) {
     // '&variable'
     EXPECT(pexpr, pexpr.children.empty());
     egg::ovum::String symbol;
@@ -1726,6 +1730,8 @@ ModuleNode* ModuleCompiler::compileValueExprMissing(ParserNode& pnode) {
 
 ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode, const ExprContext& context) {
   switch (pnode.kind) {
+  case ParserNode::Kind::Variable:
+    return this->compileTypeExprVariable(pnode, context);
   case ParserNode::Kind::TypeVoid:
     return &this->mbuilder.typeLiteral(egg::ovum::Type::Void, pnode.range);
   case ParserNode::Kind::TypeBool:
@@ -1740,8 +1746,6 @@ ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode, const ExprContext
     return &this->mbuilder.typeLiteral(egg::ovum::Type::Object, pnode.range);
   case ParserNode::Kind::TypeAny:
     return &this->mbuilder.typeLiteral(egg::ovum::Type::Any, pnode.range);
-  case ParserNode::Kind::TypeVariable:
-    return this->compileTypeExprVariableGet(pnode, context);
   case ParserNode::Kind::TypeUnary:
     EXPECT(pnode, pnode.children.size() == 1);
     EXPECT(pnode, pnode.children[0] != nullptr);
@@ -1756,12 +1760,11 @@ ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode, const ExprContext
     return this->compileTypeExprFunctionSignature(pnode, context);
   case ParserNode::Kind::TypeSpecification:
     return this->compileTypeExprSpecification(pnode, context);
-  case ParserNode::Kind::TypeSpecificationClassData:
-    return this->expected(pnode, "type expression (WIBBLE)");
   case ParserNode::Kind::TypeType:
   case ParserNode::Kind::TypeInfer:
   case ParserNode::Kind::TypeInferQ:
   case ParserNode::Kind::TypeFunctionSignatureParameter:
+  case ParserNode::Kind::TypeSpecificationStaticData:
     // Should not be compiled directly
     break;
   case ParserNode::Kind::ModuleRoot:
@@ -1787,7 +1790,6 @@ ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode, const ExprContext
   case ParserNode::Kind::StmtBreak:
   case ParserNode::Kind::StmtContinue:
   case ParserNode::Kind::StmtMutate:
-  case ParserNode::Kind::ExprVariable:
   case ParserNode::Kind::ExprUnary:
   case ParserNode::Kind::ExprBinary:
   case ParserNode::Kind::ExprTernary:
@@ -1808,7 +1810,7 @@ ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode, const ExprContext
   return this->expected(pnode, "type expression");
 }
 
-ModuleNode* ModuleCompiler::compileTypeExprVariableGet(ParserNode& pnode, const ExprContext& context) {
+ModuleNode* ModuleCompiler::compileTypeExprVariable(ParserNode& pnode, const ExprContext& context) {
   EXPECT(pnode, pnode.children.empty());
   egg::ovum::String symbol;
   EXPECT(pnode, pnode.value->getString(symbol));
@@ -1821,6 +1823,7 @@ ModuleNode* ModuleCompiler::compileTypeExprVariableGet(ParserNode& pnode, const 
   }
   return &this->mbuilder.typeVariableGet(symbol, pnode.range);
 }
+
 ModuleNode* ModuleCompiler::compileTypeExprUnary(ParserNode& op, ParserNode& lhs, const ExprContext& context) {
   auto* mtype = this->compileTypeExpr(lhs, context);
   if (mtype == nullptr) {
@@ -1885,14 +1888,44 @@ ModuleNode* ModuleCompiler::compileTypeExprFunctionSignature(ParserNode& pnode, 
   return mnode;
 }
 
-ModuleNode* ModuleCompiler::compileTypeExprSpecification(ParserNode& pnode, const ExprContext&) {
+ModuleNode* ModuleCompiler::compileTypeExprSpecification(ParserNode& pnode, const ExprContext& context) {
   assert(pnode.kind == ParserNode::Kind::TypeSpecification);
   auto* mnode = &this->mbuilder.typeSpecification(pnode.range);
+  egg::ovum::String description;
+  if (pnode.value->getString(description)) {
+    this->mbuilder.appendChild(*mnode, this->mbuilder.typeSpecificationDescription(description, pnode.range));
+  }
   for (auto& pchild : pnode.children) {
     assert(pchild != nullptr);
-    if (pchild) // WIBBLE
-    return this->error(*pchild, "WIBBLE: Non-trivial type specification");
+    ModuleNode* mchild;
+    if (pchild->kind == ParserNode::Kind::TypeSpecificationStaticData) {
+      mchild = this->compileTypeExprSpecificationStaticData(*pchild, context);
+    } else {
+      return this->expected(*pchild, "type specification clause");
+    }
+    if (mchild == nullptr) {
+      mnode = nullptr;
+    } else if (mnode != nullptr) {
+      this->mbuilder.appendChild(*mnode, *mchild);
+    }
   }
+  return mnode;
+}
+
+ModuleNode* ModuleCompiler::compileTypeExprSpecificationStaticData(ParserNode& pnode, const ExprContext& context) {
+  assert(pnode.kind == ParserNode::Kind::TypeSpecificationStaticData);
+  EXPECT(pnode, pnode.children.size() == 2);
+  egg::ovum::String symbol;
+  EXPECT(pnode, pnode.value->getString(symbol));
+  auto mtype = this->compileTypeExpr(*pnode.children.front(), context);
+  if (mtype == nullptr) {
+    return nullptr;
+  }
+  auto mvalue = this->compileValueExpr(*pnode.children.front(), context);
+  if (mvalue == nullptr) {
+    return nullptr;
+  }
+  auto* mnode = &this->mbuilder.typeSpecificationStaticData(symbol, *mtype, *mvalue, pnode.range);
   return mnode;
 }
 
@@ -1979,6 +2012,57 @@ ModuleNode* ModuleCompiler::compileTypeInferVar(ParserNode& pnode, ParserNode& p
   type = forge.forgeVoidableType(type, false);
   assert(type != nullptr);
   return &this->mbuilder.typeLiteral(type, ptype.range);
+}
+
+ModuleNode* ModuleCompiler::compileAmbiguousExpr(ParserNode& pnode, const ExprContext& context, Ambiguous& ambiguous) {
+  EGG_WARNING_SUPPRESS_SWITCH_BEGIN
+  switch (pnode.kind) {
+  case ParserNode::Kind::Variable:
+    return this->compileAmbiguousVariable(pnode, context, ambiguous);
+  case ParserNode::Kind::TypeVoid:
+    ambiguous = Ambiguous::Type;
+    return &this->mbuilder.typeLiteral(egg::ovum::Type::Void, pnode.range);
+  case ParserNode::Kind::TypeBool:
+    ambiguous = Ambiguous::Type;
+    return &this->mbuilder.typeLiteral(egg::ovum::Type::Bool, pnode.range);
+  case ParserNode::Kind::TypeInt:
+    ambiguous = Ambiguous::Type;
+    return &this->mbuilder.typeLiteral(egg::ovum::Type::Int, pnode.range);
+  case ParserNode::Kind::TypeFloat:
+    ambiguous = Ambiguous::Type;
+    return &this->mbuilder.typeLiteral(egg::ovum::Type::Float, pnode.range);
+  case ParserNode::Kind::TypeString:
+    ambiguous = Ambiguous::Type;
+    return &this->mbuilder.typeLiteral(egg::ovum::Type::String, pnode.range);
+  case ParserNode::Kind::TypeObject:
+    ambiguous = Ambiguous::Type;
+    return &this->mbuilder.typeLiteral(egg::ovum::Type::Object, pnode.range);
+  case ParserNode::Kind::TypeAny:
+    ambiguous = Ambiguous::Type;
+    return &this->mbuilder.typeLiteral(egg::ovum::Type::Any, pnode.range);
+  }
+  EGG_WARNING_SUPPRESS_SWITCH_END
+  auto* mnode = this->compileValueExpr(pnode, context);
+  if (mnode != nullptr) {
+    ambiguous = Ambiguous::Value;
+  }
+  return mnode;
+}
+
+ModuleNode* ModuleCompiler::compileAmbiguousVariable(ParserNode& pnode, const ExprContext& context, Ambiguous& ambiguous) {
+  EXPECT(pnode, pnode.children.empty());
+  egg::ovum::String symbol;
+  EXPECT(pnode, pnode.value->getString(symbol));
+  auto extant = context.findSymbol(symbol);
+  if (extant == nullptr) {
+    return this->error(pnode, "Unknown identifier: '", symbol, "'");
+  }
+  if (extant->kind == ExprContext::Symbol::Kind::Type) {
+    ambiguous = Ambiguous::Type;
+    return &this->mbuilder.typeVariableGet(symbol, pnode.range);
+  }
+  ambiguous = Ambiguous::Value;
+  return &this->mbuilder.exprVariableGet(symbol, pnode.range);
 }
 
 ModuleNode* ModuleCompiler::compileLiteral(ParserNode& pnode) {
@@ -2170,8 +2254,6 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
     return "continue statement";
   case ParserNode::Kind::StmtMutate:
     return "mutate statement";
-  case ParserNode::Kind::ExprVariable:
-    return "variable expression";
   case ParserNode::Kind::ExprUnary:
     return "unary operator";
   case ParserNode::Kind::ExprBinary:
@@ -2198,8 +2280,6 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
     return "guard expression";
   case ParserNode::Kind::TypeInfer:
     return "type infer";
-  case ParserNode::Kind::TypeVariable:
-    return "type variable";
   case ParserNode::Kind::TypeInferQ:
     return "type infer?";
   case ParserNode::Kind::TypeBool:
@@ -2228,10 +2308,12 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
     return "type function signature parameter";
   case ParserNode::Kind::TypeSpecification:
     return "type specification";
-  case ParserNode::Kind::TypeSpecificationClassData:
-    return "type specification class data";
+  case ParserNode::Kind::TypeSpecificationStaticData:
+    return "type specification static data";
   case ParserNode::Kind::Literal:
     return "literal";
+  case ParserNode::Kind::Variable:
+    return "variable";
   case ParserNode::Kind::Named:
     return "named expression";
   case ParserNode::Kind::Missing:

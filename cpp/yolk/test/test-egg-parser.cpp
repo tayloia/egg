@@ -118,9 +118,6 @@ namespace {
       return printNodeChildren(os, "stmt-continue", node, ranges);
     case Node::Kind::StmtMutate:
       return printNodeExtra(os, "stmt-mutate", node.op.valueMutationOp, node, ranges);
-    case Node::Kind::ExprVariable:
-      assert(node.children.empty());
-      return printNodeExtra(os, "expr-variable", node.value, node, ranges);
     case Node::Kind::ExprUnary:
       assert(node.children.size() == 1);
       return printNodeExtra(os, "expr-unary", node.op.valueUnaryOp, node, ranges);
@@ -154,9 +151,6 @@ namespace {
     case Node::Kind::ExprGuard:
       assert(node.children.size() == 2);
       return printNodeChildren(os, "expr-guard", node, ranges);
-    case Node::Kind::TypeVariable:
-      assert(node.children.empty());
-      return printNodeExtra(os, "type-variable", node.value, node, ranges);
     case Node::Kind::TypeInfer:
       assert(node.children.empty());
       return printNodeChildren(os, "type-infer", node, ranges);
@@ -214,11 +208,14 @@ namespace {
       break;
     case Node::Kind::TypeSpecification:
       return printNodeChildren(os, "type-specification", node, ranges);
-    case Node::Kind::TypeSpecificationClassData:
-      return printNodeExtra(os, "type-specification-class-data", node.value, node, ranges);
+    case Node::Kind::TypeSpecificationStaticData:
+      return printNodeExtra(os, "type-specification-static-data", node.value, node, ranges);
     case Node::Kind::Literal:
       assert(node.children.empty());
       return printValue(os, node.value, '"');
+    case Node::Kind::Variable:
+      assert(node.children.empty());
+      return printNodeExtra(os, "variable", node.value, node, ranges);
     case Node::Kind::Named:
       assert(node.children.size() == 1);
       return printNodeExtra(os, "named", node.value, node, ranges);
@@ -308,7 +305,7 @@ TEST(TestEggParser, HelloWorld) {
   std::string actual = outputFromLines({
     "print(\"Hello, World!\");"
   });
-  std::string expected = "(expr-call (expr-variable 'print') \"Hello, World!\")\n";
+  std::string expected = "(expr-call (variable 'print') \"Hello, World!\")\n";
   ASSERT_EQ(expected, actual);
 }
 
@@ -316,7 +313,7 @@ TEST(TestEggParser, ExpressionUnary) {
   std::string actual = outputFromLines({
     "print(-a);"
     });
-  std::string expected = "(expr-call (expr-variable 'print') (expr-unary '-' (expr-variable 'a')))\n";
+  std::string expected = "(expr-call (variable 'print') (expr-unary '-' (variable 'a')))\n";
   ASSERT_EQ(expected, actual);
 }
 
@@ -324,7 +321,7 @@ TEST(TestEggParser, ExpressionBinary) {
   std::string actual = outputFromLines({
     "print(a + b);"
     });
-  std::string expected = "(expr-call (expr-variable 'print') (expr-binary '+' (expr-variable 'a') (expr-variable 'b')))\n";
+  std::string expected = "(expr-call (variable 'print') (expr-binary '+' (variable 'a') (variable 'b')))\n";
   ASSERT_EQ(expected, actual);
 }
 
@@ -332,7 +329,7 @@ TEST(TestEggParser, ExpressionTernary) {
   std::string actual = outputFromLines({
     "print(a ? b : c);"
     });
-  std::string expected = "(expr-call (expr-variable 'print') (expr-ternary '?:' (expr-variable 'a') (expr-variable 'b') (expr-variable 'c')))\n";
+  std::string expected = "(expr-call (variable 'print') (expr-ternary '?:' (variable 'a') (variable 'b') (variable 'c')))\n";
   ASSERT_EQ(expected, actual);
 }
 
@@ -493,7 +490,7 @@ TEST(TestEggParser, ValueCall) {
   std::string actual = outputFromLines({
     "var x = assert(false);"
     });
-  std::string expected = "(stmt-define-variable 'x' (type-infer) (expr-call (expr-variable 'assert') false))\n";
+  std::string expected = "(stmt-define-variable 'x' (type-infer) (expr-call (variable 'assert') false))\n";
   ASSERT_EQ(expected, actual);
 }
 
@@ -501,7 +498,7 @@ TEST(TestEggParser, ValueIndex) {
   std::string actual = outputFromLines({
     "var x = assert[0];"
     });
-  std::string expected = "(stmt-define-variable 'x' (type-infer) (expr-index (expr-variable 'assert') 0))\n";
+  std::string expected = "(stmt-define-variable 'x' (type-infer) (expr-index (variable 'assert') 0))\n";
   ASSERT_EQ(expected, actual);
 }
 
@@ -509,7 +506,7 @@ TEST(TestEggParser, ValueProperty) {
   std::string actual = outputFromLines({
     "var x = assert.that;"
     });
-  std::string expected = "(stmt-define-variable 'x' (type-infer) (expr-property (expr-variable 'assert') \"that\"))\n";
+  std::string expected = "(stmt-define-variable 'x' (type-infer) (expr-property (variable 'assert') \"that\"))\n";
   ASSERT_EQ(expected, actual);
 }
 
@@ -536,8 +533,8 @@ TEST(TestEggParser, StatementNudge) {
     "--x;"
     });
   std::string expected = "(stmt-define-variable 'x' (type-infer) 0)\n"
-                         "(stmt-mutate '++' (expr-variable 'x'))\n"
-                         "(stmt-mutate '--' (expr-variable 'x'))\n";
+                         "(stmt-mutate '++' (variable 'x'))\n"
+                         "(stmt-mutate '--' (variable 'x'))\n";
   ASSERT_EQ(expected, actual);
 }
 
@@ -545,7 +542,7 @@ TEST(TestEggParser, StatementForLoop) {
   std::string actual = outputFromLines({
     "for (var i = 0; i < 10; ++i) {}"
     });
-  std::string expected = "(stmt-for-loop (stmt-define-variable 'i' (type-infer) 0) (expr-binary '<' (expr-variable 'i') 10) (stmt-mutate '++' (expr-variable 'i')) (stmt-block))\n";
+  std::string expected = "(stmt-for-loop (stmt-define-variable 'i' (type-infer) 0) (expr-binary '<' (variable 'i') 10) (stmt-mutate '++' (variable 'i')) (stmt-block))\n";
   ASSERT_EQ(expected, actual);
 }
 
@@ -741,7 +738,7 @@ TEST(TestEggParser, StatementThrow) {
   std::string actual = outputFromLines({
     "throw i;"
     });
-  std::string expected = "(stmt-throw (expr-variable 'i'))\n";
+  std::string expected = "(stmt-throw (variable 'i'))\n";
   ASSERT_EQ(expected, actual);
 }
 
@@ -757,7 +754,7 @@ TEST(TestEggParser, StatementWhileLoop) {
   std::string actual = outputFromLines({
     "while (i < 10) {}"
     });
-  std::string expected = "(stmt-while (expr-binary '<' (expr-variable 'i') 10) (stmt-block))\n";
+  std::string expected = "(stmt-while (expr-binary '<' (variable 'i') 10) (stmt-block))\n";
   ASSERT_EQ(expected, actual);
 }
 
@@ -765,7 +762,7 @@ TEST(TestEggParser, StatementDoLoop) {
   std::string actual = outputFromLines({
     "do {} while (i < 10);"
     });
-  std::string expected = "(stmt-do (stmt-block) (expr-binary '<' (expr-variable 'i') 10))\n";
+  std::string expected = "(stmt-do (stmt-block) (expr-binary '<' (variable 'i') 10))\n";
   ASSERT_EQ(expected, actual);
 }
 
@@ -789,7 +786,7 @@ TEST(TestEggParser, StatementSwitch) {
   std::string actual = outputFromLines({
     "switch (i) { case 123: default: break; case 321: continue; }"
     });
-  std::string expected = "(stmt-switch (expr-variable 'i') (stmt-block (stmt-case 123) (stmt-default) (stmt-break) (stmt-case 321) (stmt-continue)))\n";
+  std::string expected = "(stmt-switch (variable 'i') (stmt-block (stmt-case 123) (stmt-default) (stmt-break) (stmt-case 321) (stmt-continue)))\n";
   ASSERT_EQ(expected, actual);
 }
 
@@ -854,9 +851,9 @@ TEST(TestEggParser, StatementTypeHolder) {
   std::string actual = outputFromLines({
     "type Holder {",
     " int i = 123;",
-    "}; "
+    "};"
     });
-  std::string expected = "(stmt-define-type 'Holder' (type-specification (type-specification-class-data 'i' (type-int) 123)))\n";
+  std::string expected = "(stmt-define-type 'Holder' (type-specification (type-specification-static-data 'i' (type-int) 123)))\n";
   ASSERT_EQ(expected, actual);
 }
 
@@ -866,6 +863,6 @@ TEST(TestEggParser, Ranges) {
   // 123456789012345678901234567890123456789
     "assert(alpha * -beta >= gamma[delta]);"
   }, true);
-  std::string expected = "(expr-call@(1,1-37) (expr-variable@(1,1-6) 'assert') (expr-binary@(1,8-36) '>=' (expr-binary@(1,8-20) '*' (expr-variable@(1,8-12) 'alpha') (expr-unary@(1,16-20) '-' (expr-variable@(1,17-20) 'beta'))) (expr-index@(1,25-36) (expr-variable@(1,25-29) 'gamma') (expr-variable@(1,31-35) 'delta'))))\n";
+  std::string expected = "(expr-call@(1,1-37) (variable@(1,1-6) 'assert') (expr-binary@(1,8-36) '>=' (expr-binary@(1,8-20) '*' (variable@(1,8-12) 'alpha') (expr-unary@(1,16-20) '-' (variable@(1,17-20) 'beta'))) (expr-index@(1,25-36) (variable@(1,25-29) 'gamma') (variable@(1,31-35) 'delta'))))\n";
   ASSERT_EQ(expected, actual);
 }
