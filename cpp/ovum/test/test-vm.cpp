@@ -196,13 +196,13 @@ TEST(TestVM, CreateHardValue) {
   ASSERT_STRING("goodbye", actual);
 }
 
-TEST(TestVM, GetManifestion) {
+TEST(TestVM, FindManifestation) {
   egg::test::VM vm;
-  auto manifestation = vm->getManifestation(Type::Arithmetic);
+  auto manifestation = vm->findManifestation(Type::Arithmetic);
   ASSERT_EQ(nullptr, manifestation);
-  manifestation = vm->getManifestation(Type::None); // 'type.'
+  manifestation = vm->findManifestation(Type::None); // 'type.'
   ASSERT_NE(nullptr, manifestation);
-  manifestation = vm->getManifestation(Type::String); // 'string.'
+  manifestation = vm->findManifestation(Type::String); // 'string.'
   ASSERT_NE(nullptr, manifestation);
   auto type = manifestation->vmRuntimeType();
   ASSERT_NE(nullptr, type);

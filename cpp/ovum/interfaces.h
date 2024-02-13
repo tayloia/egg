@@ -414,13 +414,6 @@ namespace egg::ovum {
     virtual Type build() = 0;
   };
 
-  class ITypeForgeSpecificationBuilder : public IHardAcquireRelease {
-  public:
-    virtual void setDescription(const String& description, int precedence) = 0;
-    virtual void addStaticData(const String& name, const Type& type) = 0;
-    virtual Type build() = 0;
-  };
-
   class ITypeForgeMetashapeBuilder : public IHardAcquireRelease {
   public:
     virtual void setDescription(const String& description, int precedence) = 0;
@@ -457,7 +450,6 @@ namespace egg::ovum {
     virtual HardPtr<ITypeForgePointerBuilder> createPointerBuilder() = 0;
     virtual HardPtr<ITypeForgeTaggableBuilder> createTaggableBuilder() = 0;
     virtual HardPtr<ITypeForgeComplexBuilder> createComplexBuilder() = 0;
-    virtual HardPtr<ITypeForgeSpecificationBuilder> createSpecificationBuilder() = 0;
     virtual HardPtr<ITypeForgeMetashapeBuilder> createMetashapeBuilder() = 0;
   };
 }

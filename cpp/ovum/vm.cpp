@@ -976,18 +976,18 @@ namespace {
     VMTypeDeducer(const VMTypeDeducer&) = delete;
     VMTypeDeducer& operator=(const VMTypeDeducer&) = delete;
   private:
-    using TypeLookup = IVMModuleBuilder::TypeLookup;
+    using Resolver = IVMTypeResolver;
     using Reporter = IVMModuleBuilder::Reporter;
     using Node = IVMModuleBuilder::Node;
-    IAllocator& allocator;
+    IVMProgram& program;
     ITypeForge& forge;
-    const TypeLookup& lookup;
+    Resolver& resolver;
     Reporter* reporter;
   public:
-    VMTypeDeducer(IAllocator& allocator, ITypeForge& forge, const TypeLookup& lookup, Reporter* reporter)
-      : allocator(allocator),
+    VMTypeDeducer(IVMProgram& program, ITypeForge& forge, Resolver& resolver, Reporter* reporter)
+      : program(program),
         forge(forge),
-        lookup(lookup),
+        resolver(resolver),
         reporter(reporter) {
     }
     Type deduce(Node& node) {
@@ -1121,9 +1121,13 @@ namespace {
       if (!literal->getString(symbol)) {
         return this->fail(range, "Invalid variable symbol literal: ", literal);
       }
-      auto type = this->lookup.typeLookup(symbol);
+      Resolver::Kind kind;
+      auto type = this->resolver.resolveSymbol(symbol, kind);
       if (type == nullptr) {
-        return this->fail(range, "Cannot deduce type for unknown variable: '", symbol, "'");
+        return this->fail(range, "Cannot deduce type for unknown identifier '", symbol, "'");
+      }
+      if (kind == Resolver::Kind::Type) {
+        return this->fail(range, "Identifier '", symbol, "' is a type, not a variable");
       }
       return type;
     }
@@ -1296,9 +1300,13 @@ namespace {
       if (!literal->getString(symbol)) {
         return this->fail(range, "Invalid type symbol literal: ", literal);
       }
-      auto type = this->lookup.typeLookup(symbol);
+      Resolver::Kind kind;
+      auto type = this->resolver.resolveSymbol(symbol, kind);
       if (type == nullptr) {
-        return this->fail(range, "Cannot deduce type for unknown symbol: '", symbol, "'");
+        return this->fail(range, "Cannot deduce type for unknown identifier '", symbol, "'");
+      }
+      if (kind != Resolver::Kind::Type) {
+        return this->fail(range, "Identifier '", symbol, "' is not a type");
       }
       return type;
     }
@@ -1406,30 +1414,15 @@ namespace {
       auto& signature = fb->build();
       return this->forge.forgeFunctionType(signature);
     }
-    Type deduceTypeSpecification(Node& specification, const SourceRange&) {
+    Type deduceTypeSpecification(Node& specification, const SourceRange& range) {
+      // TODO separate concepts of 'Type' and 'TypeSpecification'
       assert(specification.kind == Node::Kind::TypeSpecification);
-      auto sb = this->forge.createSpecificationBuilder();
-      for (auto* clause : specification.children) {
-        assert(clause != nullptr);
-        if (clause->kind == Node::Kind::TypeSpecificationDescription) {
-          String description;
-          if (clause->literal->getString(description)) {
-            sb->setDescription(description, 2);
-          }
-        } else if (clause->kind == Node::Kind::TypeSpecificationStaticData) {
-          String name;
-          if (!clause->literal->getString(name)) {
-            return this->fail(clause->range, "Missing name of type specification static data");
-          }
-          assert(!clause->children.empty());
-          auto type = this->deduce(*clause->children.front());
-          if (type == nullptr) {
-            return nullptr;
-          }
-          sb->addStaticData(name, type);
-        }
+      auto* known = this->resolver.resolveTypeSpecification(specification);
+      if (known == nullptr) {
+        return this->fail(range, "Invalid type specification node");
       }
-      return sb->build();
+      IVMTypeSpecification::Parameters parameters{}; // TODO
+      return known->instantiateType(parameters);
     }
     bool isDeducedAsFloat(Node& node) {
       auto type = this->deduce(node);
@@ -1438,7 +1431,7 @@ namespace {
     template<typename... ARGS>
     Type fail(const SourceRange& range, ARGS&&... args) {
       if (this->reporter != nullptr) {
-        auto problem = StringBuilder::concat(this->allocator, std::forward<ARGS>(args)...);
+        auto problem = StringBuilder::concat(this->program.getAllocator(), std::forward<ARGS>(args)...);
         this->reporter->report(range, problem);
       }
       return nullptr;
@@ -1597,7 +1590,6 @@ namespace {
       return node;
     }
     virtual Node& typeManifestation(const Type& type, const SourceRange& range) override {
-      if(type==nullptr) // WIBBLE
       assert(type.validate());
       auto& node = this->module->createNode(Node::Kind::TypeManifestation, range);
       node.literal = this->createHardValueType(type);
@@ -1826,8 +1818,36 @@ namespace {
     virtual ITypeForge& getTypeForge() const override {
       return this->vm.getTypeForge();
     }
-    virtual Type deduce(Node& node, const TypeLookup& lookup, Reporter* reporter) override {
-      VMTypeDeducer deducer{ this->getAllocator(), this->getTypeForge(), lookup, reporter };
+    virtual IVMTypeSpecification* registerTypeSpecification(const Node& spec, Resolver& resolver, Reporter& reporter) override {
+      // WIBBLE fold with 'stmtTypeSpecification'?
+      assert(spec.kind == Node::Kind::TypeSpecification);
+      auto sb = this->vm.createTypeSpecificationBuilder(&spec);
+      for (auto* clause : spec.children) {
+        assert(clause != nullptr);
+        if (clause->kind == Node::Kind::TypeSpecificationDescription) {
+          String description;
+          if (clause->literal->getString(description)) {
+            sb->setDescription(description, 2);
+          }
+        } else if (clause->kind == Node::Kind::TypeSpecificationStaticData) {
+          String name;
+          if (!clause->literal->getString(name)) {
+            reporter.report(clause->range, this->createString("Missing name of type specification static data"));
+            return nullptr;
+          }
+          assert(!clause->children.empty());
+          auto type = this->deduce(*clause->children.front(), resolver, &reporter);
+          if (type == nullptr) {
+            return nullptr;
+          }
+          sb->addStaticData(name, type);
+        }
+      }
+      // The build call will also register the specification with the registry in the VM
+      return &sb->build();
+    }
+    virtual Type deduce(Node& node, Resolver& resolver, Reporter* reporter) override {
+      VMTypeDeducer deducer{ *this->program, this->getTypeForge(), resolver, reporter };
       return deducer.deduce(node);
     }
     virtual void appendChild(Node& parent, Node& child) override {
@@ -1872,7 +1892,7 @@ namespace {
     }
   };
 
-  class VMRunner : public VMCollectable<IVMRunner> {
+  class VMRunner : public VMCollectable<IVMRunner>, public IVMTypeResolver {
     VMRunner(const VMRunner&) = delete;
     VMRunner& operator=(const VMRunner&) = delete;
   private:
@@ -1966,6 +1986,28 @@ namespace {
         return this->raiseRuntimeError("Expected yield value, but instead got ", describe(retval.get()));
       }
       return retval;
+    }
+    virtual Type resolveSymbol(const String& symbol, IVMTypeResolver::Kind& kind) override {
+      // Implements 'IVMTypeResolver'
+      auto found = this->symtable.find(symbol);
+      if (found == nullptr) {
+        return nullptr;
+      }
+      switch (found->kind) {
+      case VMSymbolKind::Type:
+        kind = IVMTypeResolver::Kind::Type;
+        break;
+      case VMSymbolKind::Builtin:
+      case VMSymbolKind::Variable:
+      default:
+        kind = IVMTypeResolver::Kind::Type;
+        break;
+      }
+      return found->type;
+    }
+    virtual IVMTypeSpecification* resolveTypeSpecification(const IVMModule::Node& spec) override {
+      assert(spec.kind == IVMModule::Node::Kind::TypeSpecification);
+      return this->vm.findTypeSpecification(spec);
     }
     const VMSymbolTable::Entry* addCapture(const VMCallCapture& capture) {
       return this->symtable.add(capture.kind, capture.name, capture.type, capture.soft);
@@ -2385,6 +2427,86 @@ namespace {
     return this->createHardValueString(sb.build(this->vm.getAllocator()));
   }
 
+  class VMTypeSpecification : public VMUncollectable<IVMTypeSpecification> {
+    VMTypeSpecification(const VMTypeSpecification&) = delete;
+    VMTypeSpecification& operator=(const VMTypeSpecification&) = delete;
+  private:
+    struct Instantiation {
+      Type type;
+      HardObject manifestation;
+    };
+    Type infratype;
+    TypeShape infrashape;
+    TypeShape metashape;
+    std::mutex mutex;
+    std::map<Parameters, Instantiation> instantiations;
+  public:
+    VMTypeSpecification(IVM& vm, const Type& infratype, const TypeShape& infrashape, const TypeShape& metashape)
+      : VMUncollectable(vm),
+        infratype(infratype),
+        infrashape(infrashape),
+        metashape(metashape) {
+      assert(this->infratype.validate());
+      assert(this->infrashape.validate());
+      assert(this->metashape.validate());
+    }
+    virtual Type instantiateType(const Parameters& parameters) override {
+      std::lock_guard<std::mutex> lock{ this->mutex };
+      auto& instantiation = this->instantiations[parameters];
+      if (instantiation.type == nullptr) {
+        // Need to initialize it and create the manifestation too
+        instantiation.type = this->createType(parameters);
+        instantiation.manifestation = this->createManifestation(parameters);
+        if ((instantiation.type != nullptr) && (instantiation.manifestation != nullptr)) {
+          this->vm.addManifestation(instantiation.type, instantiation.manifestation);
+        }
+      }
+      // TODO handle parameters correctly
+      return instantiation.type;
+    }
+  private:
+    Type createType(const Parameters&) const {
+      // TODO handle parameters correctly
+      return this->infratype;
+    }
+    HardObject createManifestation(const Parameters&) const {
+      // TODO handle parameters correctly
+      return ObjectFactory::createManifestationObject(this->vm);
+    }
+  };
+
+  class VMTypeSpecificationBuilder : public VMUncollectable<IVMTypeSpecificationBuilder> {
+    VMTypeSpecificationBuilder(const VMTypeSpecificationBuilder&) = delete;
+    VMTypeSpecificationBuilder& operator=(const VMTypeSpecificationBuilder&) = delete;
+  private:
+    HardPtr<ITypeForgeMetashapeBuilder> infrashaper;
+    HardPtr<ITypeForgeMetashapeBuilder> metashaper;
+    const IVMModule::Node* spec;
+  public:
+    VMTypeSpecificationBuilder(IVM& vm, const IVMModule::Node* spec)
+      : VMUncollectable(vm),
+        infrashaper(vm.getTypeForge().createMetashapeBuilder()),
+        metashaper(vm.getTypeForge().createMetashapeBuilder()),
+        spec(spec) {
+    }
+    virtual void setDescription(const String& description, int precedence) override {
+      this->infrashaper->setDescription(description, precedence);
+    }
+    virtual void addStaticData(const String& name, const Type& type) override {
+      this->metashaper->addProperty(name, type, Modifiability::Read);
+    }
+    virtual IVMTypeSpecification& build() override {
+      auto& forge = this->vm.getTypeForge();
+      auto infrashape = this->infrashaper->build(nullptr);
+      auto infratype = forge.forgeShapeType(infrashape);
+      auto metashape = this->metashaper->build(infratype);
+      auto* specification = this->getAllocator().makeRaw<VMTypeSpecification>(this->vm, infratype, infrashape, metashape);
+      assert(specification != nullptr);
+      this->vm.addTypeSpecification(*specification, this->spec);
+      return *specification;
+    }
+  };
+
   class VMDefault : public HardReferenceCountedAllocator<IVM> {
     VMDefault(const VMDefault&) = delete;
     VMDefault& operator=(const VMDefault&) = delete;
@@ -2392,21 +2514,22 @@ namespace {
     HardPtr<IBasket> basket;
     ILogger& logger;
     HardPtr<ITypeForge> forge;
-    std::map<const IType*, HardObject> manifestations;
+    std::map<Type, HardObject> manifestations;
+    std::map<const IVMModule::Node*, HardPtr<IVMTypeSpecification>> specifications;
   public:
     VMDefault(IAllocator& allocator, ILogger& logger)
       : HardReferenceCountedAllocator<IVM>(allocator),
         basket(BasketFactory::createBasket(allocator)),
         logger(logger) {
       this->forge = TypeForgeFactory::createTypeForge(allocator, *this->basket);
-      this->manifestations.emplace(Type::None.get(), ObjectFactory::createManifestationType(*this));
-      this->manifestations.emplace(Type::Void.get(), ObjectFactory::createManifestationVoid(*this));
-      this->manifestations.emplace(Type::Bool.get(), ObjectFactory::createManifestationBool(*this));
-      this->manifestations.emplace(Type::Int.get(), ObjectFactory::createManifestationInt(*this));
-      this->manifestations.emplace(Type::Float.get(), ObjectFactory::createManifestationFloat(*this));
-      this->manifestations.emplace(Type::String.get(), ObjectFactory::createManifestationString(*this));
-      this->manifestations.emplace(Type::Object.get(), ObjectFactory::createManifestationObject(*this));
-      this->manifestations.emplace(Type::Any.get(), ObjectFactory::createManifestationAny(*this));
+      this->manifestations.emplace(Type::None, ObjectFactory::createManifestationType(*this));
+      this->manifestations.emplace(Type::Void, ObjectFactory::createManifestationVoid(*this));
+      this->manifestations.emplace(Type::Bool, ObjectFactory::createManifestationBool(*this));
+      this->manifestations.emplace(Type::Int, ObjectFactory::createManifestationInt(*this));
+      this->manifestations.emplace(Type::Float, ObjectFactory::createManifestationFloat(*this));
+      this->manifestations.emplace(Type::String, ObjectFactory::createManifestationString(*this));
+      this->manifestations.emplace(Type::Object, ObjectFactory::createManifestationObject(*this));
+      this->manifestations.emplace(Type::Any, ObjectFactory::createManifestationAny(*this));
     }
     virtual IAllocator& getAllocator() const override {
       return this->allocator;
@@ -2420,7 +2543,28 @@ namespace {
     virtual ITypeForge& getTypeForge() const override {
       return *this->forge;
     }
-    virtual HardObject getManifestation(const Type& type) override {
+    virtual void addTypeSpecification(IVMTypeSpecification& specification, const IVMModule::Node* node) override {
+      if (node != nullptr) {
+        auto added = this->specifications.emplace(node, &specification).second;
+        assert(added);
+        (void)added;
+      }
+    }
+    virtual IVMTypeSpecification* findTypeSpecification(const IVMModule::Node& spec) const override {
+      auto found = this->specifications.find(&spec);
+      if (found == this->specifications.end()) {
+        return nullptr;
+      }
+      return found->second.get();
+    }
+    virtual void addManifestation(const Type& type, const HardObject& manifestation) override {
+      assert(type.validate());
+      assert(manifestation.validate());
+      auto added = this->manifestations.emplace(type, manifestation).second;
+      assert(added);
+      (void)added;
+    }
+    virtual HardObject findManifestation(const Type& type) override {
       assert(type.validate());
       auto found = this->manifestations.find(type.get());
       if (found != this->manifestations.end()) {
@@ -2436,6 +2580,9 @@ namespace {
     }
     virtual HardPtr<IVMProgramBuilder> createProgramBuilder() override {
       return HardPtr(this->getAllocator().makeRaw<VMProgramBuilder>(*this));
+    }
+    virtual HardPtr<IVMTypeSpecificationBuilder> createTypeSpecificationBuilder(const IVMModule::Node* spec) override {
+      return HardPtr(this->getAllocator().makeRaw<VMTypeSpecificationBuilder>(*this, spec));
     }
     virtual HardValue createHardValueVoid() override {
       return HardValue::Void;
@@ -3911,7 +4058,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       Type type;
       if (lhs->getHardType(type)) {
         assert(type != nullptr);
-        auto manifestation = this->vm.getManifestation(type);
+        auto manifestation = this->vm.findManifestation(type);
         if (manifestation == nullptr) {
           return this->raise("Cannot find manifestation for type '", describe(*type), "'");
         }
@@ -3939,7 +4086,10 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       if (!top.node->literal->getHardType(type)) {
         return this->raise("Invalid literal for type manifestation");
       }
-      auto manifestation = this->vm.getManifestation(type);
+      auto manifestation = this->vm.findManifestation(type);
+      if (manifestation == nullptr) {
+        return this->raise("Cannot find manifestation for type '", describe(*type), "'");
+      }
       return this->pop(this->createHardValueObject(manifestation));
     }
   case IVMModule::Node::Kind::TypeUnaryOp:
@@ -3999,26 +4149,19 @@ VMRunner::StepOutcome VMRunner::stepType() {
     assert(type != nullptr);
     return this->pop(node->literal);
   }
-  struct Helper : public IVMModuleBuilder::TypeLookup, public IVMModuleBuilder::Reporter {
-    VMRunner* runner;
-    String latest;
-    virtual Type typeLookup(const String& symbol) const override {
-      // WIBBLE
-      (void)symbol;
-      return nullptr;
-    }
+  struct Reporter : public IVMModuleBuilder::Reporter {
+    SourceRange latestRange;
+    String latestProblem;
     virtual void report(const SourceRange& range, const String& problem) override {
-      // WIBBLE
-      (void)range;
-      this->latest = problem;
+      this->latestRange = range;
+      this->latestProblem = problem;
     }
   };
-  Helper helper;
-  helper.runner = this;
-  VMTypeDeducer deducer{ this->getAllocator(), this->vm.getTypeForge(), helper, &helper };
+  Reporter reporter;
+  VMTypeDeducer deducer{ *this->program, this->vm.getTypeForge(), *this, &reporter };
   type = deducer.deduce(*node);
   if (type == nullptr) {
-    return this->raise(helper.latest);
+    return this->pop(this->execution.raiseRuntimeError(reporter.latestProblem, &reporter.latestRange));
   }
   node->literal = this->createHardValueType(type);
   return this->pop(node->literal);

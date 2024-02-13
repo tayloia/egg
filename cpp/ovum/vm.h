@@ -151,6 +151,19 @@ namespace egg::ovum {
     virtual HardValue debugSymtable() = 0;
   };
 
+  class IVMTypeSpecification : public IVMUncollectable {
+  public:
+    using Parameters = std::vector<const IType*>;
+    virtual Type instantiateType(const Parameters& parameters) = 0;
+  };
+
+  class IVMTypeSpecificationBuilder : public IVMUncollectable {
+  public:
+    virtual void setDescription(const String& description, int precedence) = 0;
+    virtual void addStaticData(const String& name, const Type& type) = 0;
+    virtual IVMTypeSpecification& build() = 0;
+  };
+
   class IVMProgram : public IVMUncollectable {
   public:
     virtual size_t getModuleCount() const = 0;
@@ -158,13 +171,20 @@ namespace egg::ovum {
     virtual HardPtr<IVMRunner> createRunner() = 0;
   };
 
+  class IVMTypeResolver {
+  public:
+    enum class Kind {
+      Value,
+      Type
+    };
+    virtual ~IVMTypeResolver() {}
+    virtual Type resolveSymbol(const String& symbol, Kind& kind) = 0;
+    virtual IVMTypeSpecification* resolveTypeSpecification(const IVMModule::Node& spec) = 0;
+  };
+
   class IVMModuleBuilder : public IVMUncollectable {
   public:
-    class TypeLookup {
-    public:
-      virtual ~TypeLookup() {}
-      virtual Type typeLookup(const String& symbol) const = 0;
-    };
+    using Resolver = IVMTypeResolver;
     class Reporter {
     public:
       virtual ~Reporter() {}
@@ -240,7 +260,8 @@ namespace egg::ovum {
     virtual Node& stmtYieldContinue(const SourceRange& range) = 0;
     // Type operations
     virtual ITypeForge& getTypeForge() const = 0;
-    virtual Type deduce(Node& node, const TypeLookup& lookup, Reporter* reporter) = 0;
+    virtual IVMTypeSpecification* registerTypeSpecification(const Node& spec, Resolver& resolver, Reporter& reporter) = 0;
+    virtual Type deduce(Node& node, Resolver& resolver, Reporter* reporter) = 0;
     // Modifiers
     virtual void appendChild(Node& parent, Node& child) = 0;
     // Helpers
@@ -270,10 +291,15 @@ namespace egg::ovum {
     virtual IBasket& getBasket() const = 0;
     virtual ILogger& getLogger() const = 0;
     virtual ITypeForge& getTypeForge() const = 0;
+    // Specification cache
+    virtual void addTypeSpecification(IVMTypeSpecification& specification, const IVMModule::Node* node) = 0;
+    virtual IVMTypeSpecification* findTypeSpecification(const IVMModule::Node& node) const = 0;
     // Manifestation cache
-    virtual HardObject getManifestation(const Type& type) = 0;
+    virtual void addManifestation(const Type& type, const HardObject& manifestation) = 0;
+    virtual HardObject findManifestation(const Type& type) = 0;
     // Builder factories
     virtual HardPtr<IVMProgramBuilder> createProgramBuilder() = 0;
+    virtual HardPtr<IVMTypeSpecificationBuilder> createTypeSpecificationBuilder(const IVMModule::Node* spec) = 0;
     // Builtin factories
     virtual HardObject createBuiltinAssert() = 0;
     virtual HardObject createBuiltinPrint() = 0;

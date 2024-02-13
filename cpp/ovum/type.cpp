@@ -756,27 +756,6 @@ namespace egg::internal {
     ITypeForgeTaggableBuilder& getTaggableBuilder();
   };
 
-  class TypeForgeSpecificationBuilder : public TypeForgeBaseBuilder<ITypeForgeSpecificationBuilder> {
-    TypeForgeSpecificationBuilder(const TypeForgeSpecificationBuilder&) = delete;
-    TypeForgeSpecificationBuilder& operator=(const TypeForgeSpecificationBuilder&) = delete;
-  private:
-    TypeForgeMetashapeBuilder infrashaper;
-    TypeForgeMetashapeBuilder metashaper;
-  public:
-    explicit TypeForgeSpecificationBuilder(TypeForgeDefault& forge)
-      : TypeForgeBaseBuilder(forge),
-        infrashaper(forge),
-        metashaper(forge) {
-    }
-    virtual void setDescription(const String& description, int precedence) override {
-      this->infrashaper.setDescription(description, precedence);
-    }
-    virtual void addStaticData(const String& name, const Type& type) override {
-      this->metashaper.addProperty(name, type, Modifiability::Read);
-    }
-    virtual Type build() override;
-  };
-
   class TypeForgeDefault : public HardReferenceCountedAllocator<ITypeForge> {
     TypeForgeDefault(const TypeForgeDefault&) = delete;
     TypeForgeDefault& operator=(const TypeForgeDefault&) = delete;
@@ -1011,9 +990,6 @@ namespace egg::internal {
     }
     virtual HardPtr<ITypeForgeComplexBuilder> createComplexBuilder() override {
       return this->createBuilder<TypeForgeComplexBuilder>();
-    }
-    virtual HardPtr<ITypeForgeSpecificationBuilder> createSpecificationBuilder() override {
-      return this->createBuilder<TypeForgeSpecificationBuilder>();
     }
     virtual HardPtr<ITypeForgeMetashapeBuilder> createMetashapeBuilder() override {
       return this->createBuilder<TypeForgeMetashapeBuilder>();
@@ -1450,12 +1426,6 @@ namespace egg::internal {
 
   Type TypeForgeComplexBuilder::build() {
     return this->forge.forgeComplexType(this->flags, this->shapeset);
-  }
-
-  Type TypeForgeSpecificationBuilder::build() {
-    auto infratype = this->forge.forgeShapeType(this->infrashaper.build(nullptr));
-    this->metashaper.build(infratype);
-    return infratype;
   }
 
   ITypeForgePropertyBuilder& TypeForgeMetashapeBuilder::getPropertyBuilder() {

@@ -43,7 +43,7 @@ namespace {
     struct ExprContextData {
       egg::ovum::Type arrayElementType = nullptr;
     };
-    class ExprContext : public ExprContextData, public egg::ovum::IVMModuleBuilder::TypeLookup {
+    class ExprContext : public ExprContextData {
       ExprContext() = delete;
       ExprContext(const ExprContext& parent) = delete;
     public:
@@ -88,13 +88,6 @@ namespace {
             }
             return &iterator->second;
           }
-        }
-        return nullptr;
-      }
-      virtual egg::ovum::Type typeLookup(const egg::ovum::String& name) const override {
-        auto* entry = this->findSymbol(name);
-        if (entry != nullptr) {
-          return entry->type;
         }
         return nullptr;
       }
@@ -211,7 +204,44 @@ namespace {
     bool checkValueExprTernary(egg::ovum::ValueTernaryOp op, ModuleNode& lhs, ModuleNode& mid, ModuleNode& rhs, ParserNode& pnode, const ExprContext& context);
     egg::ovum::Type literalType(ParserNode& pnode);
     egg::ovum::Type deduceType(ModuleNode& mnode, const ExprContext& context) {
-      return this->mbuilder.deduce(mnode, context, this);
+      class Resolver : public egg::ovum::IVMTypeResolver {
+        Resolver(const Resolver&) = delete;
+        Resolver& operator=(const Resolver&) = delete;
+      private:
+        egg::ovum::IVMModuleBuilder& mbuilder;
+        const ExprContext& context;
+        egg::ovum::IVMModuleBuilder::Reporter& reporter;
+      public:
+        Resolver(egg::ovum::IVMModuleBuilder& mbuilder, const ExprContext& context, egg::ovum::IVMModuleBuilder::Reporter& reporter)
+          : mbuilder(mbuilder),
+            context(context),
+            reporter(reporter) {
+        }
+        virtual egg::ovum::Type resolveSymbol(const egg::ovum::String& symbol, egg::ovum::IVMTypeResolver::Kind& kind) override {
+          auto* entry = this->context.findSymbol(symbol);
+          if (entry != nullptr) {
+            switch (entry->kind) {
+            case ExprContext::Symbol::Kind::Type:
+              kind = egg::ovum::IVMTypeResolver::Kind::Type;
+              break;
+            case ExprContext::Symbol::Kind::Builtin:
+            case ExprContext::Symbol::Kind::Parameter:
+            case ExprContext::Symbol::Kind::Variable:
+            case ExprContext::Symbol::Kind::Function:
+            default:
+              kind = egg::ovum::IVMTypeResolver::Kind::Value;
+              break;
+            }
+            return entry->type;
+          }
+          return nullptr;
+        }
+        virtual egg::ovum::IVMTypeSpecification* resolveTypeSpecification(const egg::ovum::IVMModule::Node& spec) override {
+          return this->mbuilder.registerTypeSpecification(spec, *this, this->reporter);
+        }
+      };
+      Resolver resolver{ this->mbuilder, context, *this };
+      return this->mbuilder.deduce(mnode, resolver, this);
     }
     void forgeNullability(egg::ovum::Type& type, bool nullable) {
       assert(type != nullptr);
@@ -2095,7 +2125,7 @@ egg::ovum::Type ModuleCompiler::literalType(ParserNode& pnode) {
 }
 
 ModuleNode* ModuleCompiler::checkCompilation(ModuleNode& mnode, const ExprContext& context) {
-  auto type = this->mbuilder.deduce(mnode, context, this);
+  auto type = this->deduceType(mnode, context);
   if (type == nullptr) {
     return nullptr;
   }
