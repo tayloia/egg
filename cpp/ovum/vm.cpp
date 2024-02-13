@@ -1597,12 +1597,10 @@ namespace {
       return node;
     }
     virtual Node& typeManifestation(const Type& type, const SourceRange& range) override {
+      if(type==nullptr) // WIBBLE
+      assert(type.validate());
       auto& node = this->module->createNode(Node::Kind::TypeManifestation, range);
-      if (type == nullptr) {
-        node.literal = this->createHardValueNull();
-      } else {
-        node.literal = this->createHardValueType(type);
-      }
+      node.literal = this->createHardValueType(type);
       return node;
     }
     virtual Node& typeFunctionSignature(const String& fname, Node& ptype, const SourceRange& range) override {
@@ -2401,7 +2399,7 @@ namespace {
         basket(BasketFactory::createBasket(allocator)),
         logger(logger) {
       this->forge = TypeForgeFactory::createTypeForge(allocator, *this->basket);
-      this->manifestations.emplace(nullptr, ObjectFactory::createManifestationType(*this));
+      this->manifestations.emplace(Type::None.get(), ObjectFactory::createManifestationType(*this));
       this->manifestations.emplace(Type::Void.get(), ObjectFactory::createManifestationVoid(*this));
       this->manifestations.emplace(Type::Bool.get(), ObjectFactory::createManifestationBool(*this));
       this->manifestations.emplace(Type::Int.get(), ObjectFactory::createManifestationInt(*this));
@@ -2423,6 +2421,7 @@ namespace {
       return *this->forge;
     }
     virtual HardObject getManifestation(const Type& type) override {
+      assert(type.validate());
       auto found = this->manifestations.find(type.get());
       if (found != this->manifestations.end()) {
         return found->second;
@@ -3914,7 +3913,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
         assert(type != nullptr);
         auto manifestation = this->vm.getManifestation(type);
         if (manifestation == nullptr) {
-          return this->raise("Cannot find manifestion for type '", describe(*type), "'");
+          return this->raise("Cannot find manifestation for type '", describe(*type), "'");
         }
         return this->pop(manifestation->vmPropertyGet(this->execution, top.deque.back()));
       }
@@ -3936,11 +3935,9 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
     assert(top.index == 0);
     assert(top.deque.empty());
     {
-      // WIBBLE
       Type type;
       if (!top.node->literal->getHardType(type)) {
-        // type.of() et al
-        type = nullptr;
+        return this->raise("Invalid literal for type manifestation");
       }
       auto manifestation = this->vm.getManifestation(type);
       return this->pop(this->createHardValueObject(manifestation));

@@ -1296,28 +1296,28 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode, const ExprContex
     return this->compileValueExprMissing(pnode);
   case ParserNode::Kind::TypeVoid:
     EXPECT(pnode, pnode.children.empty());
-    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Void.get());
+    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Void);
   case ParserNode::Kind::TypeBool:
     EXPECT(pnode, pnode.children.empty());
-    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Bool.get());
+    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Bool);
   case ParserNode::Kind::TypeInt:
     EXPECT(pnode, pnode.children.empty());
-    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Int.get());
+    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Int);
   case ParserNode::Kind::TypeFloat:
     EXPECT(pnode, pnode.children.empty());
-    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Float.get());
+    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Float);
   case ParserNode::Kind::TypeString:
     EXPECT(pnode, pnode.children.empty());
-    return this->compileValueExprManifestation(pnode, egg::ovum::Type::String.get());
+    return this->compileValueExprManifestation(pnode, egg::ovum::Type::String);
   case ParserNode::Kind::TypeObject:
     EXPECT(pnode, pnode.children.empty());
-    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Object.get());
+    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Object);
   case ParserNode::Kind::TypeAny:
     EXPECT(pnode, pnode.children.empty());
-    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Any.get());
+    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Any);
   case ParserNode::Kind::TypeType:
     EXPECT(pnode, pnode.children.empty());
-    return this->compileValueExprManifestation(pnode, nullptr);
+    return this->compileValueExprManifestation(pnode, egg::ovum::Type::None);
   case ParserNode::Kind::ModuleRoot:
   case ParserNode::Kind::ExprEllipsis:
   case ParserNode::Kind::TypeInfer:
