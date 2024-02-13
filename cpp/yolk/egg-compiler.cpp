@@ -1509,7 +1509,7 @@ ModuleNode* ModuleCompiler::compileValueExprCall(ParserNodes& pnodes, const Expr
   ModuleNode* call = nullptr;
   auto type = this->literalType(**pnode);
   if (type != nullptr) {
-    call = &this->mbuilder.typeManifestation(type, (*pnode)->range);
+    call = this->compileValueExprManifestation(**pnode, type);
   } else {
     call = this->compileValueExpr(**pnode, context);
   }
@@ -1746,6 +1746,8 @@ ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode, const ExprContext
     return &this->mbuilder.typeLiteral(egg::ovum::Type::Object, pnode.range);
   case ParserNode::Kind::TypeAny:
     return &this->mbuilder.typeLiteral(egg::ovum::Type::Any, pnode.range);
+  case ParserNode::Kind::TypeType:
+    return &this->mbuilder.typeLiteral(nullptr, pnode.range);
   case ParserNode::Kind::TypeUnary:
     EXPECT(pnode, pnode.children.size() == 1);
     EXPECT(pnode, pnode.children[0] != nullptr);
@@ -1760,7 +1762,6 @@ ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode, const ExprContext
     return this->compileTypeExprFunctionSignature(pnode, context);
   case ParserNode::Kind::TypeSpecification:
     return this->compileTypeExprSpecification(pnode, context);
-  case ParserNode::Kind::TypeType:
   case ParserNode::Kind::TypeInfer:
   case ParserNode::Kind::TypeInferQ:
   case ParserNode::Kind::TypeFunctionSignatureParameter:

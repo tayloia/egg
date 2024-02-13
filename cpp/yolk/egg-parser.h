@@ -59,7 +59,7 @@ namespace egg::yolk {
         TypeString,
         TypeObject,
         TypeAny,
-        TypeType, // WIBBLE
+        TypeType,
         TypeUnary,
         TypeBinary,
         TypeFunctionSignature,

@@ -111,10 +111,10 @@ namespace egg::internal {
     std::mutex mutex;
   public:
     TypeForgeCacheMap() {}
-    const IType::Shape& add(const IType& key, const IType::Shape& value) {
+    V& add(const K& key, V& value) {
       return *this->cache.emplace(&key, &value).first->second;
     }
-    const IType::Shape* find(const IType& key) {
+    V* find(const K& key) {
       std::lock_guard<std::mutex> lock{ this->mutex };
       auto found = this->cache.find(&key);
       if (found != this->cache.end()) {

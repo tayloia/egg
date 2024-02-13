@@ -2378,32 +2378,6 @@ namespace {
       assert(pointer != nullptr);
       return this->createHardValueObject(pointer);
     }
-    HardValue typePropertyGet(const Type& type, const HardValue& property) {
-      // TODO
-      assert(type != nullptr);
-      String pname;
-      if (!property->getString(pname)) {
-        return this->raiseRuntimeError("Expected right-hand side of type operator '.' to be a property name, but instead got ", describe(property));
-      }
-      auto metashape = this->vm.getTypeForge().getMetashape(type);
-      if ((metashape == nullptr) || (metashape->dotable == nullptr)) {
-        return this->raiseRuntimeError("Type '", describe(*type), "' does not support properties");
-      }
-      auto ptype = metashape->dotable->getType(pname);
-      if (ptype == nullptr) {
-        return this->raiseRuntimeError("Type '", describe(*type), "' does not support the property '", pname, "'");
-      }
-      return this->createHardValue(123); // WIBBLE
-    }
-    HardValue typePropertyRef(const Type& type, const HardValue& property) {
-      auto value = this->typePropertyGet(type, property);
-      if (value.hasFlowControl()) {
-        return value;
-      }
-      auto pointer = ObjectFactory::createPointerToValue(this->vm, value, Modifiability::Read);
-      assert(pointer != nullptr);
-      return this->createHardValueObject(pointer);
-    }
   };
 
   HardValue VMExecution::debugSymtable() {
@@ -3815,10 +3789,6 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       if (lhs->getString(string)) {
         return this->pop(this->stringPropertyRef(string, rhs));
       }
-      Type type;
-      if (lhs->getHardType(type)) {
-        return this->pop(this->typePropertyRef(type, rhs));
-      }
       return this->raise("Expected left-hand side of property operator '.' to support properties, but instead got ", describe(lhs));
     }
     break;
@@ -3941,8 +3911,12 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       auto& lhs = top.deque.front();
       Type type;
       if (lhs->getHardType(type)) {
-        auto& rhs = top.deque.back();
-        return this->pop(this->typePropertyGet(type, rhs));
+        assert(type != nullptr);
+        auto manifestation = this->vm.getManifestation(type);
+        if (manifestation == nullptr) {
+          return this->raise("Cannot find manifestion for type '", describe(*type), "'");
+        }
+        return this->pop(manifestation->vmPropertyGet(this->execution, top.deque.back()));
       }
       return this->raise("Expected left-hand side of type operator '.' to support properties, but instead got ", describe(lhs));
     }
