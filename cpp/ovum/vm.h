@@ -153,8 +153,9 @@ namespace egg::ovum {
 
   class IVMTypeSpecification : public IVMUncollectable {
   public:
-    using Parameters = std::vector<const IType*>;
+    using Parameters = std::vector<Type>;
     virtual Type instantiateType(const Parameters& parameters) = 0;
+    virtual HardValue instantiateManifestation(IVMExecution& execution, const Parameters& parameters) = 0;
   };
 
   class IVMTypeSpecificationBuilder : public IVMUncollectable {
@@ -295,8 +296,8 @@ namespace egg::ovum {
     virtual void addTypeSpecification(IVMTypeSpecification& specification, const IVMModule::Node* node) = 0;
     virtual IVMTypeSpecification* findTypeSpecification(const IVMModule::Node& node) const = 0;
     // Manifestation cache
-    virtual void addManifestation(const Type& type, const HardObject& manifestation) = 0;
-    virtual HardObject findManifestation(const Type& type) = 0;
+    virtual void addManifestation(const Type& infratype, const HardObject& manifestation) = 0;
+    virtual HardObject findManifestation(const Type& infratype) = 0;
     // Builder factories
     virtual HardPtr<IVMProgramBuilder> createProgramBuilder() = 0;
     virtual HardPtr<IVMTypeSpecificationBuilder> createTypeSpecificationBuilder(const IVMModule::Node* spec) = 0;

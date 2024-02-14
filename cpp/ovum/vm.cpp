@@ -929,11 +929,11 @@ namespace {
       auto ob = this->createRuntimeErrorBuilder(message);
       if (comparison != nullptr) {
         if (!lhs->getVoid()) {
-          ob->addReadOnlyProperty(this->createHardValue("left"), lhs);
+          ob->addProperty(this->createHardValue("left"), lhs, Modifiability::Read);
         }
-        ob->addReadOnlyProperty(this->createHardValue("operator"), this->createHardValue(comparison));
+        ob->addProperty(this->createHardValue("operator"), this->createHardValue(comparison), Modifiability::Read);
         if (!rhs->getVoid()) {
-          ob->addReadOnlyProperty(this->createHardValue("right"), rhs);
+          ob->addProperty(this->createHardValue("right"), rhs, Modifiability::Read);
         }
       }
       auto error = this->createHardValueObject(ob->build());
@@ -1316,7 +1316,7 @@ namespace {
         if (property.literal->getString(pname)) {
           auto infratype = this->deduce(type);
           if (infratype != nullptr) {
-            auto metashape = this->forge.getMetashape(infratype);
+            auto metashape = this->forge.getMetashape(infratype); // WIBBLE try to remove getMetashape and associated cache
             if ((metashape == nullptr) || (metashape->dotable == nullptr)) {
               return this->fail(range, "Type '", describe(*infratype), "' does not support properties");
             }
@@ -2418,6 +2418,29 @@ namespace {
       assert(pointer != nullptr);
       return this->createHardValueObject(pointer);
     }
+    HardValue cachedManifestationValue(const Type& infratype, HardObject& instance) {
+      // WIBBLE optimize?
+      assert(infratype.validate());
+      instance = this->vm.findManifestation(infratype);
+      if (instance != nullptr) {
+        return this->createHardValueObject(instance);
+      }
+      auto specification = infratype->getSpecification();
+      if (specification == nullptr) {
+        return this->raiseRuntimeError("Cannot find manifestation for type '", describe(*infratype), "'");
+      }
+      IVMTypeSpecification::Parameters parameters{};
+      auto value = specification->instantiateManifestation(this->execution, parameters);
+      if (value.hasFlowControl()) {
+        return value;
+      }
+      if (value->getHardObject(instance)) {
+        assert(instance != nullptr);
+        return value;
+      }
+      assert(instance == nullptr);
+      return this->raiseRuntimeError("Cannot instantiate manifestation for type '", describe(*infratype), "'");
+    }
   };
 
   HardValue VMExecution::debugSymtable() {
@@ -2431,9 +2454,10 @@ namespace {
     VMTypeSpecification(const VMTypeSpecification&) = delete;
     VMTypeSpecification& operator=(const VMTypeSpecification&) = delete;
   private:
+    constexpr static const IType::Shape EMPTY{};
     struct Instantiation {
       Type type;
-      HardObject manifestation;
+      HardValue manifestation;
     };
     Type infratype;
     TypeShape infrashape;
@@ -2441,11 +2465,16 @@ namespace {
     std::mutex mutex;
     std::map<Parameters, Instantiation> instantiations;
   public:
-    VMTypeSpecification(IVM& vm, const Type& infratype, const TypeShape& infrashape, const TypeShape& metashape)
+    explicit VMTypeSpecification(IVM& vm)
       : VMUncollectable(vm),
-        infratype(infratype),
-        infrashape(infrashape),
-        metashape(metashape) {
+        infratype(),
+        infrashape(EMPTY),
+        metashape(EMPTY) {
+    }
+    void set(const Type& itype, const TypeShape& ishape, const TypeShape& mshape) {
+      this->infratype = itype;
+      this->infrashape = ishape;
+      this->metashape = mshape;
       assert(this->infratype.validate());
       assert(this->infrashape.validate());
       assert(this->metashape.validate());
@@ -2454,24 +2483,41 @@ namespace {
       std::lock_guard<std::mutex> lock{ this->mutex };
       auto& instantiation = this->instantiations[parameters];
       if (instantiation.type == nullptr) {
-        // Need to initialize it and create the manifestation too
+        // Need to instantiate it and create the manifestation too
         instantiation.type = this->createType(parameters);
-        instantiation.manifestation = this->createManifestation(parameters);
-        if ((instantiation.type != nullptr) && (instantiation.manifestation != nullptr)) {
-          this->vm.addManifestation(instantiation.type, instantiation.manifestation);
+      }
+      return instantiation.type;
+    }
+    virtual HardValue instantiateManifestation(IVMExecution& execution, const Parameters& parameters) override {
+      std::lock_guard<std::mutex> lock{ this->mutex };
+      auto& instantiation = this->instantiations[parameters];
+      if (instantiation.type == nullptr) {
+        // Need to instantiate the type
+        instantiation.type = this->createType(parameters);
+        if (instantiation.type == nullptr) {
+          return execution.raiseRuntimeError(execution.createString("Unable to instantiate type"), nullptr);
         }
       }
-      // TODO handle parameters correctly
-      return instantiation.type;
+      if (instantiation.manifestation->getVoid()) {
+        // We need to instantiate the manifestation
+        instantiation.manifestation = this->createManifestation(execution, parameters);
+        HardObject instance;
+        if (instantiation.manifestation->getHardObject(instance)) {
+          this->vm.addManifestation(instantiation.type, instance);
+        }
+      }
+      return instantiation.manifestation;
     }
   private:
     Type createType(const Parameters&) const {
       // TODO handle parameters correctly
       return this->infratype;
     }
-    HardObject createManifestation(const Parameters&) const {
+    HardValue createManifestation(IVMExecution& execution, const Parameters&) const {
       // TODO handle parameters correctly
-      return ObjectFactory::createManifestationObject(this->vm);
+      auto ob = ObjectFactory::createObjectBuilder(this->vm);
+      ob->addProperty(execution.createHardValue("i"), execution.createHardValue(123), Modifiability::All); // WIBBLE
+      return execution.createHardValueObject(ob->build());
     }
   };
 
@@ -2496,12 +2542,13 @@ namespace {
       this->metashaper->addProperty(name, type, Modifiability::Read);
     }
     virtual IVMTypeSpecification& build() override {
+      auto specification = HardPtr(this->getAllocator().makeRaw<VMTypeSpecification>(this->vm));
+      assert(specification != nullptr);
       auto& forge = this->vm.getTypeForge();
       auto infrashape = this->infrashaper->build(nullptr);
-      auto infratype = forge.forgeShapeType(infrashape);
+      auto infratype = forge.forgeShapeType(infrashape, specification.get());
       auto metashape = this->metashaper->build(infratype);
-      auto* specification = this->getAllocator().makeRaw<VMTypeSpecification>(this->vm, infratype, infrashape, metashape);
-      assert(specification != nullptr);
+      specification->set(infratype, infrashape, metashape);
       this->vm.addTypeSpecification(*specification, this->spec);
       return *specification;
     }
@@ -2557,16 +2604,16 @@ namespace {
       }
       return found->second.get();
     }
-    virtual void addManifestation(const Type& type, const HardObject& manifestation) override {
-      assert(type.validate());
+    virtual void addManifestation(const Type& infratype, const HardObject& manifestation) override {
+      assert(infratype.validate());
       assert(manifestation.validate());
-      auto added = this->manifestations.emplace(type, manifestation).second;
+      auto added = this->manifestations.emplace(infratype, manifestation).second;
       assert(added);
       (void)added;
     }
-    virtual HardObject findManifestation(const Type& type) override {
-      assert(type.validate());
-      auto found = this->manifestations.find(type.get());
+    virtual HardObject findManifestation(const Type& infratype) override {
+      assert(infratype.validate());
+      auto found = this->manifestations.find(infratype.get());
       if (found != this->manifestations.end()) {
         return found->second;
       }
@@ -4057,12 +4104,15 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       auto& lhs = top.deque.front();
       Type type;
       if (lhs->getHardType(type)) {
-        assert(type != nullptr);
-        auto manifestation = this->vm.findManifestation(type);
-        if (manifestation == nullptr) {
-          return this->raise("Cannot find manifestation for type '", describe(*type), "'");
+        assert(type.validate());
+        HardObject instance;
+        auto manifestation = this->cachedManifestationValue(type, instance);
+        if (instance != nullptr) {
+          assert(!manifestation.hasFlowControl());
+          return this->pop(instance->vmPropertyGet(this->execution, top.deque.back()));
         }
-        return this->pop(manifestation->vmPropertyGet(this->execution, top.deque.back()));
+        assert(manifestation.hasFlowControl());
+        return this->pop(manifestation);
       }
       return this->raise("Expected left-hand side of type operator '.' to support properties, but instead got ", describe(lhs));
     }
@@ -4086,11 +4136,8 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       if (!top.node->literal->getHardType(type)) {
         return this->raise("Invalid literal for type manifestation");
       }
-      auto manifestation = this->vm.findManifestation(type);
-      if (manifestation == nullptr) {
-        return this->raise("Cannot find manifestation for type '", describe(*type), "'");
-      }
-      return this->pop(this->createHardValueObject(manifestation));
+      HardObject instance;
+      return this->pop(this->cachedManifestationValue(type, instance));
     }
   case IVMModule::Node::Kind::TypeUnaryOp:
   case IVMModule::Node::Kind::TypeBinaryOp:

@@ -786,11 +786,12 @@ namespace {
       }
       return execution.getSoftValue(pfound->second);
     }
-    void propertyAdd(const HardValue& property, const HardValue& value) {
-      auto pair = this->properties.emplace(std::piecewise_construct, std::forward_as_tuple(this->vm, property), std::forward_as_tuple(this->vm));
+    void propertyAdd(const HardValue& pkey, const HardValue& pvalue, Modifiability pmodifiability) {
+      (void)pmodifiability; // WIBBLE
+      auto pair = this->properties.emplace(std::piecewise_construct, std::forward_as_tuple(this->vm, pkey), std::forward_as_tuple(this->vm));
       assert(pair.first != this->properties.end());
       assert(pair.second);
-      auto success = this->vm.setSoftValue(pair.first->second, value);
+      auto success = this->vm.setSoftValue(pair.first->second, pvalue);
       if (success) {
         this->keys.emplace_back(pair.first->first);
       } else {
@@ -799,12 +800,12 @@ namespace {
       assert(success);
     }
     template<typename K>
-    void propertyAdd(K property, const HardValue& value) {
-      this->propertyAdd(this->vm.createHardValue(property), value);
+    void propertyAdd(K pkey, const HardValue& pvalue, Modifiability pmodifiability) {
+      this->propertyAdd(this->vm.createHardValue(pkey), pvalue, pmodifiability);
     }
     template<typename K, typename V>
-    void propertyAdd(K property, V value) {
-      this->propertyAdd(this->vm.createHardValue(property), this->vm.createHardValue(value));
+    void propertyAdd(K pkey, V pvalue, Modifiability pmodifiability) {
+      this->propertyAdd(this->vm.createHardValue(pkey), this->vm.createHardValue(pvalue), pmodifiability);
     }
   };
 
@@ -839,8 +840,8 @@ namespace {
   public:
     VMObjectVanillaKeyValue(IVM& vm, const HardValue& key, const HardValue& value, Modifiability modifiability)
       : VMObjectVanillaObject(vm, modifiability) {
-      this->propertyAdd("key", key);
-      this->propertyAdd("value", value);
+      this->propertyAdd("key", key, Modifiability::Read);
+      this->propertyAdd("value", value, Modifiability::Read);
     }
   };
 
@@ -1818,7 +1819,14 @@ namespace {
     explicit ObjectBuilderInstance(IVM& vm)
       : VMObjectVanillaObject(vm, Modifiability::All) {
     }
-    virtual void withProperty(const HardValue& property, const HardValue& value, bool readonly) = 0;
+    void withProperty(const HardValue& pkey, const HardValue& pvalue, Modifiability pmodifiability) {
+      // TODO
+      this->propertyAdd(pkey, pvalue, pmodifiability);
+    }
+    template<typename T>
+    void withProperty(const char* pname, T pvalue, Modifiability pmodifiability) {
+      this->withProperty(this->vm.createHardValue(pname), this->vm.createHardValue(pvalue), pmodifiability);
+    }
   };
 
   class ObjectBuilderRuntimeError : public ObjectBuilderInstance {
@@ -1837,28 +1845,12 @@ namespace {
         message(message),
         callstack(callstack) {
     }
-    virtual void withProperty(const HardValue& property, const HardValue& value, bool readonly) override {
-      // TODO
-      (void)readonly;
-      this->propertyAdd(property, value);
-    }
     virtual int print(Printer& printer) const override {
       if (this->callstack != nullptr) {
         this->callstack->print(printer);
       }
       printer << this->message;
       return 0;
-    }
-    template<typename T>
-    void withProperty(const char* property, T value) {
-      // TODO still needed?
-      this->withProperty(this->vm.createHardValue(property), this->vm.createHardValue(value), false);
-    }
-    void withPropertyOptional(const char* property, const String& value) {
-      // TODO still needed?
-      if (!value.empty()) {
-        this->withProperty(property, value);
-      }
     }
   };
 
@@ -1873,13 +1865,9 @@ namespace {
       : vm(vm),
         instance(std::move(instance)) {
     }
-    virtual void addReadWriteProperty(const HardValue& property, const HardValue& value) override {
+    virtual void addProperty(const HardValue& property, const HardValue& value, Modifiability modifiability) override {
       assert(this->instance != nullptr);
-      this->instance->withProperty(property, value, false);
-    }
-    virtual void addReadOnlyProperty(const HardValue& property, const HardValue& value) override {
-      assert(this->instance != nullptr);
-      this->instance->withProperty(property, value, true);
+      this->instance->withProperty(property, value, modifiability);
     }
     virtual HardObject build() override {
       assert(this->instance != nullptr);
@@ -2060,22 +2048,34 @@ egg::ovum::HardObject egg::ovum::ObjectFactory::createManifestationAny(IVM& vm) 
   return makeHardObject<VMManifestionAny>(vm);
 }
 
+egg::ovum::HardPtr<egg::ovum::IObjectBuilder> egg::ovum::ObjectFactory::createObjectBuilder(IVM& vm) {
+  auto& allocator = vm.getAllocator();
+  HardPtr instance{ allocator.makeRaw<ObjectBuilderInstance>(vm) };
+  return HardPtr{ allocator.makeRaw<ObjectBuilder>(vm, std::move(instance)) };
+}
+
 egg::ovum::HardPtr<egg::ovum::IObjectBuilder> egg::ovum::ObjectFactory::createRuntimeErrorBuilder(IVM& vm, const String& message, const HardPtr<IVMCallStack>& callstack) {
   auto& allocator = vm.getAllocator();
   HardPtr instance{ allocator.makeRaw<ObjectBuilderRuntimeError>(vm, message, callstack) };
-  instance->withProperty("message", message);
+  instance->withProperty("message", message, Modifiability::Read);
   if (callstack != nullptr) {
-    instance->withPropertyOptional("resource", callstack->getResource());
+    auto resource = callstack->getResource();
+    if (!resource.empty()) {
+      instance->withProperty("resource", resource, Modifiability::Read);
+    }
     auto* range = callstack->getSourceRange();
     if (range != nullptr) {
       if ((range->begin.line != 0) || (range->begin.column != 0)) {
-        instance->withProperty("line", int(range->begin.line));
+        instance->withProperty("line", int(range->begin.line), Modifiability::Read);
         if (range->begin.column != 0) {
-          instance->withProperty("column", int(range->begin.column));
+          instance->withProperty("column", int(range->begin.column), Modifiability::Read);
         }
       }
     }
-    instance->withPropertyOptional("function", callstack->getFunction());
+    auto function = callstack->getFunction();
+    if (!function.empty()) {
+      instance->withProperty("function", function, Modifiability::Read);
+    }
   }
   return HardPtr{ allocator.makeRaw<ObjectBuilder>(vm, std::move(instance)) };
 }

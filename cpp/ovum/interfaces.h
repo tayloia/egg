@@ -17,6 +17,7 @@ namespace egg::ovum {
   class ICollectable;
   class IValue;
   class IVMExecution;
+  class IVMTypeSpecification;
 
   enum class Assignability {
     Never,
@@ -358,6 +359,7 @@ namespace egg::ovum {
     virtual ValueFlags getPrimitiveFlags() const = 0;
     virtual size_t getShapeCount() const = 0;
     virtual const Shape* getShape(size_t index) const = 0;
+    virtual HardPtr<IVMTypeSpecification> getSpecification() const = 0;
   };
 
   class ITypeForgeFunctionBuilder : public IHardAcquireRelease {
@@ -406,6 +408,7 @@ namespace egg::ovum {
 
   class ITypeForgeComplexBuilder : public IHardAcquireRelease {
   public:
+    virtual void setSpecification(IVMTypeSpecification* spec) = 0;
     virtual bool addFlags(ValueFlags bits) = 0;
     virtual bool removeFlags(ValueFlags bits) = 0;
     virtual bool addShape(const TypeShape& shape) = 0;
@@ -430,7 +433,7 @@ namespace egg::ovum {
     virtual TypeShape forgePointerShape(const Type& pointee, Modifiability modifiability) = 0;
     virtual TypeShape forgeStringShape() = 0;
     virtual Type forgePrimitiveType(ValueFlags flags) = 0;
-    virtual Type forgeComplexType(ValueFlags flags, const TypeShapeSet& shapes) = 0;
+    virtual Type forgeComplexType(ValueFlags flags, const TypeShapeSet& shapes, const HardPtr<IVMTypeSpecification>& specification) = 0;
     virtual Type forgeUnionType(const Type& lhs, const Type& rhs) = 0;
     virtual Type forgeNullableType(const Type& type, bool nullable) = 0;
     virtual Type forgeVoidableType(const Type& type, bool voidable) = 0;
@@ -439,7 +442,7 @@ namespace egg::ovum {
     virtual Type forgeIteratorType(const Type& element) = 0;
     virtual Type forgeFunctionType(const IFunctionSignature& signature) = 0;
     virtual Type forgePointerType(const Type& pointee, Modifiability modifiability) = 0;
-    virtual Type forgeShapeType(const TypeShape& shape) = 0;
+    virtual Type forgeShapeType(const TypeShape& shape, IVMTypeSpecification* specification = nullptr) = 0;
     virtual Assignability isTypeAssignable(const Type& dst, const Type& src) = 0;
     virtual Assignability isFunctionSignatureAssignable(const IFunctionSignature& dst, const IFunctionSignature& src) = 0;
     virtual const IType::Shape* getMetashape(const Type& type) = 0;

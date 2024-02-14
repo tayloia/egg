@@ -157,6 +157,9 @@ namespace egg::internal {
     virtual const Shape* getShape(size_t) const override {
       return nullptr;
     }
+    virtual HardPtr<IVMTypeSpecification> getSpecification() const override {
+      return nullptr;
+    }
     virtual int print(Printer& printer) const override {
       return Type::print(printer, this->flags.get());
     }
@@ -179,8 +182,11 @@ namespace egg::internal {
     struct Detail {
       ValueFlags flags;
       std::vector<const IType::Shape*> shapes;
-      Detail(ValueFlags flags, const TypeShapeSet& shapeset)
-        : flags(flags) {
+      HardPtr<IVMTypeSpecification> specification;
+      Detail(ValueFlags flags, const TypeShapeSet& shapeset, const HardPtr<IVMTypeSpecification>& specification)
+        : flags(flags),
+          shapes(),
+          specification(specification) {
         assert(!shapeset.empty());
         this->shapes.reserve(shapeset.size());
         for (const auto& shape : shapeset) {
@@ -216,9 +222,9 @@ namespace egg::internal {
   private:
     Detail detail;
   public:
-    TypeForgeComplex(IAllocator& allocator, ValueFlags flags, const TypeShapeSet& shapeset)
+    TypeForgeComplex(IAllocator& allocator, ValueFlags flags, const TypeShapeSet& shapeset, const HardPtr<IVMTypeSpecification>& specification)
       : SoftReferenceCountedAllocator(allocator),
-        detail(flags, shapeset) {
+        detail(flags, shapeset, specification) {
     }
     TypeForgeComplex(IAllocator& allocator, TypeForgeComplex::Detail&& detail) noexcept
       : SoftReferenceCountedAllocator(allocator),
@@ -241,6 +247,9 @@ namespace egg::internal {
     }
     virtual const Shape* getShape(size_t index) const override {
       return (index < this->detail.shapes.size()) ? this->detail.shapes[index] : nullptr;
+    }
+    virtual HardPtr<IVMTypeSpecification> getSpecification() const override {
+      return this->detail.specification;
     }
     virtual int print(Printer& printer) const override {
       return this->detail.print(printer);
@@ -698,11 +707,14 @@ namespace egg::internal {
   private:
     ValueFlags flags;
     TypeShapeSet shapeset;
+    HardPtr<IVMTypeSpecification> specification;
   public:
     explicit TypeForgeComplexBuilder(TypeForgeDefault& forge)
       : TypeForgeBaseBuilder(forge),
-        flags(ValueFlags::None),
-        shapeset() {
+        flags(ValueFlags::None) {
+    }
+    virtual void setSpecification(IVMTypeSpecification* spec) override {
+      this->specification.set(spec);
     }
     virtual bool addFlags(ValueFlags bits) override {
       auto before = this->flags;
@@ -900,14 +912,14 @@ namespace egg::internal {
       assert(primitive != nullptr);
       return primitive;
     }
-    virtual Type forgeComplexType(ValueFlags flags, const TypeShapeSet& shapeset) override {
+    virtual Type forgeComplexType(ValueFlags flags, const TypeShapeSet& shapeset, const HardPtr<IVMTypeSpecification>& specification) override {
       if (shapeset.empty()) {
         if (flags == ValueFlags::None) {
           return nullptr;
         }
         return this->forgePrimitiveType(flags);
       }
-      TypeForgeComplex::Detail detail{ flags, shapeset };
+      TypeForgeComplex::Detail detail{ flags, shapeset, specification };
       return this->forgeComplex(std::move(detail));
     }
     virtual Type forgeUnionType(const Type& lhs, const Type& rhs) override {
@@ -953,12 +965,12 @@ namespace egg::internal {
     virtual Type forgePointerType(const Type& pointee, Modifiability modifiability) override {
       return this->forgeShapeType(this->forgePointerShape(pointee, modifiability));
     }
-    virtual Type forgeShapeType(const TypeShape& shape) override {
+    virtual Type forgeShapeType(const TypeShape& shape, IVMTypeSpecification* specification = nullptr) override {
       assert(shape.validate());
       assert(shape->taggable != nullptr);
       TypeShapeSet shapeset;
       shapeset.add(shape);
-      TypeForgeComplex::Detail detail{ ValueFlags::None, shapeset };
+      TypeForgeComplex::Detail detail{ ValueFlags::None, shapeset, HardPtr(specification) };
       return this->forgeComplex(std::move(detail));
     }
     virtual Assignability isTypeAssignable(const Type& dst, const Type& src) override {
@@ -1051,9 +1063,9 @@ namespace egg::internal {
       }
       return TypeShape(this->cacheMetashape.add(*infratype, forged));
     }
-    template<typename T>
-    HardPtr<T> createBuilder() {
-      return HardPtr(this->allocator.makeRaw<T>(*this));
+    template<typename T, typename... ARGS>
+    HardPtr<T> createBuilder(ARGS&&... args) {
+      return HardPtr(this->allocator.makeRaw<T>(*this, std::forward<ARGS>(args)...));
     }
     template<typename T, typename... ARGS>
     T* createOwned(ARGS&&... args) {
@@ -1425,7 +1437,7 @@ namespace egg::internal {
   }
 
   Type TypeForgeComplexBuilder::build() {
-    return this->forge.forgeComplexType(this->flags, this->shapeset);
+    return this->forge.forgeComplexType(this->flags, this->shapeset, this->specification);
   }
 
   ITypeForgePropertyBuilder& TypeForgeMetashapeBuilder::getPropertyBuilder() {
