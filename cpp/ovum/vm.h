@@ -126,6 +126,20 @@ namespace egg::ovum {
     virtual HardValue yield() = 0;
   };
 
+  class IVMTypeSpecification : public IVMUncollectable {
+  public:
+    using Parameters = std::vector<Type>;
+    virtual Type instantiateType(const Parameters& parameters) = 0;
+    virtual HardValue instantiateManifestation(IVMExecution& execution, const Parameters& parameters) = 0;
+  };
+
+  class IVMTypeSpecificationBuilder : public IVMUncollectable {
+  public:
+    virtual void setDescription(const String& description, int precedence) = 0;
+    virtual void addStaticData(const String& name, const Type& type) = 0;
+    virtual IVMTypeSpecification& build() = 0;
+  };
+
   class IVMExecution : public ILogger, public IVMCommon {
   public:
     // Exceptions
@@ -136,6 +150,7 @@ namespace egg::ovum {
     // Function calls
     virtual HardValue initiateFunctionCall(const IFunctionSignature& signature, const IVMModule::Node& definition, const ICallArguments& arguments, const IVMCallCaptures* captures) = 0;
     virtual HardValue initiateGeneratorCall(const IFunctionSignature& signature, const IVMModule::Node& definition, const ICallArguments& arguments, const IVMCallCaptures* captures) = 0;
+    virtual HardValue initiateManifestationCall(const Type& infratype, const IVMModule::Node& specification, const IVMTypeSpecification::Parameters& parameters, const IVMCallCaptures* captures) = 0;
     // Soft values
     virtual HardValue getSoftValue(const SoftValue& soft) = 0;
     virtual bool setSoftValue(SoftValue& lhs, const HardValue& rhs) = 0;
@@ -149,20 +164,6 @@ namespace egg::ovum {
     virtual HardValue evaluateValuePredicateOp(ValuePredicateOp op, const HardValue& lhs, const HardValue& rhs) = 0;
     // Debugging TODO remove
     virtual HardValue debugSymtable() = 0;
-  };
-
-  class IVMTypeSpecification : public IVMUncollectable {
-  public:
-    using Parameters = std::vector<Type>;
-    virtual Type instantiateType(const Parameters& parameters) = 0;
-    virtual HardValue instantiateManifestation(IVMExecution& execution, const Parameters& parameters) = 0;
-  };
-
-  class IVMTypeSpecificationBuilder : public IVMUncollectable {
-  public:
-    virtual void setDescription(const String& description, int precedence) = 0;
-    virtual void addStaticData(const String& name, const Type& type) = 0;
-    virtual IVMTypeSpecification& build() = 0;
   };
 
   class IVMProgram : public IVMUncollectable {
@@ -223,7 +224,7 @@ namespace egg::ovum {
     virtual Node& typeGenerator(Node& etype, const SourceRange& range) = 0;
     virtual Node& typeSpecification(const SourceRange& range) = 0;
     virtual Node& typeSpecificationDescription(const String& description, const SourceRange& range) = 0;
-    virtual Node& typeSpecificationStaticData(const String& symbol, Node& type, Node& value, const SourceRange& range) = 0;
+    virtual Node& typeSpecificationStaticData(const String& symbol, Node& type, const SourceRange& range) = 0;
     // Statement factories
     virtual Node& stmtBlock(const SourceRange& range) = 0;
     virtual Node& stmtIf(Node& condition, const SourceRange& range) = 0;
@@ -239,6 +240,8 @@ namespace egg::ovum {
     virtual Node& stmtFunctionCapture(const String& symbol, const SourceRange& range) = 0;
     virtual Node& stmtFunctionInvoke(const SourceRange& range) = 0;
     virtual Node& stmtGeneratorInvoke(const SourceRange& range) = 0;
+    virtual Node& stmtManifestationInvoke(const SourceRange& range) = 0;
+    virtual Node& stmtManifestationProperty(const String& property, Node& type, Node& value, Modifiability modifiability, const SourceRange& range) = 0;
     virtual Node& stmtVariableDeclare(const String& symbol, Node& type, const SourceRange& range) = 0;
     virtual Node& stmtVariableDefine(const String& symbol, Node& type, Node& value, const SourceRange& range) = 0;
     virtual Node& stmtVariableSet(const String& symbol, Node& value, const SourceRange& range) = 0;

@@ -60,6 +60,8 @@ public:
     StmtFunctionCapture,
     StmtFunctionInvoke,
     StmtGeneratorInvoke,
+    StmtManifestationInvoke,
+    StmtManifestationProperty,
     StmtVariableDeclare,
     StmtVariableDefine,
     StmtVariableSet,
@@ -102,6 +104,7 @@ public:
     TypeUnaryOp typeUnaryOp;
     TypeBinaryOp typeBinaryOp;
     IFunctionSignatureParameter::Flags parameterFlags;
+    Modifiability modifiability;
     size_t defaultIndex;
   };
   std::vector<Node*> children; // Reference-counting hard pointers are stored in the chain
@@ -440,6 +443,7 @@ namespace {
     virtual HardValue raiseRuntimeError(const String& message, const SourceRange* source) override;
     virtual HardValue initiateFunctionCall(const IFunctionSignature& signature, const IVMModule::Node& definition, const ICallArguments& arguments, const IVMCallCaptures* captures) override;
     virtual HardValue initiateGeneratorCall(const IFunctionSignature& signature, const IVMModule::Node& definition, const ICallArguments& arguments, const IVMCallCaptures* captures) override;
+    virtual HardValue initiateManifestationCall(const Type& infratype, const IVMModule::Node& specification, const IVMTypeSpecification::Parameters& parameters, const IVMCallCaptures* captures) override;
     virtual bool assignValue(IValue& lhs, const Type& ltype, const IValue& rhs) override {
       // Assign with int-to-float promotion
       assert(ltype != nullptr);
@@ -1061,16 +1065,18 @@ namespace {
       case Node::Kind::TypeSpecification:
         return this->deduceTypeSpecification(node, node.range);
       case Node::Kind::TypeSpecificationDescription:
-        assert(node.children.size() == 0);
+        assert(node.children.empty());
         return Type::String;
       case Node::Kind::TypeSpecificationStaticData:
-        assert(node.children.size() == 2);
+        assert(node.children.size() == 1);
         return this->deduce(*node.children.front());
       case Node::Kind::StmtBlock:
       case Node::Kind::StmtFunctionDefine:
       case Node::Kind::StmtFunctionCapture:
       case Node::Kind::StmtFunctionInvoke:
       case Node::Kind::StmtGeneratorInvoke:
+      case Node::Kind::StmtManifestationInvoke:
+      case Node::Kind::StmtManifestationProperty:
       case Node::Kind::StmtVariableDeclare:
       case Node::Kind::StmtVariableDefine:
       case Node::Kind::StmtVariableSet:
@@ -1606,11 +1612,10 @@ namespace {
       node.literal = this->createHardValueString(description);
       return node;
     }
-    virtual Node& typeSpecificationStaticData(const String& symbol, Node& type, Node& value, const SourceRange& range) {
+    virtual Node& typeSpecificationStaticData(const String& symbol, Node& type, const SourceRange& range) {
       auto& node = this->module->createNode(Node::Kind::TypeSpecificationStaticData, range);
       node.literal = this->createHardValueString(symbol);
       node.addChild(type);
-      node.addChild(value);
       return node;
     }
     virtual Node& stmtBlock(const SourceRange& range) override {
@@ -1688,6 +1693,18 @@ namespace {
     }
     virtual Node& stmtGeneratorInvoke(const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::StmtGeneratorInvoke, range);
+      return node;
+    }
+    virtual Node& stmtManifestationInvoke(const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtManifestationInvoke, range);
+      return node;
+    }
+    virtual Node& stmtManifestationProperty(const String& property, Node& type, Node& value, Modifiability modifiability, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::StmtManifestationProperty, range);
+      node.literal = this->createHardValueString(property);
+      node.modifiability = modifiability;
+      node.addChild(type);
+      node.addChild(value);
       return node;
     }
     virtual Node& stmtVariableDeclare(const String& symbol, Node& type, const SourceRange& range) override {
@@ -1803,7 +1820,7 @@ namespace {
       return this->vm.getTypeForge();
     }
     virtual IVMTypeSpecification* registerTypeSpecification(const Node& spec, Resolver& resolver, Reporter& reporter) override {
-      // WIBBLE fold with 'stmtTypeSpecification'?
+      // TODO fold with 'stmtTypeSpecification'?
       assert(spec.kind == Node::Kind::TypeSpecification);
       auto sb = this->vm.createTypeSpecificationBuilder(&spec);
       for (auto* clause : spec.children) {
@@ -2027,40 +2044,15 @@ namespace {
       assert(this->stack.top().scope.empty());
       this->stack.pop();
       this->symtable.push();
-      if (captures != nullptr) {
-        for (size_t index = 0; index < captures->getCaptureCount(); ++index) {
-          auto* capture = captures->getCaptureByIndex(index);
-          assert(capture != nullptr);
-          assert(capture->soft != nullptr);
-          assert(capture->soft->softGetBasket() != nullptr);
-          auto* extant = this->symtable.add(capture->kind, capture->name, capture->type, capture->soft);
-          if (extant != nullptr) {
-            return this->raiseRuntimeError("Captured symbol already declared as ", describe(extant->kind), ": '", capture->name, "'");
-          }
-        }
+      // Add the captured symbols
+      auto value = this->addCaptureSymbols(*this, captures);
+      if (value.hasFlowControl()) {
+        return value;
       }
-      for (size_t index = 0; index < signature.getParameterCount(); ++index) {
-        // TODO optional/variadic arguments
-        HardValue value;
-        if (!arguments.getArgumentValueByIndex(index, value)) {
-          return this->raiseRuntimeError("Argument count mismatch"); // TODO
-        }
-        auto& parameter = signature.getParameter(index);
-        auto pname = parameter.getName();
-        auto ptype = parameter.getType();
-        auto& poly = this->vm.createSoftValue();
-        if (!this->execution.assignValue(poly, ptype, value.get())) {
-          auto message = this->execution.concat("Type mismatch for parameter '", pname, "': Expected '", ptype, "', but instead got ", describe(value));
-          SourceRange source;
-          if (arguments.getArgumentSourceByIndex(index, source)) {
-            return this->execution.raiseRuntimeError(message, &source);
-          }
-          return this->execution.raiseRuntimeError(message, nullptr);
-        }
-        auto* extant = this->symtable.add(VMSymbolTable::Kind::Variable, pname, ptype, &poly);
-        if (extant != nullptr) {
-          return this->raiseRuntimeError("Parameter symbol already declared as ", describe(extant->kind), ": '", pname, "'");
-        }
+      // Add the argument symbols
+      value = this->addArgumentSymbols(*this, signature, arguments);
+      if (value.hasFlowControl()) {
+        return value;
       }
       // Push the invoke node
       auto* invoke = definition.children[definition.defaultIndex];
@@ -2081,18 +2073,68 @@ namespace {
       auto runner = HardPtr(this->getAllocator().makeRaw<VMRunner>(this->vm, *this->program, *invoke));
       assert(runner != nullptr);
       assert(runner->softGetBasket() == this->basket);
+      // Add the captured symbols
+      auto value = this->addCaptureSymbols(*runner, captures);
+      if (value.hasFlowControl()) {
+        return value;
+      }
+      // Add the argument symbols
+      value = this->addArgumentSymbols(*runner, signature, arguments);
+      if (value.hasFlowControl()) {
+        return value;
+      }
+      // Create and return an iterator object
+      auto iterator = VMFactory::createGeneratorIterator(vm, signature.getReturnType(), *runner);
+      return this->createHardValueObject(iterator);
+    }
+    HardValue initiateManifestationCall(const Type& infratype, const IVMModule::Node& specification, const IVMTypeSpecification::Parameters& parameters, const IVMCallCaptures* captures) {
+      // We need to set the argument/capture symbols and initiate the execution of the block
+      assert(infratype.validate());
+      assert(specification.kind == IVMModule::Node::Kind::TypeSpecification);
+      assert(!this->stack.empty());
+      assert(this->stack.top().node->kind == IVMModule::Node::Kind::TypeManifestation);
+      assert(this->stack.top().scope.empty());
+      this->stack.pop();
+      this->symtable.push();
+      String description;
+      assert(parameters.empty());
+      (void)parameters; // TODO
+      for (auto* clause : specification.children) {
+        assert(clause != nullptr);
+        // TODO template parameters added to symbol table as type symbol
+        if (clause->kind == IVMModule::Node::Kind::TypeSpecificationDescription) {
+          clause->literal->getString(description);
+        } else if (clause->kind == IVMModule::Node::Kind::StmtManifestationInvoke) {
+          auto value = this->addCaptureSymbols(*this, captures);
+          if (value.hasFlowControl()) {
+            return value;
+          }
+          // Push the invoke node
+          this->push(*clause).value = this->createHardValueType(infratype);
+          return HardValue::Continue;
+        }
+      }
+      if (description.empty()) {
+        return this->raiseRuntimeError("No type manifestation function found");
+      }
+      return this->raiseRuntimeError("No type manifestation function found for '", description, "'");
+    }
+    HardValue addCaptureSymbols(VMRunner& runner, const IVMCallCaptures* captures) {
       if (captures != nullptr) {
         for (size_t index = 0; index < captures->getCaptureCount(); ++index) {
           auto* capture = captures->getCaptureByIndex(index);
           assert(capture != nullptr);
           assert(capture->soft != nullptr);
           assert(capture->soft->softGetBasket() != nullptr);
-          auto* extant = runner->addCapture(*capture);
+          auto* extant = runner.addCapture(*capture);
           if (extant != nullptr) {
             return this->raiseRuntimeError("Captured symbol already declared as ", describe(extant->kind), ": '", capture->name, "'");
           }
         }
       }
+      return HardValue::Void;
+    }
+    HardValue addArgumentSymbols(VMRunner& runner, const IFunctionSignature& signature, const ICallArguments& arguments) {
       for (size_t index = 0; index < signature.getParameterCount(); ++index) {
         // TODO optional/variadic arguments
         HardValue value;
@@ -2111,14 +2153,12 @@ namespace {
           }
           return this->execution.raiseRuntimeError(message, nullptr);
         }
-        auto* extant = runner->addVariable(pname, ptype, &poly);
+        auto* extant = runner.addVariable(pname, ptype, &poly);
         if (extant != nullptr) {
           return this->raiseRuntimeError("Parameter symbol already declared as ", describe(extant->kind), ": '", pname, "'");
         }
       }
-      // Create and return an iterator object
-      auto iterator = VMFactory::createGeneratorIterator(vm, signature.getReturnType(), *runner);
-      return this->createHardValueObject(iterator);
+      return HardValue::Void;
     }
     void printSymtable(Printer& printer) const {
       this->symtable.print(printer);
@@ -2402,6 +2442,37 @@ namespace {
       assert(pointer != nullptr);
       return this->createHardValueObject(pointer);
     }
+    HardValue manifestationCreate(const HardValue& type) {
+      // TODO optimize
+      Type runtimeType;
+      if (!type->getHardType(runtimeType)) {
+        return this->raiseRuntimeError("Invalid manifestation type during creation");
+      }
+      auto manifestation = ObjectFactory::createVanillaManifestation(this->vm, runtimeType);
+      return this->createHardValueObject(manifestation);
+    }
+    HardValue manifestationProperty(const HardValue& container, const HardValue& pname, const HardValue&, const HardValue& pvalue, Modifiability) {
+      // TODO optimize
+      // TODO type checks
+      HardObject manifestation;
+      if (!container->getHardObject(manifestation)) {
+        return this->raiseRuntimeError("Invalid manifestation instance during property assignment");
+      }
+      return manifestation->vmPropertySet(this->execution, pname, pvalue);
+    }
+    HardValue manifestationBuild(const HardValue& container) {
+      // TODO optimize
+      HardObject manifestation;
+      if (!container->getHardObject(manifestation)) {
+        return this->raiseRuntimeError("Invalid manifestation instance during building");
+      }
+      // Freeze the instance
+      auto freeze = manifestation->vmPropertySet(this->execution, HardValue::Null, HardValue::Null);
+      if (freeze.hasFlowControl()) {
+        return freeze;
+      }
+      return container;
+    }
   };
 
   HardValue VMExecution::debugSymtable() {
@@ -2457,7 +2528,7 @@ namespace {
     }
   private:
     virtual Type createType(const Parameters&) const = 0;
-    virtual HardValue createManifestation(IVMExecution& execution, const Type& infratype, const Parameters&) const = 0;
+    virtual HardValue createManifestation(IVMExecution& execution, const Type& infratype, const Parameters& parameters) const = 0;
   };
 
   class VMTypeSpecificationFromNodes : public VMTypeSpecificationBase {
@@ -2478,6 +2549,7 @@ namespace {
       : VMTypeSpecificationBase(vm),
         infratype(),
         spec(spec) {
+      assert(this->spec.kind == IVMModule::Node::Kind::TypeSpecification);
     }
     void setInfratype(const Type& type) {
       assert(this->infratype == nullptr);
@@ -2489,15 +2561,9 @@ namespace {
       // TODO handle parameters correctly
       return this->infratype;
     }
-    virtual HardValue createManifestation(IVMExecution& execution, const Type& itype, const Parameters&) const override {
+    virtual HardValue createManifestation(IVMExecution& execution, const Type& itype, const Parameters& parameters) const override {
       // TODO handle parameters correctly
-      auto builder = ObjectFactory::createObjectBuilder(this->vm);
-      builder->addProperty(execution.createHardValue("i"), execution.createHardValue(123), Modifiability::All); // WIBBLE
-      auto manifestation = builder->build();
-      this->vm.addManifestation(itype, manifestation);
-      return execution.createHardValueObject(manifestation);
-    }
-    HardValue createManifestationWIBBLE(IVMExecution&, const Type&, const Parameters&) const {
+      assert(itype == this->infratype);
       /* TODO explicit construction in external implementation; for example...
       auto builder = ObjectFactory::createObjectBuilder(this->vm);
       ...
@@ -2507,7 +2573,8 @@ namespace {
       return execution.createHardValueObject(manifestation);
       // TODO handle parameters correctly
       */
-      return HardValue::Continue;
+      const IVMCallCaptures* captures = nullptr;
+      return execution.initiateManifestationCall(itype, this->spec, parameters, captures);
     }
   };
 
@@ -2769,7 +2836,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       }
       Type type;
       if (!ftype->getHardType(type) || (type == nullptr)) {
-        return this->raise("Invalid type literal module node for function definition");
+        return this->raise("Invalid type node for function definition");
       }
       if (!this->variableScopeBegin(top, type)) {
         return StepOutcome::Stepped;
@@ -2804,7 +2871,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
   case IVMModule::Node::Kind::StmtGeneratorInvoke:
     // Actually pushed on to the stack by 'VMRunner::initiateGeneratorCall()'
     assert(top.index <= top.node->children.size());
-    switch (this->stepBlock(retval, 0)) {
+    switch (this->stepBlock(retval)) {
     case StepOutcome::Stepped:
       return StepOutcome::Stepped;
     case StepOutcome::Yielded:
@@ -2815,6 +2882,55 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
         return StepOutcome::Yielded;
       }
       return StepOutcome::Finished;
+    }
+    break;
+  case IVMModule::Node::Kind::StmtManifestationInvoke:
+    // Actually pushed on to the stack by 'VMRunner::initiateManifestationCall()'
+    assert(top.index <= top.node->children.size());
+    if (top.index == 0) {
+      top.value = this->manifestationCreate(top.value);
+      if (top.value.hasFlowControl()) {
+        this->symtable.pop();
+        return this->pop(top.value);
+      }
+    } else {
+      // Check the result of the previous child statement
+      assert(top.deque.size() == 1);
+      auto& result = top.deque.back();
+      if (result.hasFlowControl()) {
+        this->symtable.pop();
+        return this->pop(result);
+      }
+      if (!result->getVoid()) {
+        this->log(ILogger::Source::Runtime, ILogger::Severity::Warning, this->createString("Discarded value in manifestation instantiation")); // TODO
+      }
+      top.deque.clear();
+    }
+    assert(top.deque.empty());
+    if (top.index >= top.node->children.size()) {
+      // Reached the end of the list of statements
+      this->symtable.pop();
+      return this->pop(this->manifestationBuild(top.value));
+    }
+    // Execute all the statements with the same container value
+    this->push(*top.node->children[top.index++]).value = top.value;
+    break;
+  case IVMModule::Node::Kind::StmtManifestationProperty:
+    assert(top.node->children.size() == 2);
+    assert(top.index <= top.node->children.size());
+    if (top.index == 0) {
+      this->push(*top.node->children[top.index++]);
+    } else {
+      assert(!top.deque.empty());
+      auto& latest = top.deque.back();
+      if (latest.hasFlowControl()) {
+        return this->pop(latest);
+      }
+      if (top.index == 2) {
+        assert(top.deque.size() == 2);
+        return this->pop(this->manifestationProperty(top.value, top.node->literal, top.deque.front(), top.deque.back(), top.node->modifiability));
+      }
+      this->push(*top.node->children[top.index++]);
     }
     break;
   case IVMModule::Node::Kind::StmtVariableDeclare:
@@ -2832,7 +2948,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
         }
         Type type;
         if (!vtype->getHardType(type) || (type == nullptr)) {
-          return this->raise("Invalid type literal module node for variable declaration");
+          return this->raise("Invalid type node for variable declaration");
         }
         if (!this->variableScopeBegin(top, type)) {
           return StepOutcome::Stepped;
@@ -2859,7 +2975,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       }
       Type type;
       if (!vtype->getHardType(type) || (type == nullptr)) {
-        return this->raise("Invalid type literal module node for variable definition");
+        return this->raise("Invalid type node for variable definition");
       }
       if (!this->variableScopeBegin(top, type)) {
         return StepOutcome::Stepped;
@@ -2964,7 +3080,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
         }
         Type type;
         if (!vtype->getHardType(type) || (type == nullptr)) {
-          return this->raise("Invalid type literal module node for type definition");
+          return this->raise("Invalid type node for type definition");
         }
         if (!this->typeScopeBegin(top, type)) {
           return StepOutcome::Stepped;
@@ -3215,7 +3331,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       }
       Type type;
       if (!vtype->getHardType(type) || (type == nullptr)) {
-        return this->raise("Invalid type literal module node for 'for' each variable");
+        return this->raise("Invalid type node for 'for' each variable");
       }
       if (!this->variableScopeBegin(top, type)) {
         return StepOutcome::Stepped;
@@ -3571,7 +3687,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
         }
         Type type;
         if (!ctype->getHardType(type) || (type == nullptr)) {
-          return this->raise("Invalid type literal module node for 'catch' clause");
+          return this->raise("Invalid type node for 'catch' clause");
         }
         if (!this->variableScopeBegin(top, type)) {
           return StepOutcome::Stepped;
@@ -4125,7 +4241,12 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
         return this->raise("Cannot find type specification for type '", describe(*infratype), "'");
       }
       IVMTypeSpecification::Parameters parameters{};
-      return this->pop(specification->instantiateManifestation(this->execution, parameters));
+      auto manifestation = specification->instantiateManifestation(this->execution, parameters);
+      if (manifestation->getPrimitiveFlag() == ValueFlags::Continue) {
+        // The invocation resulted in a tail call
+        return StepOutcome::Stepped;
+      }
+      return this->pop(manifestation);
     }
     break;
   case IVMModule::Node::Kind::TypeUnaryOp:
@@ -4274,6 +4395,11 @@ HardValue VMExecution::initiateFunctionCall(const IFunctionSignature& signature,
 HardValue VMExecution::initiateGeneratorCall(const IFunctionSignature& signature, const IVMModule::Node& definition, const ICallArguments& arguments, const IVMCallCaptures* captures) {
   assert(this->runner != nullptr);
   return this->runner->initiateGeneratorCall(signature, definition, arguments, captures);
+}
+
+HardValue VMExecution::initiateManifestationCall(const Type& infratype, const IVMModule::Node& specification, const IVMTypeSpecification::Parameters& parameters, const IVMCallCaptures* captures) {
+  assert(this->runner != nullptr);
+  return this->runner->initiateManifestationCall(infratype, specification, parameters, captures);
 }
 
 egg::ovum::HardPtr<IVM> egg::ovum::VMFactory::createDefault(IAllocator& allocator, ILogger& logger) {

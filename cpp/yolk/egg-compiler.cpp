@@ -189,7 +189,7 @@ namespace {
     ModuleNode* compileTypeExprBinary(ParserNode& op, ParserNode& lhs, ParserNode& rhs, const ExprContext& context);
     ModuleNode* compileTypeExprFunctionSignature(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileTypeExprSpecification(ParserNode& pnode, const ExprContext& context);
-    ModuleNode* compileTypeExprSpecificationStaticData(ParserNode& pnode, const ExprContext& context);
+    ModuleNode* compileTypeExprSpecificationStaticData(ParserNode& pnode, const ExprContext& context, ModuleNode*& inode);
     ModuleNode* compileTypeGuard(ParserNode& pnode, const ExprContext& context, egg::ovum::Type& type, ModuleNode*& mcond);
     ModuleNode* compileTypeInfer(ParserNode& pnode, ParserNode& ptype, ParserNode& pexpr, const ExprContext& context, egg::ovum::Type& type, ModuleNode*& mexpr);
     ModuleNode* compileTypeInferVar(ParserNode& pnode, ParserNode& ptype, ParserNode& pexpr, const ExprContext& context, egg::ovum::Type& type, ModuleNode*& mexpr, bool nullable);
@@ -1922,6 +1922,7 @@ ModuleNode* ModuleCompiler::compileTypeExprFunctionSignature(ParserNode& pnode, 
 ModuleNode* ModuleCompiler::compileTypeExprSpecification(ParserNode& pnode, const ExprContext& context) {
   assert(pnode.kind == ParserNode::Kind::TypeSpecification);
   auto* mnode = &this->mbuilder.typeSpecification(pnode.range);
+  ModuleNode* inode = nullptr;
   egg::ovum::String description;
   if (pnode.value->getString(description)) {
     this->mbuilder.appendChild(*mnode, this->mbuilder.typeSpecificationDescription(description, pnode.range));
@@ -1930,7 +1931,14 @@ ModuleNode* ModuleCompiler::compileTypeExprSpecification(ParserNode& pnode, cons
     assert(pchild != nullptr);
     ModuleNode* mchild;
     if (pchild->kind == ParserNode::Kind::TypeSpecificationStaticData) {
-      mchild = this->compileTypeExprSpecificationStaticData(*pchild, context);
+      ModuleNode* ichild = nullptr;
+      mchild = this->compileTypeExprSpecificationStaticData(*pchild, context, ichild);
+      if (ichild != nullptr) {
+        if (inode == nullptr) {
+          inode = &this->mbuilder.stmtManifestationInvoke(pnode.range);
+        }
+        this->mbuilder.appendChild(*inode, *ichild);
+      }
     } else {
       return this->expected(*pchild, "type specification clause");
     }
@@ -1940,10 +1948,14 @@ ModuleNode* ModuleCompiler::compileTypeExprSpecification(ParserNode& pnode, cons
       this->mbuilder.appendChild(*mnode, *mchild);
     }
   }
+  if ((mnode != nullptr) && (inode != nullptr)) {
+    // Add the invoke node to the end, if it exists
+    this->mbuilder.appendChild(*mnode, *inode);
+  }
   return mnode;
 }
 
-ModuleNode* ModuleCompiler::compileTypeExprSpecificationStaticData(ParserNode& pnode, const ExprContext& context) {
+ModuleNode* ModuleCompiler::compileTypeExprSpecificationStaticData(ParserNode& pnode, const ExprContext& context, ModuleNode*& inode) {
   assert(pnode.kind == ParserNode::Kind::TypeSpecificationStaticData);
   EXPECT(pnode, pnode.children.size() == 2);
   egg::ovum::String symbol;
@@ -1952,11 +1964,12 @@ ModuleNode* ModuleCompiler::compileTypeExprSpecificationStaticData(ParserNode& p
   if (mtype == nullptr) {
     return nullptr;
   }
-  auto mvalue = this->compileValueExpr(*pnode.children.front(), context);
+  auto mvalue = this->compileValueExpr(*pnode.children.back(), context);
   if (mvalue == nullptr) {
     return nullptr;
   }
-  auto* mnode = &this->mbuilder.typeSpecificationStaticData(symbol, *mtype, *mvalue, pnode.range);
+  auto* mnode = &this->mbuilder.typeSpecificationStaticData(symbol, *mtype, pnode.range);
+  inode = &this->mbuilder.stmtManifestationProperty(symbol, *mtype, *mvalue, egg::ovum::Modifiability::Read, pnode.range);
   return mnode;
 }
 

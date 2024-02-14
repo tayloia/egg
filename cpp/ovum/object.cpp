@@ -786,8 +786,8 @@ namespace {
       }
       return execution.getSoftValue(pfound->second);
     }
-    void propertyAdd(const HardValue& pkey, const HardValue& pvalue, Modifiability pmodifiability) {
-      (void)pmodifiability; // WIBBLE
+    void propertyAdd(const HardValue& pkey, const HardValue& pvalue, Modifiability) {
+      // TODO implement modifiability
       auto pair = this->properties.emplace(std::piecewise_construct, std::forward_as_tuple(this->vm, pkey), std::forward_as_tuple(this->vm));
       assert(pair.first != this->properties.end());
       assert(pair.second);
@@ -842,6 +842,66 @@ namespace {
       : VMObjectVanillaObject(vm, modifiability) {
       this->propertyAdd("key", key, Modifiability::Read);
       this->propertyAdd("value", value, Modifiability::Read);
+    }
+  };
+
+  class VMObjectVanillaManifestation : public VMObjectVanillaContainer {
+    VMObjectVanillaManifestation(const VMObjectVanillaManifestation&) = delete;
+    VMObjectVanillaManifestation& operator=(const VMObjectVanillaManifestation&) = delete;
+  private:
+    Type runtimeType;
+    std::map<SoftKey, SoftValue, SoftComparator> properties;
+  protected:
+    virtual void printPrefix(Printer& printer) const override {
+      printer << "Vanilla manifestation";
+    }
+  public:
+    VMObjectVanillaManifestation(IVM& vm, const Type& runtimeType)
+      : VMObjectVanillaContainer(vm, Modifiability::ReadWrite),
+        runtimeType(runtimeType) {
+      assert(this->runtimeType.validate());
+    }
+    virtual void softVisit(ICollectable::IVisitor& visitor) const override {
+      for (const auto& property : this->properties) {
+        property.first.visit(visitor);
+        property.second.visit(visitor);
+      }
+    }
+    virtual int print(Printer& printer) const override {
+      printer << "[manifestation]";
+      return 0;
+    }
+    virtual Type vmRuntimeType() override {
+      return this->runtimeType;
+    }
+    virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue& property) override {
+      auto pfound = this->properties.find(property);
+      if (pfound == this->properties.end()) {
+        return this->raisePrefixError(execution, " does not contain property '", property, "'");
+      }
+      return execution.getSoftValue(pfound->second);
+    }
+    virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue& property, const HardValue& value) override {
+      if (this->modifiability == Modifiability::Read) {
+        // We're frozen
+        return this->raisePrefixError(execution, " does not support property modification");
+      }
+      if (property->getNull()) {
+        // Freeze the instance
+        this->modifiability = Modifiability::Read;
+        return HardValue::Void;
+      }
+      auto pfound = this->properties.find(property);
+      if (pfound == this->properties.end()) {
+        auto pair = this->properties.emplace(std::piecewise_construct, std::forward_as_tuple(this->vm, property), std::forward_as_tuple(this->vm));
+        assert(pair.first != this->properties.end());
+        assert(pair.second);
+        pfound = pair.first;
+      }
+      if (!execution.setSoftValue(pfound->second, value)) {
+        return this->raisePrefixError(execution, " cannot modify property '", property, "'");
+      }
+      return HardValue::Void;
     }
   };
 
@@ -1946,6 +2006,10 @@ egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaObject(IVM& vm, Mod
 
 egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaKeyValue(IVM& vm, const HardValue& key, const HardValue& value, Modifiability modifiability) {
   return makeHardObject<VMObjectVanillaKeyValue>(vm, key, value, modifiability);
+}
+
+egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaManifestation(IVM& vm, const Type& runtimeType) {
+  return makeHardObject<VMObjectVanillaManifestation>(vm, runtimeType);
 }
 
 egg::ovum::HardObject egg::ovum::ObjectFactory::createPointerToValue(IVM& vm, const HardValue& value, Modifiability modifiability) {
