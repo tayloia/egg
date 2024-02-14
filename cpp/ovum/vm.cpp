@@ -2581,7 +2581,7 @@ namespace {
         basket(BasketFactory::createBasket(allocator)),
         logger(logger) {
       this->forge = TypeForgeFactory::createTypeForge(allocator, *this->basket);
-      this->manifestations.emplace(Type::None, ObjectFactory::createManifestationType(*this));
+      this->manifestations.emplace(Type::Type_, ObjectFactory::createManifestationType(*this));
       this->manifestations.emplace(Type::Void, ObjectFactory::createManifestationVoid(*this));
       this->manifestations.emplace(Type::Bool, ObjectFactory::createManifestationBool(*this));
       this->manifestations.emplace(Type::Int, ObjectFactory::createManifestationInt(*this));

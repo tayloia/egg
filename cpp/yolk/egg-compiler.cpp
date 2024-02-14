@@ -1347,7 +1347,7 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode, const ExprContex
     return this->compileValueExprManifestation(pnode, egg::ovum::Type::Any);
   case ParserNode::Kind::TypeType:
     EXPECT(pnode, pnode.children.empty());
-    return this->compileValueExprManifestation(pnode, egg::ovum::Type::None);
+    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Type_);
   case ParserNode::Kind::ModuleRoot:
   case ParserNode::Kind::ExprEllipsis:
   case ParserNode::Kind::TypeInfer:

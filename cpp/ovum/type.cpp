@@ -1396,7 +1396,7 @@ namespace egg::internal {
     void addMetashapeType() {
       MetashapeBuilder mb{ this };
       mb.addPropertyFunction("of", Type::String);
-      mb.build(Type::None);
+      mb.build(Type::Type_);
     }
     void addMetashapeString() {
       MetashapeBuilder mb{ this };
@@ -1548,6 +1548,7 @@ const Type Type::Arithmetic{ TypeForgePrimitive::forge(ValueFlags::Arithmetic) }
 const Type Type::Object{ TypeForgePrimitive::forge(ValueFlags::Object) };
 const Type Type::Any{ TypeForgePrimitive::forge(ValueFlags::Any) };
 const Type Type::AnyQ{ TypeForgePrimitive::forge(ValueFlags::AnyQ) };
+const Type Type::Type_{ TypeForgePrimitive::forge(ValueFlags::Type) };
 
 int egg::ovum::Type::print(Printer& printer) const {
   auto* p = this->ptr;
@@ -1562,7 +1563,7 @@ int egg::ovum::Type::print(Printer& printer, ValueFlags primitive, int complexPr
   if (complexPrecedence < 0) {
     // No preceding complex components
     if (primitive == ValueFlags::None) {
-      printer << "type";
+      printer << "<none>";
       return -1;
     }
     return valueFlagsWrite(printer.stream, primitive);

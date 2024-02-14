@@ -198,9 +198,9 @@ TEST(TestVM, CreateHardValue) {
 
 TEST(TestVM, FindManifestation) {
   egg::test::VM vm;
-  auto manifestation = vm->findManifestation(Type::Arithmetic);
+  auto manifestation = vm->findManifestation(Type::None);
   ASSERT_EQ(nullptr, manifestation);
-  manifestation = vm->findManifestation(Type::None); // 'type.'
+  manifestation = vm->findManifestation(Type::Type_); // 'type.'
   ASSERT_NE(nullptr, manifestation);
   manifestation = vm->findManifestation(Type::String); // 'string.'
   ASSERT_NE(nullptr, manifestation);

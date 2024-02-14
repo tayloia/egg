@@ -163,6 +163,7 @@ namespace egg::ovum {
     static const Type Object;
     static const Type Any;
     static const Type AnyQ;
+    static const Type Type_;
 
     // Helpers
     static int print(Printer& printer, ValueFlags primitive, int complexPrecedence = -1); // returns precedence
