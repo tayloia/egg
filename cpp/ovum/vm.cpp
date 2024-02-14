@@ -46,7 +46,6 @@ public:
     TypeInfer,
     TypeLiteral,
     TypeVariableGet,
-    TypePropertyGet,
     TypeUnaryOp,
     TypeBinaryOp,
     TypeManifestation,
@@ -1047,9 +1046,6 @@ namespace {
       case Node::Kind::TypeVariableGet:
         assert(node.children.empty());
         return this->deduceTypeVariableGet(node.literal, node.range);
-      case Node::Kind::TypePropertyGet:
-        assert(node.children.size() == 2);
-        return this->deduceTypePropertyGet(*node.children.front(), *node.children.back(), node.range);
       case Node::Kind::TypeUnaryOp:
         assert(node.children.size() == 1);
         return this->deduceTypeUnaryOp(node.typeUnaryOp, *node.children.front(), node.range);
@@ -1326,27 +1322,6 @@ namespace {
       }
       return type;
     }
-    Type deduceTypePropertyGet(Node& type, Node& property, const SourceRange& range) {
-      if (property.kind == Node::Kind::ExprLiteral) {
-        String pname;
-        if (property.literal->getString(pname)) {
-          auto infratype = this->deduce(type);
-          if (infratype != nullptr) {
-            auto metashape = this->forge.getMetashape(infratype);
-            if ((metashape == nullptr) || (metashape->dotable == nullptr)) {
-              return this->fail(range, "Type '", describe(*infratype), "' does not support properties");
-            }
-            auto ptype = metashape->dotable->getType(pname);
-            if (ptype == nullptr) {
-              return this->fail(range, "Type '", describe(*infratype), "' does not support the property '", pname, "'");
-            }
-            return ptype;
-          }
-          return this->fail(range, "Cannot deduce type of property '", pname, "' for type");
-        }
-      }
-      return this->fail(range, "Cannot deduce type of property for type");
-    }
     Type deduceTypeUnaryOp(TypeUnaryOp op, Node& arg, const SourceRange& range) {
       auto atype = this->deduce(arg);
       if (atype == nullptr) {
@@ -1581,15 +1556,14 @@ namespace {
       node.literal = this->createHardValueType(type);
       return node;
     }
+    virtual Node& typeManifestation(Node& type, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::TypeManifestation, range);
+      node.addChild(type);
+      return node;
+    }
     virtual Node& typeVariableGet(const String& symbol, const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::TypeVariableGet, range);
       node.literal = this->createHardValueString(symbol);
-      return node;
-    }
-    virtual Node& typePropertyGet(Node& type, Node& property, const SourceRange& range) override {
-      auto& node = this->module->createNode(Node::Kind::TypePropertyGet, range);
-      node.addChild(type);
-      node.addChild(property);
       return node;
     }
     virtual Node& typeUnaryOp(TypeUnaryOp op, Node& arg, const SourceRange& range) override {
@@ -1603,11 +1577,6 @@ namespace {
       node.typeBinaryOp = op;
       node.addChild(lhs);
       node.addChild(rhs);
-      return node;
-    }
-    virtual Node& typeManifestation(Node& type, const SourceRange& range) override {
-      auto& node = this->module->createNode(Node::Kind::TypeManifestation, range);
-      node.addChild(type);
       return node;
     }
     virtual Node& typeFunctionSignature(const String& fname, Node& ptype, const SourceRange& range) override {
@@ -2433,28 +2402,6 @@ namespace {
       assert(pointer != nullptr);
       return this->createHardValueObject(pointer);
     }
-    HardValue cachedManifestationValue(const Type& infratype, HardObject& instance) {
-      assert(infratype.validate());
-      instance = this->vm.findManifestation(infratype);
-      if (instance != nullptr) {
-        return this->createHardValueObject(instance);
-      }
-      auto specification = infratype->getSpecification();
-      if (specification == nullptr) {
-        return this->raiseRuntimeError("Cannot find specification for type '", describe(*infratype), "'");
-      }
-      IVMTypeSpecification::Parameters parameters{};
-      auto value = specification->instantiateManifestation(this->execution, parameters);
-      if (value.hasFlowControl()) {
-        return value;
-      }
-      if (value->getHardObject(instance)) {
-        assert(instance != nullptr);
-        return value;
-      }
-      assert(instance == nullptr);
-      return this->raiseRuntimeError("Cannot instantiate manifestation for type '", describe(*infratype), "'");
-    }
   };
 
   HardValue VMExecution::debugSymtable() {
@@ -2464,40 +2411,25 @@ namespace {
     return this->createHardValueString(sb.build(this->vm.getAllocator()));
   }
 
-  class VMTypeSpecification : public VMUncollectable<IVMTypeSpecification> {
-    VMTypeSpecification(const VMTypeSpecification&) = delete;
-    VMTypeSpecification& operator=(const VMTypeSpecification&) = delete;
+  class VMTypeSpecificationBase : public VMUncollectable<IVMTypeSpecification> {
+    VMTypeSpecificationBase(const VMTypeSpecificationBase&) = delete;
+    VMTypeSpecificationBase& operator=(const VMTypeSpecificationBase&) = delete;
   private:
-    constexpr static const IType::Shape EMPTY{};
     struct Instantiation {
       Type type;
       HardValue manifestation;
     };
-    Type infratype;
-    TypeShape infrashape;
-    TypeShape metashape;
     std::mutex mutex;
     std::map<Parameters, Instantiation> instantiations;
   public:
-    explicit VMTypeSpecification(IVM& vm)
-      : VMUncollectable(vm),
-        infratype(),
-        infrashape(EMPTY),
-        metashape(EMPTY) {
-    }
-    void set(const Type& itype, const TypeShape& ishape, const TypeShape& mshape) {
-      this->infratype = itype;
-      this->infrashape = ishape;
-      this->metashape = mshape;
-      assert(this->infratype.validate());
-      assert(this->infrashape.validate());
-      assert(this->metashape.validate());
+    explicit VMTypeSpecificationBase(IVM& vm)
+      : VMUncollectable(vm) {
     }
     virtual Type instantiateType(const Parameters& parameters) override {
       std::lock_guard<std::mutex> lock{ this->mutex };
       auto& instantiation = this->instantiations[parameters];
       if (instantiation.type == nullptr) {
-        // Need to instantiate it and create the manifestation too
+        // Need to instantiate it
         instantiation.type = this->createType(parameters);
       }
       return instantiation.type;
@@ -2512,24 +2444,70 @@ namespace {
           return execution.raiseRuntimeError(execution.createString("Unable to instantiate type"), nullptr);
         }
       }
-      if (instantiation.manifestation->getVoid()) {
+      auto current = instantiation.manifestation->getPrimitiveFlag();
+      if (current == ValueFlags::Continue) {
+        // We've already got a pending tail call to instantiate the manifestation
+        return execution.raiseRuntimeError(execution.createString("Recursive type manifestation instantiation"), nullptr);
+      }
+      if (current == ValueFlags::Void) {
         // We need to instantiate the manifestation
         instantiation.manifestation = this->createManifestation(execution, instantiation.type, parameters);
       }
       return instantiation.manifestation;
     }
   private:
-    Type createType(const Parameters&) const {
+    virtual Type createType(const Parameters&) const = 0;
+    virtual HardValue createManifestation(IVMExecution& execution, const Type& infratype, const Parameters&) const = 0;
+  };
+
+  class VMTypeSpecificationFromNodes : public VMTypeSpecificationBase {
+    VMTypeSpecificationFromNodes(const VMTypeSpecificationFromNodes&) = delete;
+    VMTypeSpecificationFromNodes& operator=(const VMTypeSpecificationFromNodes&) = delete;
+  private:
+    constexpr static const IType::Shape EMPTY{};
+    struct Instantiation {
+      Type type;
+      HardValue manifestation;
+    };
+    Type infratype;
+    const IVMModule::Node& spec;
+    std::mutex mutex;
+    std::map<Parameters, Instantiation> instantiations;
+  public:
+    VMTypeSpecificationFromNodes(IVM& vm, const IVMModule::Node& spec)
+      : VMTypeSpecificationBase(vm),
+        infratype(),
+        spec(spec) {
+    }
+    void setInfratype(const Type& type) {
+      assert(this->infratype == nullptr);
+      this->infratype = type;
+      assert(this->infratype.validate());
+    }
+  private:
+    virtual Type createType(const Parameters&) const override {
       // TODO handle parameters correctly
       return this->infratype;
     }
-    HardValue createManifestation(IVMExecution& execution, const Type& itype, const Parameters&) const {
+    virtual HardValue createManifestation(IVMExecution& execution, const Type& itype, const Parameters&) const override {
       // TODO handle parameters correctly
       auto builder = ObjectFactory::createObjectBuilder(this->vm);
       builder->addProperty(execution.createHardValue("i"), execution.createHardValue(123), Modifiability::All); // WIBBLE
       auto manifestation = builder->build();
       this->vm.addManifestation(itype, manifestation);
       return execution.createHardValueObject(manifestation);
+    }
+    HardValue createManifestationWIBBLE(IVMExecution&, const Type&, const Parameters&) const {
+      /* TODO explicit construction in external implementation; for example...
+      auto builder = ObjectFactory::createObjectBuilder(this->vm);
+      ...
+      auto manifestation = builder->build();
+      // Do not forget to add the manifestation instance to the VM cache
+      this->vm.addManifestation(itype, manifestation);
+      return execution.createHardValueObject(manifestation);
+      // TODO handle parameters correctly
+      */
+      return HardValue::Continue;
     }
   };
 
@@ -2548,21 +2526,34 @@ namespace {
         spec(spec) {
     }
     virtual void setDescription(const String& description, int precedence) override {
+      assert(this->infrashaper != nullptr);
       this->infrashaper->setDescription(description, precedence);
     }
     virtual void addStaticData(const String& name, const Type& type) override {
+      assert(this->metashaper != nullptr);
       this->metashaper->addProperty(name, type, Modifiability::Read);
     }
     virtual IVMTypeSpecification& build() override {
-      auto specification = HardPtr(this->getAllocator().makeRaw<VMTypeSpecification>(this->vm));
+      // The VM cache takes ownership via an internal HardPtr
+      assert(this->infrashaper != nullptr);
+      assert(this->metashaper != nullptr);
+      assert(this->spec != nullptr);
+      auto specification = this->buildFromNodes();
+      this->vm.addTypeSpecification(*specification, this->spec);
+      this->infrashaper = nullptr;
+      this->metashaper = nullptr;
+      return *specification;
+    }
+  private:
+    HardPtr<IVMTypeSpecification> buildFromNodes() const {
+      auto specification = HardPtr(this->getAllocator().makeRaw<VMTypeSpecificationFromNodes>(this->vm, *this->spec));
       assert(specification != nullptr);
       auto& forge = this->vm.getTypeForge();
       auto infrashape = this->infrashaper->build(nullptr);
       auto infratype = forge.forgeShapeType(infrashape, specification.get());
-      auto metashape = this->metashaper->build(infratype);
-      specification->set(infratype, infrashape, metashape);
-      this->vm.addTypeSpecification(*specification, this->spec);
-      return *specification;
+      this->metashaper->build(infratype);
+      specification->setInfratype(infratype);
+      return specification;
     }
   };
 
@@ -4097,38 +4088,6 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       return this->pop(this->createHardValueType(extant->type));
     }
     break;
-  case IVMModule::Node::Kind::TypePropertyGet:
-    assert(top.node->literal->getVoid());
-    assert(top.node->children.size() == 2);
-    if (!top.deque.empty()) {
-      // Check the last evaluation
-      auto& latest = top.deque.back();
-      if (latest.hasFlowControl()) {
-        return this->pop(latest);
-      }
-    }
-    if (top.index < 2) {
-      // Assemble the arguments
-      this->push(*top.node->children[top.index++]);
-    } else {
-      // Perform the property fetch
-      assert(top.deque.size() == 2);
-      auto& lhs = top.deque.front();
-      Type type;
-      if (lhs->getHardType(type)) {
-        assert(type.validate());
-        HardObject instance;
-        auto manifestation = this->cachedManifestationValue(type, instance);
-        if (instance != nullptr) {
-          assert(!manifestation.hasFlowControl());
-          return this->pop(instance->vmPropertyGet(this->execution, top.deque.back()));
-        }
-        assert(manifestation.hasFlowControl());
-        return this->pop(manifestation);
-      }
-      return this->raise("Expected left-hand side of type operator '.' to support properties, but instead got ", describe(lhs));
-    }
-    break;
   case IVMModule::Node::Kind::TypeInfer:
     assert(top.node->children.empty());
     assert(top.index == 0);
@@ -4152,12 +4111,21 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
         return this->pop(value);
       }
       // Fetch the manifestation
-      Type type;
-      if (!value->getHardType(type)) {
+      Type infratype;
+      if (!value->getHardType(infratype)) {
         return this->raise("Invalid value for type manifestation");
       }
-      HardObject instance;
-      return this->pop(this->cachedManifestationValue(type, instance));
+      assert(infratype.validate());
+      auto instance = this->vm.findManifestation(infratype);
+      if (instance != nullptr) {
+        return this->pop(this->createHardValueObject(instance));
+      }
+      auto specification = infratype->getSpecification();
+      if (specification == nullptr) {
+        return this->raise("Cannot find type specification for type '", describe(*infratype), "'");
+      }
+      IVMTypeSpecification::Parameters parameters{};
+      return this->pop(specification->instantiateManifestation(this->execution, parameters));
     }
     break;
   case IVMModule::Node::Kind::TypeUnaryOp:
