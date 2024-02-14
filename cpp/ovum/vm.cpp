@@ -1133,11 +1133,29 @@ namespace {
     }
     Type deduceExprPropertyGet(Node& instance, Node& property, const SourceRange& range) {
       // TODO
-      assert(instance.kind != Node::Kind::TypeLiteral);
-      if (instance.kind == Node::Kind::TypeLiteral) {
-        auto type = getHardTypeOrNone(instance.literal);
-        return this->fail(range, "Type '", *type, "' does not support the property '", property.literal.get(), "'");
+      if (instance.kind == Node::Kind::TypeManifestation) {
+        assert(instance.children.size() == 1);
+        if (property.kind == Node::Kind::ExprLiteral) {
+          String pname;
+          if (property.literal->getString(pname)) {
+            auto infratype = this->deduce(*instance.children.front());
+            if (infratype != nullptr) {
+              auto metashape = this->forge.getMetashape(infratype);
+              if ((metashape == nullptr) || (metashape->dotable == nullptr)) {
+                return this->fail(range, "Type '", describe(*infratype), "' does not support properties");
+              }
+              auto ptype = metashape->dotable->getType(pname);
+              if (ptype == nullptr) {
+                return this->fail(range, "Type '", describe(*infratype), "' does not support the property '", pname, "'");
+              }
+              return ptype;
+            }
+            return this->fail(range, "Cannot deduce type of property '", pname, "' for type");
+          }
+        }
+        return this->fail(range, "Cannot deduce type of property for type");
       }
+      // TODO
       return Type::AnyQ;
     }
     Type deduceExprIndexGet(Node& instance, const SourceRange& range) {

@@ -1594,7 +1594,7 @@ ModuleNode* ModuleCompiler::compileValueExprProperty(ParserNode& dot, ParserNode
     return nullptr;
   }
   if (ambiguous == Ambiguous::Type) {
-    return this->checkCompilation(this->mbuilder.typePropertyGet(*lexpr, *rexpr, dot.range), context); // WIBBLE
+    lexpr = &this->mbuilder.typeManifestation(*lexpr, lhs.range);
   }
   return this->checkCompilation(this->mbuilder.exprPropertyGet(*lexpr, *rexpr, dot.range), context);
 }

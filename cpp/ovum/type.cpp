@@ -1372,12 +1372,36 @@ namespace egg::internal {
       return sb.build(this->allocator);
     }
     void addMetashapes() {
+      this->addMetashapeType();
       this->addMetashapeString();
     }
+    struct MetashapeBuilder {
+      TypeForgeDefault* forge;
+      HardPtr<ITypeForgeMetashapeBuilder> builder;
+      MetashapeBuilder(TypeForgeDefault* forge)
+        : forge(forge),
+          builder(forge->createMetashapeBuilder()) {
+      }
+      void addPropertyData(const char* pname, const Type& ptype, Modifiability pmodifiability = Modifiability::Read) {
+        this->builder->addProperty(String::fromUTF8(this->forge->allocator, pname), ptype, pmodifiability);
+      }
+      void addPropertyFunction(const char* fname, const Type& ftype, Modifiability pmodifiability = Modifiability::Read) {
+        // TODO
+        this->builder->addProperty(String::fromUTF8(this->forge->allocator, fname), ftype, pmodifiability);
+      }
+      void build(const Type& infratype) {
+        this->builder->build(infratype);
+      }
+    };
+    void addMetashapeType() {
+      MetashapeBuilder mb{ this };
+      mb.addPropertyFunction("of", Type::String);
+      mb.build(Type::None);
+    }
     void addMetashapeString() {
-      auto mb = this->createMetashapeBuilder();
-      mb->addProperty(StringBuilder::concat(this->allocator, "WIBBLE"), Type::String, Modifiability::ReadWriteMutate);
-      mb->build(Type::String);
+      MetashapeBuilder mb{ this };
+      mb.addPropertyData("WIBBLE", Type::String, Modifiability::ReadWriteMutate);
+      mb.build(Type::String);
     }
   };
 
@@ -1538,7 +1562,7 @@ int egg::ovum::Type::print(Printer& printer, ValueFlags primitive, int complexPr
   if (complexPrecedence < 0) {
     // No preceding complex components
     if (primitive == ValueFlags::None) {
-      printer << "<none>";
+      printer << "type";
       return -1;
     }
     return valueFlagsWrite(printer.stream, primitive);
