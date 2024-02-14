@@ -1594,7 +1594,7 @@ ModuleNode* ModuleCompiler::compileValueExprProperty(ParserNode& dot, ParserNode
     return nullptr;
   }
   if (ambiguous == Ambiguous::Type) {
-    return this->checkCompilation(this->mbuilder.typePropertyGet(*lexpr, *rexpr, dot.range), context);
+    return this->checkCompilation(this->mbuilder.typePropertyGet(*lexpr, *rexpr, dot.range), context); // WIBBLE
   }
   return this->checkCompilation(this->mbuilder.exprPropertyGet(*lexpr, *rexpr, dot.range), context);
 }
@@ -1748,7 +1748,7 @@ ModuleNode* ModuleCompiler::compileValueExprGuard(ParserNode& pnode, ParserNode&
 }
 
 ModuleNode* ModuleCompiler::compileValueExprManifestation(ParserNode& pnode, const egg::ovum::Type& type) {
-  return &this->mbuilder.typeManifestation(type, pnode.range);
+  return &this->mbuilder.typeManifestation(this->mbuilder.typeLiteral(type, pnode.range), pnode.range);
 }
 
 ModuleNode* ModuleCompiler::compileValueExprMissing(ParserNode& pnode) {

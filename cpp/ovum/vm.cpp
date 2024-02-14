@@ -1110,7 +1110,7 @@ namespace {
       case Node::Kind::TypeGenerator:
       case Node::Kind::TypeInfer:
       case Node::Kind::TypeManifestation:
-        // Should not be infratype directly
+        // Should not be deduced directly
         break;
       }
       return this->fail(node.range, "TODO: Cannot deduce type for unexpected module node kind");
@@ -1266,11 +1266,9 @@ namespace {
     }
     Type deduceExprFunctionCall(Node& function, const SourceRange& range) {
       if (function.kind == Node::Kind::TypeManifestation) {
-        Type type;
-        if (!function.literal->getHardType(type)) {
-          return this->fail(range, "Cannot deduce type manifestation from ", describe(function.literal));
-        }
-        return type;
+        // e.g. 'string(...)' or 'int(...)'
+        assert(function.children.size() == 1);
+        return this->deduce(*function.children.front());
       }
       auto ftype = this->deduce(function);
       if (ftype == nullptr) {
@@ -1316,7 +1314,7 @@ namespace {
         if (property.literal->getString(pname)) {
           auto infratype = this->deduce(type);
           if (infratype != nullptr) {
-            auto metashape = this->forge.getMetashape(infratype); // WIBBLE try to remove getMetashape and associated cache
+            auto metashape = this->forge.getMetashape(infratype);
             if ((metashape == nullptr) || (metashape->dotable == nullptr)) {
               return this->fail(range, "Type '", describe(*infratype), "' does not support properties");
             }
@@ -1443,7 +1441,7 @@ namespace {
     VMModuleBuilder& operator=(const VMModuleBuilder&) = delete;
   private:
     HardPtr<VMProgram> program;
-    HardPtr<VMModule> module; // becomes null once built
+    HardPtr<VMModule> module; // becomes null once manifestation
   public:
     VMModuleBuilder(IVM& vm, VMProgram& program, const String& resource)
       : VMUncollectable(vm),
@@ -1589,10 +1587,9 @@ namespace {
       node.addChild(rhs);
       return node;
     }
-    virtual Node& typeManifestation(const Type& type, const SourceRange& range) override {
-      assert(type.validate());
+    virtual Node& typeManifestation(Node& type, const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::TypeManifestation, range);
-      node.literal = this->createHardValueType(type);
+      node.addChild(type);
       return node;
     }
     virtual Node& typeFunctionSignature(const String& fname, Node& ptype, const SourceRange& range) override {
@@ -1859,7 +1856,7 @@ namespace {
     VMProgramBuilder(const VMProgramBuilder&) = delete;
     VMProgramBuilder& operator=(const VMProgramBuilder&) = delete;
   private:
-    HardPtr<VMProgram> program; // becomes null once built
+    HardPtr<VMProgram> program; // becomes null once manifestation
   public:
     explicit VMProgramBuilder(IVM& vm)
       : VMUncollectable(vm),
@@ -2419,7 +2416,6 @@ namespace {
       return this->createHardValueObject(pointer);
     }
     HardValue cachedManifestationValue(const Type& infratype, HardObject& instance) {
-      // WIBBLE optimize?
       assert(infratype.validate());
       instance = this->vm.findManifestation(infratype);
       if (instance != nullptr) {
@@ -2427,7 +2423,7 @@ namespace {
       }
       auto specification = infratype->getSpecification();
       if (specification == nullptr) {
-        return this->raiseRuntimeError("Cannot find manifestation for type '", describe(*infratype), "'");
+        return this->raiseRuntimeError("Cannot find specification for type '", describe(*infratype), "'");
       }
       IVMTypeSpecification::Parameters parameters{};
       auto value = specification->instantiateManifestation(this->execution, parameters);
@@ -2500,11 +2496,7 @@ namespace {
       }
       if (instantiation.manifestation->getVoid()) {
         // We need to instantiate the manifestation
-        instantiation.manifestation = this->createManifestation(execution, parameters);
-        HardObject instance;
-        if (instantiation.manifestation->getHardObject(instance)) {
-          this->vm.addManifestation(instantiation.type, instance);
-        }
+        instantiation.manifestation = this->createManifestation(execution, instantiation.type, parameters);
       }
       return instantiation.manifestation;
     }
@@ -2513,11 +2505,13 @@ namespace {
       // TODO handle parameters correctly
       return this->infratype;
     }
-    HardValue createManifestation(IVMExecution& execution, const Parameters&) const {
+    HardValue createManifestation(IVMExecution& execution, const Type& itype, const Parameters&) const {
       // TODO handle parameters correctly
-      auto ob = ObjectFactory::createObjectBuilder(this->vm);
-      ob->addProperty(execution.createHardValue("i"), execution.createHardValue(123), Modifiability::All); // WIBBLE
-      return execution.createHardValueObject(ob->build());
+      auto builder = ObjectFactory::createObjectBuilder(this->vm);
+      builder->addProperty(execution.createHardValue("i"), execution.createHardValue(123), Modifiability::All); // WIBBLE
+      auto manifestation = builder->build();
+      this->vm.addManifestation(itype, manifestation);
+      return execution.createHardValueObject(manifestation);
     }
   };
 
@@ -4128,17 +4122,26 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
     assert(top.deque.empty());
     return this->pop(top.node->literal);
   case IVMModule::Node::Kind::TypeManifestation:
-    assert(top.node->children.empty());
-    assert(top.index == 0);
-    assert(top.deque.empty());
-    {
+    assert(top.node->literal->getVoid());
+    assert(!top.node->children.empty());
+    if (top.index == 0) {
+      // Assemble the arguments
+      this->push(*top.node->children[top.index++]);
+    } else {
+      // Check the type evaluation
+      auto& value = top.deque.front();
+      if (value.hasFlowControl()) {
+        return this->pop(value);
+      }
+      // Fetch the manifestation
       Type type;
-      if (!top.node->literal->getHardType(type)) {
-        return this->raise("Invalid literal for type manifestation");
+      if (!value->getHardType(type)) {
+        return this->raise("Invalid value for type manifestation");
       }
       HardObject instance;
       return this->pop(this->cachedManifestationValue(type, instance));
     }
+    break;
   case IVMModule::Node::Kind::TypeUnaryOp:
   case IVMModule::Node::Kind::TypeBinaryOp:
   case IVMModule::Node::Kind::TypeFunctionSignature:
