@@ -849,17 +849,25 @@ namespace {
     VMObjectVanillaManifestation(const VMObjectVanillaManifestation&) = delete;
     VMObjectVanillaManifestation& operator=(const VMObjectVanillaManifestation&) = delete;
   private:
-    Type runtimeType;
+    Type infratype;
+    Type metatype;
     std::map<SoftKey, SoftValue, SoftComparator> properties;
   protected:
     virtual void printPrefix(Printer& printer) const override {
       printer << "Vanilla manifestation";
     }
   public:
-    VMObjectVanillaManifestation(IVM& vm, const Type& runtimeType)
+    VMObjectVanillaManifestation(IVM& vm, const Type& infratype, const Type& metatype)
       : VMObjectVanillaContainer(vm, Modifiability::ReadWrite),
-        runtimeType(runtimeType) {
-      assert(this->runtimeType.validate());
+        infratype(infratype),
+        metatype(metatype) {
+      assert(this->metatype.validate());
+    }
+    virtual ~VMObjectVanillaManifestation() override {
+      // If we go out of scope before freezing, the manifestation failed
+      if (this->modifiability != Modifiability::Read) {
+        this->vm.finalizeManifestation(this->infratype, HardObject());
+      }
     }
     virtual void softVisit(ICollectable::IVisitor& visitor) const override {
       for (const auto& property : this->properties) {
@@ -872,7 +880,7 @@ namespace {
       return 0;
     }
     virtual Type vmRuntimeType() override {
-      return this->runtimeType;
+      return this->metatype;
     }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue& property) override {
       auto pfound = this->properties.find(property);
@@ -889,6 +897,7 @@ namespace {
       if (property->getNull()) {
         // Freeze the instance
         this->modifiability = Modifiability::Read;
+        this->vm.finalizeManifestation(this->infratype, HardObject(this));
         return HardValue::Void;
       }
       auto pfound = this->properties.find(property);
@@ -2008,8 +2017,8 @@ egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaKeyValue(IVM& vm, c
   return makeHardObject<VMObjectVanillaKeyValue>(vm, key, value, modifiability);
 }
 
-egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaManifestation(IVM& vm, const Type& runtimeType) {
-  return makeHardObject<VMObjectVanillaManifestation>(vm, runtimeType);
+egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaManifestation(IVM& vm, const Type& infratype, const Type& metatype) {
+  return makeHardObject<VMObjectVanillaManifestation>(vm, infratype, metatype);
 }
 
 egg::ovum::HardObject egg::ovum::ObjectFactory::createPointerToValue(IVM& vm, const HardValue& value, Modifiability modifiability) {

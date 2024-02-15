@@ -1,0 +1,9 @@
+string value = "one";
+type Holder {
+  int i = value;
+};
+// type 'Holder' is instantiated on the following line
+value = "two";
+assert(Holder.i == "two");
+value = "three";
+assert(Holder.i == "two");

@@ -790,6 +790,9 @@ namespace egg::internal {
         basket(&basket) {
       this->addMetashapes();
     }
+    IAllocator& getAllocator() const {
+      return this->allocator;
+    }
     virtual ~TypeForgeDefault() override {
       for (auto* instance : this->owned) {
         this->destroy(instance);
@@ -1390,6 +1393,7 @@ namespace egg::internal {
         this->builder->addProperty(String::fromUTF8(this->forge->allocator, fname), ftype, pmodifiability);
       }
       void build(const Type& infratype) {
+        assert(infratype.validate());
         this->builder->build(infratype);
       }
     };
@@ -1479,6 +1483,12 @@ namespace egg::internal {
   }
 
   TypeShape TypeForgeMetashapeBuilder::build(const Type& infratype) {
+    if (infratype != nullptr) {
+      StringBuilder sb;
+      infratype->print(sb);
+      sb << "::manifestation";
+      this->getTaggableBuilder().setDescription(sb.build(this->forge.getAllocator()), 2);
+    }
     TypeForgeShape metashape;
     if (this->propertyBuilder != nullptr) {
       metashape.dotable = &this->propertyBuilder->build();

@@ -1136,6 +1136,7 @@ namespace {
     Type deduceExprPropertyGet(Node& instance, Node& property, const SourceRange& range) {
       // TODO
       if (instance.kind == Node::Kind::TypeManifestation) {
+        // e.g. 'string.from' or 'int.max'
         assert(instance.children.size() == 1);
         if (property.kind == Node::Kind::ExprLiteral) {
           String pname;
@@ -2109,7 +2110,7 @@ namespace {
           if (value.hasFlowControl()) {
             return value;
           }
-          // Push the invoke node
+          // Push the invoke node, with the infratype in the value
           this->push(*clause).value = this->createHardValueType(infratype);
           return HardValue::Continue;
         }
@@ -2442,13 +2443,18 @@ namespace {
       assert(pointer != nullptr);
       return this->createHardValueObject(pointer);
     }
-    HardValue manifestationCreate(const HardValue& type) {
+    HardValue manifestationCreate(const HardValue& itype) {
       // TODO optimize
-      Type runtimeType;
-      if (!type->getHardType(runtimeType)) {
+      Type infratype;
+      if (!itype->getHardType(infratype)) {
         return this->raiseRuntimeError("Invalid manifestation type during creation");
       }
-      auto manifestation = ObjectFactory::createVanillaManifestation(this->vm, runtimeType);
+      auto& forge = this->vm.getTypeForge();
+      TypeShape metashape{ *forge.getMetashape(infratype) };
+      assert(metashape.validate());
+      auto specification = infratype->getSpecification();
+      auto metatype = forge.forgeShapeType(metashape, specification.get());
+      auto manifestation = ObjectFactory::createVanillaManifestation(this->vm, infratype, metatype);
       return this->createHardValueObject(manifestation);
     }
     HardValue manifestationProperty(const HardValue& container, const HardValue& pname, const HardValue&, const HardValue& pvalue, Modifiability) {
@@ -2525,6 +2531,16 @@ namespace {
         instantiation.manifestation = this->createManifestation(execution, instantiation.type, parameters);
       }
       return instantiation.manifestation;
+    }
+    virtual void finalizeManifestation(const Type& infratype, const HardValue& manifestation) override {
+      // TODO optimize
+      std::lock_guard<std::mutex> lock{ this->mutex };
+      for (auto& instantiation : this->instantiations) {
+        if (instantiation.second.type == infratype) {
+          assert(instantiation.second.manifestation->getPrimitiveFlag() == ValueFlags::Continue);
+          instantiation.second.manifestation = manifestation;
+        }
+      }
     }
   private:
     virtual Type createType(const Parameters&) const = 0;
@@ -2688,6 +2704,19 @@ namespace {
         return found->second;
       }
       return HardObject();
+    }
+    virtual void finalizeManifestation(const Type& infratype, const HardObject& manifestation) override {
+      assert(this->findManifestation(infratype) == nullptr);
+      auto specification = infratype->getSpecification();
+      assert(specification != nullptr);
+      if (manifestation == nullptr) {
+        // Manifestation instantiation failed
+        specification->finalizeManifestation(infratype, HardValue::Void);
+      } else {
+        // Manifestation instantiation succeeded
+        this->addManifestation(infratype, manifestation);
+        specification->finalizeManifestation(infratype, this->createHardValueObject(manifestation));
+      }
     }
     virtual String createStringUTF8(const void* utf8, size_t bytes, size_t codepoints) override {
       return String::fromUTF8(this->allocator, utf8, bytes, codepoints);
