@@ -1,9 +1,12 @@
-string value = "one";
+int counter = 0;
 type Holder {
-  int i = value;
+  int f() {
+    ++counter;
+    return counter;
+  }
 };
-value = "two";
 // type 'Holder' is instantiated on the following line
+value = "two";
 assert(Holder.i == "two");
 value = "three";
 assert(Holder.i == "two");

@@ -1,0 +1,10 @@
+int() f;
+type Holder {
+  int i = f();
+};
+int g() {
+  return Holder.i;
+}
+f = g;
+print(g());
+///<RUNTIME><ERROR><RESOURCE>(6,10-15): Recursive type manifestation instantiation
