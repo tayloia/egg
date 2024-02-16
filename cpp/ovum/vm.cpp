@@ -39,8 +39,10 @@ public:
     ExprVariableRef,
     ExprPropertyRef,
     ExprIndexRef,
-    ExprArray,
-    ExprObject,
+    ExprArrayConstruct,
+    ExprObjectConstruct,
+    ExprFunctionConstruct,
+    ExprFunctionCapture,
     ExprGuard,
     ExprNamed,
     TypeInfer,
@@ -54,11 +56,9 @@ public:
     TypeGenerator,
     TypeSpecification,
     TypeSpecificationDescription,
-    TypeSpecificationStaticData,
-    TypeSpecificationStaticFunction,
+    TypeSpecificationTypeMember,
     StmtBlock,
     StmtFunctionDefine,
-    StmtFunctionCapture,
     StmtFunctionInvoke,
     StmtGeneratorInvoke,
     StmtManifestationInvoke,
@@ -443,7 +443,6 @@ namespace {
     }
     virtual HardValue raiseRuntimeError(const String& message, const SourceRange* source) override;
     virtual HardValue initiateFunctionCall(const IFunctionSignature& signature, const IVMModule::Node& definition, const ICallArguments& arguments, const IVMCallCaptures* captures) override;
-    virtual HardValue initiateGeneratorCall(const IFunctionSignature& signature, const IVMModule::Node& definition, const ICallArguments& arguments, const IVMCallCaptures* captures) override;
     virtual HardValue initiateManifestationCall(const Type& infratype, const IVMModule::Node& specification, const IVMTypeSpecification::Parameters& parameters, const IVMCallCaptures* captures) override;
     virtual bool assignValue(IValue& lhs, const Type& ltype, const IValue& rhs) override {
       // Assign with int-to-float promotion
@@ -1042,9 +1041,9 @@ namespace {
         return this->deduceExprTernaryOp(node.valueTernaryOp, *node.children[0], *node.children[1], *node.children[2], node.range);
       case Node::Kind::ExprPredicateOp:
         return Type::Bool;
-      case Node::Kind::ExprArray:
+      case Node::Kind::ExprArrayConstruct:
         return this->deduceExprArray(node, Modifiability::All);
-      case Node::Kind::ExprObject:
+      case Node::Kind::ExprObjectConstruct:
         return Type::Object;
       case Node::Kind::TypeLiteral:
         return getHardTypeOrNone(node.literal);
@@ -1070,7 +1069,6 @@ namespace {
         return Type::String;
       case Node::Kind::StmtBlock:
       case Node::Kind::StmtFunctionDefine:
-      case Node::Kind::StmtFunctionCapture:
       case Node::Kind::StmtFunctionInvoke:
       case Node::Kind::StmtGeneratorInvoke:
       case Node::Kind::StmtManifestationInvoke:
@@ -1105,13 +1103,14 @@ namespace {
       case Node::Kind::StmtYieldContinue:
         return Type::Void;
       case Node::Kind::Root:
+      case Node::Kind::ExprFunctionConstruct:
+      case Node::Kind::ExprFunctionCapture:
       case Node::Kind::ExprGuard:
       case Node::Kind::ExprNamed:
       case Node::Kind::TypeGenerator:
       case Node::Kind::TypeInfer:
       case Node::Kind::TypeManifestation:
-      case Node::Kind::TypeSpecificationStaticData:
-      case Node::Kind::TypeSpecificationStaticFunction:
+      case Node::Kind::TypeSpecificationTypeMember:
         // Should not be deduced directly
         break;
       }
@@ -1278,7 +1277,7 @@ namespace {
       return this->forge.forgeUnionType(ltype, rtype);
     }
     Type deduceExprArray(Node& array, Modifiability modifiability) {
-      assert(array.kind == Node::Kind::ExprArray);
+      assert(array.kind == Node::Kind::ExprArrayConstruct);
       Type atype;
       if (!array.literal->getHardType(atype)) {
         atype = Type::AnyQ;
@@ -1536,14 +1535,25 @@ namespace {
       node.addChild(index);
       return node;
     }
-    virtual Node& exprArray(const Type& elementType, const SourceRange& range) override {
+    virtual Node& exprArrayConstruct(const Type& elementType, const SourceRange& range) override {
       assert(elementType != nullptr);
-      auto& node = this->module->createNode(Node::Kind::ExprArray, range);
+      auto& node = this->module->createNode(Node::Kind::ExprArrayConstruct, range);
       node.literal = this->createHardValueType(elementType);
       return node;
     }
-    virtual Node& exprObject(const SourceRange& range) override {
-      auto& node = this->module->createNode(Node::Kind::ExprObject, range);
+    virtual Node& exprObjectConstruct(const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::ExprObjectConstruct, range);
+      return node;
+    }
+    virtual Node& exprFunctionConstruct(Node& functionType, Node& invoke, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::ExprFunctionConstruct, range);
+      node.addChild(functionType);
+      node.addChild(invoke);
+      return node;
+    }
+    virtual Node& exprFunctionCapture(const String& symbol, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::ExprFunctionCapture, range);
+      node.literal = this->createHardValueString(symbol);
       return node;
     }
     virtual Node& exprGuard(const String& symbol, Node& value, const SourceRange& range) override {
@@ -1613,16 +1623,9 @@ namespace {
       node.literal = this->createHardValueString(description);
       return node;
     }
-    virtual Node& typeSpecificationStaticData(const String& symbol, Node& type, const SourceRange& range) {
-      auto& node = this->module->createNode(Node::Kind::TypeSpecificationStaticData, range);
+    virtual Node& typeSpecificationTypeMember(const String& symbol, Node& type, const SourceRange& range) {
+      auto& node = this->module->createNode(Node::Kind::TypeSpecificationTypeMember, range);
       node.literal = this->createHardValueString(symbol);
-      node.addChild(type);
-      return node;
-    }
-    virtual Node& typeSpecificationStaticFunction(const String& symbol, Node& type, size_t captures, const SourceRange& range) override {
-      auto& node = this->module->createNode(Node::Kind::TypeSpecificationStaticFunction, range);
-      node.literal = this->createHardValueString(symbol);
-      node.defaultIndex = captures + 1; // child index of invoke node
       node.addChild(type);
       return node;
     }
@@ -1683,16 +1686,11 @@ namespace {
       auto& node = this->module->createNode(Node::Kind::StmtContinue, range);
       return node;
     }
-    virtual Node& stmtFunctionDefine(const String& symbol, Node& type, size_t captures, const SourceRange& range) override {
+    virtual Node& stmtFunctionDefine(const String& symbol, Node& type, Node& value, const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::StmtFunctionDefine, range);
       node.literal = this->createHardValueString(symbol);
-      node.defaultIndex = captures + 1; // child index of invoke node
       node.addChild(type);
-      return node;
-    }
-    virtual Node& stmtFunctionCapture(const String& symbol, const SourceRange& range) override {
-      auto& node = this->module->createNode(Node::Kind::StmtFunctionCapture, range);
-      node.literal = this->createHardValueString(symbol);
+      node.addChild(value);
       return node;
     }
     virtual Node& stmtFunctionInvoke(const SourceRange& range) override {
@@ -1844,9 +1842,9 @@ namespace {
             sb->setDescription(name, 2);
           }
           break;
-        case Node::Kind::TypeSpecificationStaticData:
+        case Node::Kind::TypeSpecificationTypeMember:
           if (!clause->literal->getString(name)) {
-            reporter.report(clause->range, this->createString("Missing name of type specification static data"));
+            reporter.report(clause->range, this->createString("Missing name of type specification type member"));
             return nullptr;
           } else {
             assert(!clause->children.empty());
@@ -1854,20 +1852,7 @@ namespace {
             if (type == nullptr) {
               return nullptr;
             }
-            sb->addStaticData(name, type);
-          }
-          break;
-        case Node::Kind::TypeSpecificationStaticFunction:
-          if (!clause->literal->getString(name)) {
-            reporter.report(clause->range, this->createString("Missing name of type specification static function"));
-            return nullptr;
-          } else {
-            assert(!clause->children.empty());
-            auto type = this->deduce(*clause->children.front(), resolver, &reporter);
-            if (type == nullptr) {
-              return nullptr;
-            }
-            sb->addStaticFunction(name, type);
+            sb->addTypeMember(name, type);
           }
           break;
         case Node::Kind::StmtManifestationInvoke:
@@ -2071,9 +2056,8 @@ namespace {
       auto message = this->execution.concat(std::forward<ARGS>(args)...);
       return this->execution.raiseRuntimeError(message, nullptr);
     }
-    HardValue initiateFunctionCall(const IFunctionSignature& signature, const IVMModule::Node& definition, const ICallArguments& arguments, const IVMCallCaptures* captures) {
+    HardValue initiateFunctionCall(const IFunctionSignature& signature, IVMModule::Node& invoke, const ICallArguments& arguments, const IVMCallCaptures* captures) {
       // We need to set the argument/capture symbols and initiate the execution of the block
-      assert(definition.kind == IVMModule::Node::Kind::StmtFunctionDefine);
       assert(!this->stack.empty());
       assert(this->stack.top().node->kind == IVMModule::Node::Kind::ExprFunctionCall);
       assert(this->stack.top().scope.empty());
@@ -2090,22 +2074,17 @@ namespace {
         return value;
       }
       // Push the invoke node
-      auto* invoke = definition.children[definition.defaultIndex];
-      assert(invoke != nullptr);
-      assert(invoke->kind == IVMModule::Node::Kind::StmtFunctionInvoke);
-      this->push(*invoke);
+      assert(invoke.kind == IVMModule::Node::Kind::StmtFunctionInvoke);
+      this->push(invoke);
       return HardValue::Continue;
     }
-    HardValue initiateGeneratorCall(const IFunctionSignature& signature, const IVMModule::Node& definition, const ICallArguments& arguments, const IVMCallCaptures* captures) {
+    HardValue initiateGeneratorCall(const IFunctionSignature& signature, IVMModule::Node& invoke, const ICallArguments& arguments, const IVMCallCaptures* captures) {
       // Create the generator iteration function instance
-      assert(definition.kind == IVMModule::Node::Kind::StmtFunctionDefine);
       assert(!this->stack.empty());
       assert(this->stack.top().node->kind == IVMModule::Node::Kind::ExprFunctionCall);
       assert(this->stack.top().scope.empty());
-      auto* invoke = definition.children[definition.defaultIndex];
-      assert(invoke != nullptr);
-      assert(invoke->kind == IVMModule::Node::Kind::StmtGeneratorInvoke);
-      auto runner = HardPtr(this->getAllocator().makeRaw<VMRunner>(this->vm, *this->program, *invoke));
+      assert(invoke.kind == IVMModule::Node::Kind::StmtGeneratorInvoke);
+      auto runner = HardPtr(this->getAllocator().makeRaw<VMRunner>(this->vm, *this->program, invoke));
       assert(runner != nullptr);
       assert(runner->softGetBasket() == this->basket);
       // Add the captured symbols
@@ -2386,19 +2365,23 @@ namespace {
       return this->createHardValueObject(object);
     }
     HardValue functionConstruct(const Type& ftype, const IVMModule::Node& definition) {
-      // TODO optimize
       assert(ftype.validate());
+      assert(definition.kind == IVMModule::Node::Kind::ExprFunctionConstruct);
+      assert(definition.children.size() >= 2);
+      auto child = definition.children.begin();
       auto* signature = ftype.getOnlyFunctionSignature();
       if (signature == nullptr) {
         return this->raiseRuntimeError("Missing function signature in '", describe(*ftype), "'");
       }
       std::vector<VMCallCapture> captures;
-      for (size_t index = 1; index < definition.defaultIndex; ++index) {
-        auto* capture = definition.children[index];
-        assert(capture != nullptr);
-        assert(capture->kind == IVMModule::Node::Kind::StmtFunctionCapture);
+      // The first two elements are the function type and the invocation node
+      ++child;
+      while (++child != definition.children.end()) {
+        assert(*child != nullptr);
+        auto& capture = **child;
+        assert(capture.kind == IVMModule::Node::Kind::ExprFunctionCapture);
         String symbol;
-        if (!capture->literal->getString(symbol)) {
+        if (!capture.literal->getString(symbol)) {
           return this->raiseRuntimeError("Failed to fetch captured symbol name");
         }
         auto* found = this->symtable.find(symbol);
@@ -2406,11 +2389,6 @@ namespace {
           return this->raiseRuntimeError("Cannot find required captured symbol: '", symbol, "'");
         }
         captures.emplace_back(found->kind, found->type, symbol, found->soft);
-      }
-      if (signature->getGeneratedType() != nullptr) {
-        auto object = VMFactory::createGenerator(this->vm, ftype, *signature, definition, std::move(captures));
-        assert(object != nullptr);
-        return this->createHardValueObject(object);
       }
       auto object = VMFactory::createFunction(this->vm, ftype, *signature, definition, std::move(captures));
       assert(object != nullptr);
@@ -2646,13 +2624,13 @@ namespace {
       assert(this->infrashaper != nullptr);
       this->infrashaper->setDescription(description, precedence);
     }
-    virtual void addStaticData(const String& name, const Type& type) override {
+    virtual void addTypeMember(const String& name, const Type& type) override {
       assert(this->metashaper != nullptr);
       this->metashaper->addProperty(name, type, Modifiability::Read);
     }
-    virtual void addStaticFunction(const String& name, const Type& type) override {
-      assert(this->metashaper != nullptr);
-      this->metashaper->addProperty(name, type, Modifiability::Read);
+    virtual void addInstanceMember(const String& name, const Type& type, Modifiability modifiability) override {
+      assert(this->infrashaper != nullptr);
+      this->infrashaper->addProperty(name, type, modifiability);
     }
     virtual IVMTypeSpecification& build() override {
       // The VM cache takes ownership via an internal HardPtr
@@ -2895,7 +2873,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       // Evaluate the type
       this->push(*top.node->children[top.index++]);
     } else if (top.index == 1) {
-      // Set the symbol
+      // Evaluate the initial value
       assert(top.deque.size() == 1);
       auto& ftype = top.deque.front();
       if (ftype.hasFlowControl()) {
@@ -2909,21 +2887,20 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
         return StepOutcome::Stepped;
       }
       top.deque.clear();
-      top.index = top.node->defaultIndex;
-      assert((top.node->children[top.index]->kind == IVMModule::Node::Kind::StmtFunctionInvoke) || (top.node->children[top.index]->kind == IVMModule::Node::Kind::StmtGeneratorInvoke));
-      if (!this->symbolSet(top.node, this->functionConstruct(type, *top.node))) {
-        return StepOutcome::Stepped;
-      }
-      // Skip the function invocation block
-      top.index++;
-      // Perform the first statement of the scope of the function pname
       this->push(*top.node->children[top.index++]);
-    } else if (this->stepBlock(retval, 2) != StepOutcome::Stepped) {
-      return this->pop(retval);
+    } else {
+      if (top.index == 2) {
+        assert(top.deque.size() == 1);
+        if (!this->symbolSet(top.node, top.deque.front())) {
+          return StepOutcome::Stepped;
+        }
+        top.deque.clear();
+      }
+      if (this->stepBlock(retval, 2) != StepOutcome::Stepped) {
+        return this->pop(retval);
+      }
     }
     break;
-  case IVMModule::Node::Kind::StmtFunctionCapture:
-   return this->raise("Unexpected function symbol capture module node encountered");
   case IVMModule::Node::Kind::StmtFunctionInvoke:
     // Actually pushed on to the stack by 'VMRunner::initiateFunctionCall()'
     assert(top.index <= top.node->children.size());
@@ -4195,7 +4172,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       return this->raise("Expected expression after pointer operator '*' to be a pointer, but instead got ", describe(pointer));
     }
     break;
-  case IVMModule::Node::Kind::ExprArray:
+  case IVMModule::Node::Kind::ExprArrayConstruct:
     if (!top.deque.empty()) {
       // Check the last evaluation
       auto& latest = top.deque.back();
@@ -4215,7 +4192,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       return this->pop(this->arrayConstruct(elementType, Modifiability::All, top.deque, top.node->children));
     }
     break;
-  case IVMModule::Node::Kind::ExprObject:
+  case IVMModule::Node::Kind::ExprObjectConstruct:
     if (!top.deque.empty()) {
       // Check the last evaluation
       auto& latest = top.deque.back();
@@ -4235,6 +4212,28 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       return this->pop(this->objectConstruct(Modifiability::All, top.deque));
     }
     break;
+  case IVMModule::Node::Kind::ExprFunctionConstruct:
+    assert(top.node->children.size() >= 1);
+    assert(top.index <= top.node->children.size());
+    if (top.index == 0) {
+      // Evaluate the type
+      this->push(*top.node->children[top.index++]);
+    } else {
+      // Set the symbol
+      assert(top.deque.size() == 1);
+      auto& ftype = top.deque.front();
+      if (ftype.hasFlowControl()) {
+        return this->pop(ftype);
+      }
+      Type type;
+      if (!ftype->getHardType(type) || (type == nullptr)) {
+        return this->raise("Invalid type node for function construction");
+      }
+      return this->pop(this->functionConstruct(type, *top.node));
+    }
+    break;
+  case IVMModule::Node::Kind::ExprFunctionCapture:
+    return this->raise("WIBBLE Unexpected function symbol capture module node encountered");
   case IVMModule::Node::Kind::ExprGuard:
     assert(top.node->children.size() == 1);
     if (top.index == 0) {
@@ -4323,8 +4322,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
   case IVMModule::Node::Kind::TypeGenerator:
   case IVMModule::Node::Kind::TypeSpecification:
   case IVMModule::Node::Kind::TypeSpecificationDescription:
-  case IVMModule::Node::Kind::TypeSpecificationStaticData:
-  case IVMModule::Node::Kind::TypeSpecificationStaticFunction:
+  case IVMModule::Node::Kind::TypeSpecificationTypeMember:
     return this->stepType();
   default:
     return this->raise("Invalid program node kind in program runner");
@@ -4457,12 +4455,15 @@ HardValue VMExecution::raiseRuntimeError(const String& message, const SourceRang
 
 HardValue VMExecution::initiateFunctionCall(const IFunctionSignature& signature, const IVMModule::Node& definition, const ICallArguments& arguments, const IVMCallCaptures* captures) {
   assert(this->runner != nullptr);
-  return this->runner->initiateFunctionCall(signature, definition, arguments, captures);
-}
-
-HardValue VMExecution::initiateGeneratorCall(const IFunctionSignature& signature, const IVMModule::Node& definition, const ICallArguments& arguments, const IVMCallCaptures* captures) {
-  assert(this->runner != nullptr);
-  return this->runner->initiateGeneratorCall(signature, definition, arguments, captures);
+  assert(definition.kind == IVMModule::Node::Kind::ExprFunctionConstruct);
+  assert(definition.children.size() >= 2);
+  auto* invoke = definition.children[1];
+  assert(invoke != nullptr);
+  if (invoke->kind == IVMModule::Node::Kind::StmtFunctionInvoke) {
+    return this->runner->initiateFunctionCall(signature, *invoke, arguments, captures);
+  }
+  assert(invoke->kind == IVMModule::Node::Kind::StmtGeneratorInvoke);
+  return this->runner->initiateGeneratorCall(signature, *invoke, arguments, captures);
 }
 
 HardValue VMExecution::initiateManifestationCall(const Type& infratype, const IVMModule::Node& specification, const IVMTypeSpecification::Parameters& parameters, const IVMCallCaptures* captures) {

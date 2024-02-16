@@ -978,30 +978,6 @@ namespace {
     }
   };
 
-  class VMObjectVanillaGenerator : public VMObjectVanillaCaptures {
-    VMObjectVanillaGenerator(const VMObjectVanillaGenerator&) = delete;
-    VMObjectVanillaGenerator& operator=(const VMObjectVanillaGenerator&) = delete;
-  private:
-    const IFunctionSignature& signature;
-    const IVMModule::Node& definition;
-  protected:
-    virtual void printPrefix(Printer& printer) const override {
-      printer << "Generator";
-    }
-  public:
-    VMObjectVanillaGenerator(IVM& vm, const Type& ftype, const IFunctionSignature& signature, const IVMModule::Node& definition, std::vector<VMCallCapture>&& captures)
-      : VMObjectVanillaCaptures(vm, ftype, std::move(captures)),
-        signature(signature),
-        definition(definition) {
-    }
-    virtual void softVisit(ICollectable::IVisitor& visitor) const override {
-      VMObjectVanillaCaptures::softVisit(visitor);
-    }
-    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
-      return execution.initiateGeneratorCall(this->signature, this->definition, arguments, this);
-    }
-  };
-
   class VMObjectVanillaGeneratorIterator : public VMObjectBase {
     VMObjectVanillaGeneratorIterator(const VMObjectVanillaGeneratorIterator&) = delete;
     VMObjectVanillaGeneratorIterator& operator=(const VMObjectVanillaGeneratorIterator&) = delete;
@@ -2155,10 +2131,6 @@ egg::ovum::HardPtr<egg::ovum::IObjectBuilder> egg::ovum::ObjectFactory::createRu
 
 egg::ovum::HardObject egg::ovum::VMFactory::createFunction(IVM& vm, const Type& ftype, const IFunctionSignature& signature, const IVMModule::Node& definition, std::vector<VMCallCapture>&& captures) {
   return makeHardObject<VMObjectVanillaFunction>(vm, ftype, signature, definition, std::move(captures));
-}
-
-egg::ovum::HardObject egg::ovum::VMFactory::createGenerator(IVM& vm, const Type& ftype, const IFunctionSignature& signature, const IVMModule::Node& definition, std::vector<VMCallCapture>&& captures) {
-  return makeHardObject<VMObjectVanillaGenerator>(vm, ftype, signature, definition, std::move(captures));
 }
 
 egg::ovum::HardObject egg::ovum::VMFactory::createGeneratorIterator(IVM& vm, const Type& ftype, IVMRunner& runner) {

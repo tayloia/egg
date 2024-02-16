@@ -137,8 +137,8 @@ namespace egg::ovum {
   class IVMTypeSpecificationBuilder : public IVMUncollectable {
   public:
     virtual void setDescription(const String& description, int precedence) = 0;
-    virtual void addStaticData(const String& name, const Type& type) = 0;
-    virtual void addStaticFunction(const String& name, const Type& type) = 0;
+    virtual void addTypeMember(const String& name, const Type& type) = 0;
+    virtual void addInstanceMember(const String& name, const Type& type, Modifiability modifiability) = 0;
     virtual IVMTypeSpecification& build() = 0;
   };
 
@@ -151,7 +151,6 @@ namespace egg::ovum {
     virtual bool assignValue(IValue& lhs, const Type& ltype, const IValue& rhs) = 0;
     // Function calls
     virtual HardValue initiateFunctionCall(const IFunctionSignature& signature, const IVMModule::Node& definition, const ICallArguments& arguments, const IVMCallCaptures* captures) = 0;
-    virtual HardValue initiateGeneratorCall(const IFunctionSignature& signature, const IVMModule::Node& definition, const ICallArguments& arguments, const IVMCallCaptures* captures) = 0;
     virtual HardValue initiateManifestationCall(const Type& infratype, const IVMModule::Node& specification, const IVMTypeSpecification::Parameters& parameters, const IVMCallCaptures* captures) = 0;
     // Soft values
     virtual HardValue getSoftValue(const SoftValue& soft) = 0;
@@ -211,8 +210,10 @@ namespace egg::ovum {
     virtual Node& exprVariableRef(const String& symbol, const SourceRange& range) = 0;
     virtual Node& exprPropertyRef(Node& instance, Node& property, const SourceRange& range) = 0;
     virtual Node& exprIndexRef(Node& instance, Node& index, const SourceRange& range) = 0;
-    virtual Node& exprArray(const Type& elementType, const SourceRange& range) = 0;
-    virtual Node& exprObject(const SourceRange& range) = 0;
+    virtual Node& exprArrayConstruct(const Type& elementType, const SourceRange& range) = 0;
+    virtual Node& exprObjectConstruct(const SourceRange& range) = 0;
+    virtual Node& exprFunctionConstruct(Node& functionType, Node& invoke, const SourceRange& range) = 0;
+    virtual Node& exprFunctionCapture(const String& symbol, const SourceRange& range) = 0;
     virtual Node& exprGuard(const String& symbol, Node& value, const SourceRange& range) = 0;
     virtual Node& exprNamed(const HardValue& name, Node& value, const SourceRange& range) = 0;
     // Type expression factories
@@ -226,8 +227,7 @@ namespace egg::ovum {
     virtual Node& typeGenerator(Node& etype, const SourceRange& range) = 0;
     virtual Node& typeSpecification(const SourceRange& range) = 0;
     virtual Node& typeSpecificationDescription(const String& description, const SourceRange& range) = 0;
-    virtual Node& typeSpecificationStaticData(const String& symbol, Node& type, const SourceRange& range) = 0;
-    virtual Node& typeSpecificationStaticFunction(const String& symbol, Node& type, size_t captures, const SourceRange& range) = 0;
+    virtual Node& typeSpecificationTypeMember(const String& symbol, Node& type, const SourceRange& range) = 0;
     // Statement factories
     virtual Node& stmtBlock(const SourceRange& range) = 0;
     virtual Node& stmtIf(Node& condition, const SourceRange& range) = 0;
@@ -239,8 +239,7 @@ namespace egg::ovum {
     virtual Node& stmtCase(Node& block, const SourceRange& range) = 0;
     virtual Node& stmtBreak(const SourceRange& range) = 0;
     virtual Node& stmtContinue(const SourceRange& range) = 0;
-    virtual Node& stmtFunctionDefine(const String& symbol, Node& type, size_t captures, const SourceRange& range) = 0;
-    virtual Node& stmtFunctionCapture(const String& symbol, const SourceRange& range) = 0;
+    virtual Node& stmtFunctionDefine(const String& symbol, Node& type, Node& value, const SourceRange& range) = 0;
     virtual Node& stmtFunctionInvoke(const SourceRange& range) = 0;
     virtual Node& stmtGeneratorInvoke(const SourceRange& range) = 0;
     virtual Node& stmtManifestationInvoke(const SourceRange& range) = 0;
@@ -377,7 +376,6 @@ namespace egg::ovum {
     static HardPtr<IVM> createDefault(IAllocator& allocator, ILogger& logger);
     // Function/generator factories
     static HardObject createFunction(IVM& vm, const Type& ftype, const IFunctionSignature& signature, const IVMModule::Node& definition, std::vector<VMCallCapture>&& captures);
-    static HardObject createGenerator(IVM& vm, const Type& ftype, const IFunctionSignature& signature, const IVMModule::Node& definition, std::vector<VMCallCapture>&& captures);
     static HardObject createGeneratorIterator(IVM& vm, const Type& ftype, IVMRunner& runner);
   };
 }

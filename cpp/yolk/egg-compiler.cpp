@@ -637,7 +637,9 @@ ModuleNode* ModuleCompiler::compileStmtDefineFunction(ParserNode& pnode, StmtCon
     return this->error(pnode, "Unable to deduce type of function '", symbol, "' at compile time");
   }
   auto* signature = type.getOnlyFunctionSignature();
-  assert(signature != nullptr);
+  if (signature == nullptr) {
+    return this->error(pnode, "Unable to deduce signature of function '", symbol, "' with type '", type, "' at compile time");
+  }
   auto okay = this->addSymbol(context, phead, StmtContext::Symbol::Kind::Function, symbol, type);
   std::set<egg::ovum::String> captures;
   StmtContext inner{ &context, &captures };
@@ -667,11 +669,11 @@ ModuleNode* ModuleCompiler::compileStmtDefineFunction(ParserNode& pnode, StmtCon
     return nullptr;
   }
   assert(block == &invoke);
-  auto* stmt = &this->mbuilder.stmtFunctionDefine(symbol, *mtype, captures.size(), pnode.range);
+  auto& mvalue = this->mbuilder.exprFunctionConstruct(*mtype, invoke, pnode.range);
   for (const auto& capture : captures) {
-    this->mbuilder.appendChild(*stmt, this->mbuilder.stmtFunctionCapture(capture, pnode.range));
+    this->mbuilder.appendChild(mvalue, this->mbuilder.exprFunctionCapture(capture, pnode.range));
   }
-  this->mbuilder.appendChild(*stmt, invoke);
+  auto* stmt = &this->mbuilder.stmtFunctionDefine(symbol, *mtype, mvalue, pnode.range);
   context.target = stmt;
   return stmt;
 }
@@ -1666,7 +1668,7 @@ ModuleNode* ModuleCompiler::compileValueExprArray(ParserNode& pnode, const ExprC
 
 ModuleNode* ModuleCompiler::compileValueExprArrayHinted(ParserNode& pnode, const ExprContext& context, const egg::ovum::Type& elementType) {
   assert(elementType != nullptr);
-  auto* marray = &this->mbuilder.exprArray(elementType, pnode.range);
+  auto* marray = &this->mbuilder.exprArrayConstruct(elementType, pnode.range);
   for (auto& pchild : pnode.children) {
     auto* mchild = this->compileValueExprArrayHintedElement(*pchild, context, elementType);
     if (mchild == nullptr) {
@@ -1707,7 +1709,7 @@ ModuleNode* ModuleCompiler::compileValueExprArrayUnhinted(ParserNode& pnode, con
   if (unionType == egg::ovum::Type::None) {
     unionType = egg::ovum::Type::AnyQ;
   }
-  auto* marray = &this->mbuilder.exprArray(unionType, pnode.range);
+  auto* marray = &this->mbuilder.exprArrayConstruct(unionType, pnode.range);
   for (auto& mchild : mchildren) {
     this->mbuilder.appendChild(*marray, *mchild);
   }
@@ -1720,7 +1722,7 @@ ModuleNode* ModuleCompiler::compileValueExprArrayUnhintedElement(ParserNode& pno
 }
 
 ModuleNode* ModuleCompiler::compileValueExprObject(ParserNode& pnode, const ExprContext& context) {
-  auto* object = &this->mbuilder.exprObject(pnode.range);
+  auto* object = &this->mbuilder.exprObjectConstruct(pnode.range);
   for (auto& child : pnode.children) {
     auto* element = this->compileValueExprObjectElement(*child, context);
     if (element == nullptr) {
@@ -1985,7 +1987,7 @@ ModuleNode* ModuleCompiler::compileTypeSpecificationStaticData(ParserNode& pnode
   if (mvalue == nullptr) {
     return nullptr;
   }
-  auto* mnode = &this->mbuilder.typeSpecificationStaticData(symbol, *mtype, pnode.range);
+  auto* mnode = &this->mbuilder.typeSpecificationTypeMember(symbol, *mtype, pnode.range);
   inode = &this->mbuilder.stmtManifestationProperty(symbol, *mtype, *mvalue, egg::ovum::Modifiability::Read, pnode.range);
   return mnode;
 }
@@ -2005,16 +2007,17 @@ ModuleNode* ModuleCompiler::compileTypeSpecificationStaticFunction(ParserNode& p
   }
   auto type = this->deduceType(*mtype, context);
   if (type == nullptr) {
+    // TODO double-reported?
     return this->error(pnode, "Unable to deduce type of static function '", symbol, "' at compile time");
   }
   auto* signature = type.getOnlyFunctionSignature();
   assert(signature != nullptr);
-  auto okay = true; // WIBBLE  this->addSymbol(context, phead, StmtContext::Symbol::Kind::Function, symbol, type);
   std::set<egg::ovum::String> captures;
   StmtContextData data{};
   data.canReturn = signature->getReturnType();
   StmtContext inner{ context, &captures, std::move(data) };
   assert(inner.canReturn != nullptr);
+  auto okay = this->addSymbol(inner, phead, StmtContext::Symbol::Kind::Function, symbol, type);
   size_t pcount = signature->getParameterCount();
   for (size_t pindex = 0; pindex < pcount; ++pindex) {
     auto& parameter = signature->getParameter(pindex);
@@ -2034,14 +2037,13 @@ ModuleNode* ModuleCompiler::compileTypeSpecificationStaticFunction(ParserNode& p
     return nullptr;
   }
   assert(block == &invoke);
-  auto* stmt = &this->mbuilder.typeSpecificationStaticFunction(symbol, *mtype, captures.size(), pnode.range);
+  auto& mvalue = this->mbuilder.exprFunctionConstruct(*mtype, invoke, pnode.range);
   for (const auto& capture : captures) {
-    this->mbuilder.appendChild(*stmt, this->mbuilder.stmtFunctionCapture(capture, pnode.range));
+    this->mbuilder.appendChild(mvalue, this->mbuilder.exprFunctionCapture(capture, pnode.range));
   }
-  this->mbuilder.appendChild(*stmt, invoke);
-  // WIBBLE context.target = stmt;
-  inode = &this->mbuilder.stmtManifestationProperty(symbol, *mtype, invoke, egg::ovum::Modifiability::Read, pnode.range);
-  return stmt;
+  auto* mnode = &this->mbuilder.typeSpecificationTypeMember(symbol, *mtype, pnode.range);
+  inode = &this->mbuilder.stmtManifestationProperty(symbol, *mtype, mvalue, egg::ovum::Modifiability::Read, pnode.range);
+  return mnode;
 }
 
 ModuleNode* ModuleCompiler::compileTypeGuard(ParserNode& pnode, const ExprContext& context, egg::ovum::Type& type, ModuleNode*& mcond) {

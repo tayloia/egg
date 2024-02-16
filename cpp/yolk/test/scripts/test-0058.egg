@@ -5,6 +5,6 @@ type Holder {
     return counter;
   }
 };
-//assert(Holder.f() == 1);
-//assert(Holder.f() == 2);
-//assert(Holder.f() == 3);
+assert(Holder.f() == 1);
+assert(Holder.f() == 2);
+assert(Holder.f() == 3);
