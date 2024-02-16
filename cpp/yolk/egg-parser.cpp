@@ -1332,11 +1332,22 @@ namespace {
       if (identifier.kind != EggTokenizerKind::Identifier) {
         return context.expected(type.tokensAfter, "identifier after type in type definition of '", tname, "'");
       }
+      if (type.after(1).isOperator(EggTokenizerOperator::Semicolon)) {
+        // <type> <identifier> ;
+        auto stmt = this->makeNodeString(Node::Kind::TypeSpecificationInstanceData, identifier);
+        stmt->children.emplace_back(std::move(type.node));
+        return context.success(std::move(stmt), type.tokensAfter + 2);
+      }
       if (type.after(1).isOperator(EggTokenizerOperator::ParenthesisLeft)) {
         // <type> <identifier> (
         auto signature = this->parseTypeFunctionSignature(type, identifier, type.tokensAfter + 1);
         if (!signature.succeeded()) {
           return signature;
+        }
+        if (signature.after(0).isOperator(EggTokenizerOperator::Semicolon)) {
+          auto stmt = this->makeNodeString(Node::Kind::TypeSpecificationInstanceFunction, identifier);
+          stmt->children.emplace_back(std::move(signature.node));
+          return context.success(std::move(stmt), signature.tokensAfter + 1);
         }
         if (!signature.after(0).isOperator(EggTokenizerOperator::CurlyLeft)) {
           return context.expected(signature.tokensAfter, "'{' after ')' in definition of static member function '", identifier.value.s, "'");
@@ -1364,7 +1375,7 @@ namespace {
         }
         return expr;
       }
-      return context.failed(tokidx, "Invalid clause in type definition of '", tname, "'");
+      return context.expected(tokidx, "clause in type definition of '", tname, "'");
     }
     Partial parseTypeFunctionSignature(Partial& rtype, const EggTokenizerItem& fname, size_t tokidx) {
       assert(rtype.succeeded());

@@ -137,7 +137,7 @@ namespace egg::ovum {
   class IVMTypeSpecificationBuilder : public IVMUncollectable {
   public:
     virtual void setDescription(const String& description, int precedence) = 0;
-    virtual void addTypeMember(const String& name, const Type& type) = 0;
+    virtual void addStaticMember(const String& name, const Type& type) = 0;
     virtual void addInstanceMember(const String& name, const Type& type, Modifiability modifiability) = 0;
     virtual IVMTypeSpecification& build() = 0;
   };
@@ -226,7 +226,8 @@ namespace egg::ovum {
     virtual Node& typeFunctionSignatureParameter(const String& pname, IFunctionSignatureParameter::Flags pflags, Node& ptype, const SourceRange& range) = 0;
     virtual Node& typeSpecification(const SourceRange& range) = 0;
     virtual Node& typeSpecificationDescription(const String& description, const SourceRange& range) = 0;
-    virtual Node& typeSpecificationTypeMember(const String& symbol, Node& type, const SourceRange& range) = 0;
+    virtual Node& typeSpecificationStaticMember(const String& symbol, Node& type, const SourceRange& range) = 0;
+    virtual Node& typeSpecificationInstanceMember(const String& symbol, Node& type, Modifiability modifiability, const SourceRange& range) = 0;
     // Statement factories
     virtual Node& stmtBlock(const SourceRange& range) = 0;
     virtual Node& stmtIf(Node& condition, const SourceRange& range) = 0;

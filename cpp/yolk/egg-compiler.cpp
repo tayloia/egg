@@ -199,6 +199,8 @@ namespace {
     ModuleNode* compileTypeSpecification(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileTypeSpecificationStaticData(ParserNode& pnode, const ExprContext& context, ModuleNode*& inode);
     ModuleNode* compileTypeSpecificationStaticFunction(ParserNode& pnode, const ExprContext& context, ModuleNode*& inode);
+    ModuleNode* compileTypeSpecificationInstanceData(ParserNode& pnode, const ExprContext& context);
+    ModuleNode* compileTypeSpecificationInstanceFunction(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileTypeGuard(ParserNode& pnode, const ExprContext& context, egg::ovum::Type& type, ModuleNode*& mcond);
     ModuleNode* compileTypeInfer(ParserNode& pnode, ParserNode& ptype, ParserNode& pexpr, const ExprContext& context, egg::ovum::Type& type, ModuleNode*& mexpr);
     ModuleNode* compileTypeInferVar(ParserNode& pnode, ParserNode& ptype, ParserNode& pexpr, const ExprContext& context, egg::ovum::Type& type, ModuleNode*& mexpr, bool nullable);
@@ -506,6 +508,8 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, StmtContext& context)
   case ParserNode::Kind::TypeSpecification:
   case ParserNode::Kind::TypeSpecificationStaticData:
   case ParserNode::Kind::TypeSpecificationStaticFunction:
+  case ParserNode::Kind::TypeSpecificationInstanceData:
+  case ParserNode::Kind::TypeSpecificationInstanceFunction:
   case ParserNode::Kind::Literal:
   case ParserNode::Kind::Variable:
   case ParserNode::Kind::Named:
@@ -1392,6 +1396,8 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode, const ExprContex
   case ParserNode::Kind::TypeSpecification:
   case ParserNode::Kind::TypeSpecificationStaticData:
   case ParserNode::Kind::TypeSpecificationStaticFunction:
+  case ParserNode::Kind::TypeSpecificationInstanceData:
+  case ParserNode::Kind::TypeSpecificationInstanceFunction:
   case ParserNode::Kind::StmtBlock:
   case ParserNode::Kind::StmtDeclareVariable:
   case ParserNode::Kind::StmtDefineVariable:
@@ -1831,6 +1837,8 @@ ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode, const ExprContext
   case ParserNode::Kind::TypeFunctionSignatureParameter:
   case ParserNode::Kind::TypeSpecificationStaticData:
   case ParserNode::Kind::TypeSpecificationStaticFunction:
+  case ParserNode::Kind::TypeSpecificationInstanceData:
+  case ParserNode::Kind::TypeSpecificationInstanceFunction:
     // Should not be compiled directly
     break;
   case ParserNode::Kind::ModuleRoot:
@@ -1967,6 +1975,12 @@ ModuleNode* ModuleCompiler::compileTypeSpecification(ParserNode& pnode, const Ex
     case ParserNode::Kind::TypeSpecificationStaticFunction:
       mchild = this->compileTypeSpecificationStaticFunction(*pchild, context, ichild);
       break;
+    case ParserNode::Kind::TypeSpecificationInstanceData:
+      mchild = this->compileTypeSpecificationInstanceData(*pchild, context);
+      break;
+    case ParserNode::Kind::TypeSpecificationInstanceFunction:
+      mchild = this->compileTypeSpecificationInstanceFunction(*pchild, context);
+      break;
     default:
       return this->expected(*pchild, "type specification clause");
     }
@@ -2003,7 +2017,7 @@ ModuleNode* ModuleCompiler::compileTypeSpecificationStaticData(ParserNode& pnode
   if (mvalue == nullptr) {
     return nullptr;
   }
-  auto* mnode = &this->mbuilder.typeSpecificationTypeMember(symbol, *mtype, pnode.range);
+  auto* mnode = &this->mbuilder.typeSpecificationStaticMember(symbol, *mtype, pnode.range);
   inode = &this->mbuilder.stmtManifestationProperty(symbol, *mtype, *mvalue, egg::ovum::Modifiability::Read, pnode.range);
   return mnode;
 }
@@ -2059,8 +2073,40 @@ ModuleNode* ModuleCompiler::compileTypeSpecificationStaticFunction(ParserNode& p
   for (const auto& capture : captures) {
     this->mbuilder.appendChild(mvalue, this->mbuilder.exprFunctionCapture(capture, pnode.range));
   }
-  auto* mnode = &this->mbuilder.typeSpecificationTypeMember(symbol, *mtype, pnode.range);
+  auto* mnode = &this->mbuilder.typeSpecificationStaticMember(symbol, *mtype, pnode.range);
   inode = &this->mbuilder.stmtManifestationProperty(symbol, *mtype, mvalue, egg::ovum::Modifiability::Read, pnode.range);
+  return mnode;
+}
+
+ModuleNode* ModuleCompiler::compileTypeSpecificationInstanceData(ParserNode& pnode, const ExprContext& context) {
+  assert(pnode.kind == ParserNode::Kind::TypeSpecificationInstanceData);
+  EXPECT(pnode, pnode.children.size() == 1);
+  egg::ovum::String symbol;
+  EXPECT(pnode, pnode.value->getString(symbol));
+  auto mtype = this->compileTypeExpr(*pnode.children.front(), context);
+  if (mtype == nullptr) {
+    return nullptr;
+  }
+  auto modifiability = egg::ovum::Modifiability::ReadWriteMutate; // WIBBLE
+  auto* mnode = &this->mbuilder.typeSpecificationInstanceMember(symbol, *mtype, modifiability, pnode.range);
+  return mnode;
+}
+
+ModuleNode* ModuleCompiler::compileTypeSpecificationInstanceFunction(ParserNode& pnode, const ExprContext& context) {
+  assert(pnode.kind == ParserNode::Kind::TypeSpecificationInstanceFunction);
+  EXPECT(pnode, pnode.children.size() == 1);
+  egg::ovum::String symbol;
+  EXPECT(pnode, pnode.value->getString(symbol));
+  auto& phead = *pnode.children.front();
+  if (phead.kind != ParserNode::Kind::TypeFunctionSignature) {
+    return this->expected(phead, "function signature in instance function definition");
+  }
+  auto mtype = this->compileTypeExprFunctionSignature(phead, context);
+  if (mtype == nullptr) {
+    return nullptr;
+  }
+  auto modifiability = egg::ovum::Modifiability::ReadWriteMutate; // WIBBLE
+  auto* mnode = &this->mbuilder.typeSpecificationInstanceMember(symbol, *mtype, modifiability, pnode.range);
   return mnode;
 }
 
@@ -2447,6 +2493,10 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
     return "type specification static data";
   case ParserNode::Kind::TypeSpecificationStaticFunction:
     return "type specification static function";
+  case ParserNode::Kind::TypeSpecificationInstanceData:
+    return "type specification instance data";
+  case ParserNode::Kind::TypeSpecificationInstanceFunction:
+    return "type specification instance function";
   case ParserNode::Kind::Literal:
     return "literal";
   case ParserNode::Kind::Variable:

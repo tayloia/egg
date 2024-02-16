@@ -55,7 +55,8 @@ public:
     TypeFunctionSignatureParameter,
     TypeSpecification,
     TypeSpecificationDescription,
-    TypeSpecificationTypeMember,
+    TypeSpecificationStaticMember,
+    TypeSpecificationInstanceMember,
     StmtBlock,
     StmtFunctionInvoke,
     StmtGeneratorInvoke,
@@ -1106,7 +1107,8 @@ namespace {
       case Node::Kind::ExprNamed:
       case Node::Kind::TypeInfer:
       case Node::Kind::TypeManifestation:
-      case Node::Kind::TypeSpecificationTypeMember:
+      case Node::Kind::TypeSpecificationStaticMember:
+      case Node::Kind::TypeSpecificationInstanceMember:
         // Should not be deduced directly
         break;
       }
@@ -1131,7 +1133,7 @@ namespace {
     Type deduceExprPropertyGet(Node& instance, Node& property, const SourceRange& range) {
       // TODO
       if (instance.kind == Node::Kind::TypeManifestation) {
-        // e.g. 'string.from' or 'int.max'
+        // e.g. 'string.from', 'int.max' or 'Holder.i'
         assert(instance.children.size() == 1);
         if (property.kind == Node::Kind::ExprLiteral) {
           String pname;
@@ -1140,11 +1142,19 @@ namespace {
             if (infratype != nullptr) {
               auto metashape = this->forge.getMetashape(infratype);
               if ((metashape == nullptr) || (metashape->dotable == nullptr)) {
-                return this->fail(range, "Type '", describe(*infratype), "' does not support properties");
+                auto description = describe(*infratype);
+                if (infratype.hasProperties()) {
+                  return this->fail(range, "Type '", description, "' does not support properties (though values of type '", description, "' do)");
+                }
+                return this->fail(range, "Type '", description, "' does not support properties");
               }
               auto ptype = metashape->dotable->getType(pname);
               if (ptype == nullptr) {
-                return this->fail(range, "Type '", describe(*infratype), "' does not support the property '", pname, "'");
+                auto description = describe(*infratype);
+                if (infratype.hasProperty(pname)) {
+                  return this->fail(range, "Type '", description, "' does not support the property '", pname, "' (though values of type '", description, "' do)");
+                }
+                return this->fail(range, "Type '", description, "' does not support the property '", pname, "'");
               }
               return ptype;
             }
@@ -1606,9 +1616,16 @@ namespace {
       node.literal = this->createHardValueString(description);
       return node;
     }
-    virtual Node& typeSpecificationTypeMember(const String& symbol, Node& type, const SourceRange& range) {
-      auto& node = this->module->createNode(Node::Kind::TypeSpecificationTypeMember, range);
+    virtual Node& typeSpecificationStaticMember(const String& symbol, Node& type, const SourceRange& range) {
+      auto& node = this->module->createNode(Node::Kind::TypeSpecificationStaticMember, range);
       node.literal = this->createHardValueString(symbol);
+      node.addChild(type);
+      return node;
+    }
+    virtual Node& typeSpecificationInstanceMember(const String& symbol, Node& type, Modifiability modifiability, const SourceRange& range) {
+      auto& node = this->module->createNode(Node::Kind::TypeSpecificationInstanceMember, range);
+      node.literal = this->createHardValueString(symbol);
+      node.modifiability = modifiability;
       node.addChild(type);
       return node;
     }
@@ -1815,15 +1832,15 @@ namespace {
         switch (clause->kind) {
         case Node::Kind::TypeSpecificationDescription:
           if (!clause->literal->getString(name)) {
-            reporter.report(clause->range, this->createString("Missing name of type specification static data"));
+            reporter.report(clause->range, this->createString("Missing name of type specification description"));
             return nullptr;
           } else {
             sb->setDescription(name, 2);
           }
           break;
-        case Node::Kind::TypeSpecificationTypeMember:
+        case Node::Kind::TypeSpecificationStaticMember:
           if (!clause->literal->getString(name)) {
-            reporter.report(clause->range, this->createString("Missing name of type specification type member"));
+            reporter.report(clause->range, this->createString("Missing name of type specification static member"));
             return nullptr;
           } else {
             assert(!clause->children.empty());
@@ -1831,7 +1848,20 @@ namespace {
             if (type == nullptr) {
               return nullptr;
             }
-            sb->addTypeMember(name, type);
+            sb->addStaticMember(name, type);
+          }
+          break;
+        case Node::Kind::TypeSpecificationInstanceMember:
+          if (!clause->literal->getString(name)) {
+            reporter.report(clause->range, this->createString("Missing name of type specification instance member"));
+            return nullptr;
+          } else {
+            assert(!clause->children.empty());
+            auto type = this->deduce(*clause->children.front(), resolver, &reporter);
+            if (type == nullptr) {
+              return nullptr;
+            }
+            sb->addInstanceMember(name, type, clause->modifiability);
           }
           break;
         case Node::Kind::StmtManifestationInvoke:
@@ -2603,7 +2633,7 @@ namespace {
       assert(this->infrashaper != nullptr);
       this->infrashaper->setDescription(description, precedence);
     }
-    virtual void addTypeMember(const String& name, const Type& type) override {
+    virtual void addStaticMember(const String& name, const Type& type) override {
       assert(this->metashaper != nullptr);
       this->metashaper->addProperty(name, type, Modifiability::Read);
     }
@@ -4265,7 +4295,8 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
   case IVMModule::Node::Kind::TypeFunctionSignatureParameter:
   case IVMModule::Node::Kind::TypeSpecification:
   case IVMModule::Node::Kind::TypeSpecificationDescription:
-  case IVMModule::Node::Kind::TypeSpecificationTypeMember:
+  case IVMModule::Node::Kind::TypeSpecificationStaticMember:
+  case IVMModule::Node::Kind::TypeSpecificationInstanceMember:
     return this->stepType();
   default:
     return this->raise("Invalid program node kind in program runner");

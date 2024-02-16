@@ -1,0 +1,7 @@
+type Holder {
+  int c = 123;
+  int i;
+  int f();
+};
+assert(Holder.i == 1);
+///<COMPILER><ERROR><RESOURCE>(6,8-15): Type 'Holder' does not support the property 'i' (though values of type 'Holder' do)

@@ -149,6 +149,28 @@ namespace egg::ovum {
       auto* shape = this->getOnlyShape();
       return (shape != nullptr) ? shape->callable : nullptr;
     }
+    bool hasProperties() const {
+      auto* p = this->ptr;
+      assert((p != nullptr) && p->validate());
+      size_t i = 0;
+      for (auto* shape = p->getShape(0); shape != nullptr; shape = p->getShape(++i)) {
+        if (shape->dotable != nullptr) {
+          return true;
+        }
+      }
+      return false;
+    }
+    bool hasProperty(const String& property) const {
+      auto* p = this->ptr;
+      assert((p != nullptr) && p->validate());
+      size_t i = 0;
+      for (auto* shape = p->getShape(0); shape != nullptr; shape = p->getShape(++i)) {
+        if ((shape->dotable != nullptr) && (shape->dotable->getType(property) != nullptr)) {
+          return true;
+        }
+      }
+      return false;
+    }
     int print(Printer& printer) const;
 
     // Constants

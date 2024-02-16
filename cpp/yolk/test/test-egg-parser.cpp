@@ -204,6 +204,10 @@ namespace {
       return printNodeExtra(os, "type-specification-static-data", node.value, node, ranges);
     case Node::Kind::TypeSpecificationStaticFunction:
       return printNodeExtra(os, "type-specification-static-function", node.value, node, ranges);
+    case Node::Kind::TypeSpecificationInstanceData:
+      return printNodeExtra(os, "type-specification-instance-data", node.value, node, ranges);
+    case Node::Kind::TypeSpecificationInstanceFunction:
+      return printNodeExtra(os, "type-specification-instance-function", node.value, node, ranges);
     case Node::Kind::Literal:
       assert(node.children.empty());
       return printValue(os, node.value, '"');
@@ -263,9 +267,19 @@ namespace {
   }
 }
 
+TEST(TestEggParser, Ranges) {
+  std::string actual = outputFromLines({
+    //          1         2         3
+    // 123456789012345678901234567890123456789
+      "assert(alpha * -beta >= gamma[delta]);"
+    }, true);
+  std::string expected = "(expr-call@(1,1-37) (variable@(1,1-6) 'assert') (expr-binary@(1,8-36) '>=' (expr-binary@(1,8-20) '*' (variable@(1,8-12) 'alpha') (expr-unary@(1,16-20) '-' (variable@(1,17-20) 'beta'))) (expr-index@(1,25-36) (variable@(1,25-29) 'gamma') (variable@(1,31-35) 'delta'))))\n";
+  ASSERT_EQ(expected, actual);
+}
+
 TEST(TestEggParser, Empty) {
   egg::test::Allocator allocator{ egg::test::Allocator::Expectation::NoAllocations };
-  auto result = parseFromLines(allocator, { "  // comment" });
+  auto result = parseFromLines(allocator, { "" });
   ASSERT_TRUE(result.root != nullptr);
   ASSERT_EQ(Node::Kind::ModuleRoot, result.root->kind);
   ASSERT_EQ(0u, result.root->children.size());
@@ -855,12 +869,26 @@ TEST(TestEggParser, StatementTypeStaticFunction) {
   ASSERT_EQ(expected, actual);
 }
 
-TEST(TestEggParser, Ranges) {
+TEST(TestEggParser, StatementTypeInstanceData) {
   std::string actual = outputFromLines({
-  //          1         2         3
-  // 123456789012345678901234567890123456789
-    "assert(alpha * -beta >= gamma[delta]);"
-  }, true);
-  std::string expected = "(expr-call@(1,1-37) (variable@(1,1-6) 'assert') (expr-binary@(1,8-36) '>=' (expr-binary@(1,8-20) '*' (variable@(1,8-12) 'alpha') (expr-unary@(1,16-20) '-' (variable@(1,17-20) 'beta'))) (expr-index@(1,25-36) (variable@(1,25-29) 'gamma') (variable@(1,31-35) 'delta'))))\n";
+    "type Holder {",
+    " int i;",
+    "};"
+    });
+  std::string expected = "(stmt-define-type 'Holder' (type-specification"
+    " (type-specification-instance-data 'i' (type-int))"
+    "))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementTypeInstanceFunction) {
+  std::string actual = outputFromLines({
+    "type Holder {",
+    " int f();",
+    "};"
+    });
+  std::string expected = "(stmt-define-type 'Holder' (type-specification"
+    " (type-specification-instance-function 'f' (type-signature 'f' (type-int)))"
+    "))\n";
   ASSERT_EQ(expected, actual);
 }
