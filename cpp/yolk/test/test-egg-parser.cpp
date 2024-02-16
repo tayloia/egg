@@ -210,6 +210,8 @@ namespace {
       return printNodeChildren(os, "type-specification", node, ranges);
     case Node::Kind::TypeSpecificationStaticData:
       return printNodeExtra(os, "type-specification-static-data", node.value, node, ranges);
+    case Node::Kind::TypeSpecificationStaticFunction:
+      return printNodeExtra(os, "type-specification-static-function", node.value, node, ranges);
     case Node::Kind::Literal:
       assert(node.children.empty());
       return printValue(os, node.value, '"');
@@ -847,13 +849,27 @@ TEST(TestEggParser, StatementTypeEmpty) {
   ASSERT_EQ(expected, actual);
 }
 
-TEST(TestEggParser, StatementTypeHolder) {
+TEST(TestEggParser, StatementTypeStaticData) {
   std::string actual = outputFromLines({
     "type Holder {",
     " int i = 123;",
     "};"
     });
-  std::string expected = "(stmt-define-type 'Holder' (type-specification (type-specification-static-data 'i' (type-int) 123)))\n";
+  std::string expected = "(stmt-define-type 'Holder' (type-specification"
+                         " (type-specification-static-data 'i' (type-int) 123)"
+                         "))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementTypeStaticFunction) {
+  std::string actual = outputFromLines({
+    "type Holder {",
+    " int f() { return 123; }",
+    "};"
+    });
+  std::string expected = "(stmt-define-type 'Holder' (type-specification"
+                         " (type-specification-static-function 'f' (type-signature 'function' 'f' (type-int)) (stmt-block (stmt-return 123)))"
+                         "))\n";
   ASSERT_EQ(expected, actual);
 }
 

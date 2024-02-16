@@ -138,6 +138,7 @@ namespace egg::ovum {
   public:
     virtual void setDescription(const String& description, int precedence) = 0;
     virtual void addStaticData(const String& name, const Type& type) = 0;
+    virtual void addStaticFunction(const String& name, const Type& type) = 0;
     virtual IVMTypeSpecification& build() = 0;
   };
 
@@ -226,6 +227,7 @@ namespace egg::ovum {
     virtual Node& typeSpecification(const SourceRange& range) = 0;
     virtual Node& typeSpecificationDescription(const String& description, const SourceRange& range) = 0;
     virtual Node& typeSpecificationStaticData(const String& symbol, Node& type, const SourceRange& range) = 0;
+    virtual Node& typeSpecificationStaticFunction(const String& symbol, Node& type, size_t captures, const SourceRange& range) = 0;
     // Statement factories
     virtual Node& stmtBlock(const SourceRange& range) = 0;
     virtual Node& stmtIf(Node& condition, const SourceRange& range) = 0;

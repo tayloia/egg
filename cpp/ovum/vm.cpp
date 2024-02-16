@@ -55,6 +55,7 @@ public:
     TypeSpecification,
     TypeSpecificationDescription,
     TypeSpecificationStaticData,
+    TypeSpecificationStaticFunction,
     StmtBlock,
     StmtFunctionDefine,
     StmtFunctionCapture,
@@ -1067,9 +1068,6 @@ namespace {
       case Node::Kind::TypeSpecificationDescription:
         assert(node.children.empty());
         return Type::String;
-      case Node::Kind::TypeSpecificationStaticData:
-        assert(node.children.size() == 1);
-        return this->deduce(*node.children.front());
       case Node::Kind::StmtBlock:
       case Node::Kind::StmtFunctionDefine:
       case Node::Kind::StmtFunctionCapture:
@@ -1112,6 +1110,8 @@ namespace {
       case Node::Kind::TypeGenerator:
       case Node::Kind::TypeInfer:
       case Node::Kind::TypeManifestation:
+      case Node::Kind::TypeSpecificationStaticData:
+      case Node::Kind::TypeSpecificationStaticFunction:
         // Should not be deduced directly
         break;
       }
@@ -1412,14 +1412,14 @@ namespace {
       auto& signature = fb->build();
       return this->forge.forgeFunctionType(signature);
     }
-    Type deduceTypeSpecification(Node& specification, const SourceRange& range) {
+    Type deduceTypeSpecification(Node& specification, const SourceRange&) {
       // TODO separate concepts of 'Type' and 'TypeSpecification'
       assert(specification.kind == Node::Kind::TypeSpecification);
       auto* known = this->resolver.resolveTypeSpecification(specification);
       if (known == nullptr) {
-        return this->fail(range, "Invalid type specification node");
+        return nullptr;
       }
-      IVMTypeSpecification::Parameters parameters{}; // TODO
+      IVMTypeSpecification::Parameters parameters{}; // TODO template parameters
       return known->instantiateType(parameters);
     }
     bool isDeducedAsFloat(Node& node) {
@@ -1616,6 +1616,13 @@ namespace {
     virtual Node& typeSpecificationStaticData(const String& symbol, Node& type, const SourceRange& range) {
       auto& node = this->module->createNode(Node::Kind::TypeSpecificationStaticData, range);
       node.literal = this->createHardValueString(symbol);
+      node.addChild(type);
+      return node;
+    }
+    virtual Node& typeSpecificationStaticFunction(const String& symbol, Node& type, size_t captures, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::TypeSpecificationStaticFunction, range);
+      node.literal = this->createHardValueString(symbol);
+      node.defaultIndex = captures + 1; // child index of invoke node
       node.addChild(type);
       return node;
     }
@@ -1824,26 +1831,53 @@ namespace {
       // TODO fold with 'stmtTypeSpecification'?
       assert(spec.kind == Node::Kind::TypeSpecification);
       auto sb = this->vm.createTypeSpecificationBuilder(&spec);
+      String name;
       for (auto* clause : spec.children) {
         assert(clause != nullptr);
-        if (clause->kind == Node::Kind::TypeSpecificationDescription) {
-          String description;
-          if (clause->literal->getString(description)) {
-            sb->setDescription(description, 2);
-          }
-        } else if (clause->kind == Node::Kind::TypeSpecificationStaticData) {
-          String name;
+        EGG_WARNING_SUPPRESS_SWITCH_BEGIN
+        switch (clause->kind) {
+        case Node::Kind::TypeSpecificationDescription:
           if (!clause->literal->getString(name)) {
             reporter.report(clause->range, this->createString("Missing name of type specification static data"));
             return nullptr;
+          } else {
+            sb->setDescription(name, 2);
           }
-          assert(!clause->children.empty());
-          auto type = this->deduce(*clause->children.front(), resolver, &reporter);
-          if (type == nullptr) {
+          break;
+        case Node::Kind::TypeSpecificationStaticData:
+          if (!clause->literal->getString(name)) {
+            reporter.report(clause->range, this->createString("Missing name of type specification static data"));
             return nullptr;
+          } else {
+            assert(!clause->children.empty());
+            auto type = this->deduce(*clause->children.front(), resolver, &reporter);
+            if (type == nullptr) {
+              return nullptr;
+            }
+            sb->addStaticData(name, type);
           }
-          sb->addStaticData(name, type);
+          break;
+        case Node::Kind::TypeSpecificationStaticFunction:
+          if (!clause->literal->getString(name)) {
+            reporter.report(clause->range, this->createString("Missing name of type specification static function"));
+            return nullptr;
+          } else {
+            assert(!clause->children.empty());
+            auto type = this->deduce(*clause->children.front(), resolver, &reporter);
+            if (type == nullptr) {
+              return nullptr;
+            }
+            sb->addStaticFunction(name, type);
+          }
+          break;
+        case Node::Kind::StmtManifestationInvoke:
+          // Ignored
+          break;
+        default:
+          reporter.report(clause->range, this->createString("Unexpected type specification clause"));
+          return nullptr;
         }
+        EGG_WARNING_SUPPRESS_SWITCH_END
       }
       // The build call will also register the specification with the registry in the VM
       return &sb->build();
@@ -2613,6 +2647,10 @@ namespace {
       this->infrashaper->setDescription(description, precedence);
     }
     virtual void addStaticData(const String& name, const Type& type) override {
+      assert(this->metashaper != nullptr);
+      this->metashaper->addProperty(name, type, Modifiability::Read);
+    }
+    virtual void addStaticFunction(const String& name, const Type& type) override {
       assert(this->metashaper != nullptr);
       this->metashaper->addProperty(name, type, Modifiability::Read);
     }
@@ -4286,6 +4324,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
   case IVMModule::Node::Kind::TypeSpecification:
   case IVMModule::Node::Kind::TypeSpecificationDescription:
   case IVMModule::Node::Kind::TypeSpecificationStaticData:
+  case IVMModule::Node::Kind::TypeSpecificationStaticFunction:
     return this->stepType();
   default:
     return this->raise("Invalid program node kind in program runner");

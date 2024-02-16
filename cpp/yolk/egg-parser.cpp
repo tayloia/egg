@@ -173,20 +173,6 @@ namespace {
       bool skipped() const {
         return (this->node == nullptr) && (this->issuesBefore == this->issuesAfter);
       }
-      size_t accept() {
-        assert(this->node != nullptr);
-        return this->tokensAfter;
-      }
-      size_t accept(std::unique_ptr<Node>& target) {
-        assert(this->node != nullptr);
-        target = std::move(this->node);
-        return this->tokensAfter;
-      }
-      size_t accept(std::vector<std::unique_ptr<Node>>& target) {
-        assert(this->node != nullptr);
-        target.emplace_back(std::move(this->node));
-        return this->tokensAfter;
-      }
       const EggTokenizerItem& before(size_t offset) {
         return this->parser.getAbsolute(this->tokensBefore + offset);
       }
@@ -286,7 +272,8 @@ namespace {
         if (!partial.succeeded()) {
           return false;
         }
-        tokidx = partial.accept(root.children);
+        root.children.emplace_back(std::move(partial.node));
+        tokidx = partial.tokensAfter;
       }
       return true;
     }
@@ -980,6 +967,7 @@ namespace {
       if (context[2].isOperator(EggTokenizerOperator::CurlyLeft)) {
         // type <identifier> { <definition> }
         auto type = this->parseTypeDefinition(tokidx + 2, context[1].value.s);
+        assert(!type.skipped());
         if (type.succeeded()) {
           auto stmt = this->makeNodeString(Node::Kind::StmtDefineType, context[1]);
           stmt->range.end = type.node->range.end;
@@ -1332,6 +1320,7 @@ namespace {
       auto nxtidx = tokidx + 1;
       while (!this->getAbsolute(nxtidx).isOperator(EggTokenizerOperator::CurlyRight)) {
         auto inner = this->parseTypeDefinitionClause(nxtidx, tname);
+        assert(!inner.skipped());
         if (!inner.succeeded()) {
           return inner;
         }
@@ -1345,28 +1334,41 @@ namespace {
     Partial parseTypeDefinitionClause(size_t tokidx, const egg::ovum::String& tname) {
       Context context(*this, tokidx);
       auto type = this->parseTypeExpression(tokidx);
-      assert(!type.skipped());
       if (!type.succeeded()) {
+        if (type.skipped()) {
+          return context.expected(tokidx, "type definition clause");
+        }
         return type;
       }
+      // TODO handle generators
       auto& identifier = type.after(0);
       if (identifier.kind != EggTokenizerKind::Identifier) {
-        if (type.ambiguous) {
-          return context.skip();
-        }
         return context.expected(type.tokensAfter, "identifier after type in type definition of '", tname, "'");
       }
       if (type.after(1).isOperator(EggTokenizerOperator::ParenthesisLeft)) {
         // <type> <identifier> (
-        // TODO: Looks like a function
-        return context.skip();
+        auto signature = this->parseTypeFunctionSignature(type, Node::FunctionOp::Function, identifier, type.tokensAfter + 1);
+        if (!signature.succeeded()) {
+          return signature;
+        }
+        if (!signature.after(0).isOperator(EggTokenizerOperator::CurlyLeft)) {
+          return context.expected(signature.tokensAfter, "'{' after ')' in definition of static member function '", identifier.value.s, "'");
+        }
+        auto block = this->parseStatementBlock(signature.tokensAfter);
+        if (!block.succeeded()) {
+          return block;
+        }
+        auto stmt = this->makeNodeString(Node::Kind::TypeSpecificationStaticFunction, identifier);
+        stmt->children.emplace_back(std::move(signature.node));
+        stmt->children.emplace_back(std::move(block.node));
+        return context.success(std::move(stmt), block.tokensAfter);
       }
       if (type.after(1).isOperator(EggTokenizerOperator::Equal)) {
         // <type> <identifier> = <expr>
         auto expr = this->parseValueExpression(type.tokensAfter + 2);
         if (expr.succeeded()) {
           if (!expr.after(0).isOperator(EggTokenizerOperator::Semicolon)) {
-            return context.expected(expr.tokensAfter, "';' after value of '", tname, ".", identifier.value.s, "'");
+            return context.expected(expr.tokensAfter, "';' after value of static '", tname, ".", identifier.value.s, "'");
           }
           auto stmt = this->makeNodeString(Node::Kind::TypeSpecificationStaticData, identifier);
           stmt->children.emplace_back(std::move(type.node));
@@ -1375,9 +1377,7 @@ namespace {
         }
         return expr;
       }
-      // <type> <identifier>
-      // TODO: Looks like a data member
-      return context.skip();
+      return context.failed(tokidx, "Invalid clause in type definition of '", tname, "'");
     }
     Partial parseTypeFunctionSignature(Partial& rtype, Node::FunctionOp flavour, const EggTokenizerItem& fname, size_t tokidx) {
       assert(rtype.succeeded());

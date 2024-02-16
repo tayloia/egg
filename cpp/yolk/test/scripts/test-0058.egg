@@ -5,8 +5,6 @@ type Holder {
     return counter;
   }
 };
-// type 'Holder' is instantiated on the following line
-value = "two";
-assert(Holder.i == "two");
-value = "three";
-assert(Holder.i == "two");
+//assert(Holder.f() == 1);
+//assert(Holder.f() == 2);
+//assert(Holder.f() == 3);

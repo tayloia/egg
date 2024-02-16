@@ -66,6 +66,7 @@ namespace egg::yolk {
         TypeFunctionSignatureParameter,
         TypeSpecification,
         TypeSpecificationStaticData,
+        TypeSpecificationStaticFunction,
         Literal,
         Variable,
         Named,
