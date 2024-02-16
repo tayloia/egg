@@ -238,7 +238,6 @@ namespace egg::ovum {
     virtual Node& stmtCase(Node& block, const SourceRange& range) = 0;
     virtual Node& stmtBreak(const SourceRange& range) = 0;
     virtual Node& stmtContinue(const SourceRange& range) = 0;
-    virtual Node& stmtFunctionDefine(const String& symbol, Node& type, Node& value, const SourceRange& range) = 0;
     virtual Node& stmtFunctionInvoke(const SourceRange& range) = 0;
     virtual Node& stmtGeneratorInvoke(Node& function, const SourceRange& range) = 0;
     virtual Node& stmtManifestationInvoke(const SourceRange& range) = 0;

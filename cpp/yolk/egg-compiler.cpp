@@ -687,7 +687,7 @@ ModuleNode* ModuleCompiler::compileStmtDefineFunction(ParserNode& pnode, StmtCon
   for (const auto& capture : captures) {
     this->mbuilder.appendChild(mvalue, this->mbuilder.exprFunctionCapture(capture, pnode.range));
   }
-  auto* stmt = &this->mbuilder.stmtFunctionDefine(symbol, *mtype, mvalue, pnode.range);
+  auto* stmt = &this->mbuilder.stmtVariableDefine(symbol, *mtype, mvalue, pnode.range);
   context.target = stmt;
   return stmt;
 }

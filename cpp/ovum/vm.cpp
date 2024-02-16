@@ -57,7 +57,6 @@ public:
     TypeSpecificationDescription,
     TypeSpecificationTypeMember,
     StmtBlock,
-    StmtFunctionDefine,
     StmtFunctionInvoke,
     StmtGeneratorInvoke,
     StmtManifestationInvoke,
@@ -1067,7 +1066,6 @@ namespace {
         assert(node.children.empty());
         return Type::String;
       case Node::Kind::StmtBlock:
-      case Node::Kind::StmtFunctionDefine:
       case Node::Kind::StmtFunctionInvoke:
       case Node::Kind::StmtGeneratorInvoke:
       case Node::Kind::StmtManifestationInvoke:
@@ -1669,13 +1667,6 @@ namespace {
     }
     virtual Node& stmtContinue(const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::StmtContinue, range);
-      return node;
-    }
-    virtual Node& stmtFunctionDefine(const String& symbol, Node& type, Node& value, const SourceRange& range) override {
-      auto& node = this->module->createNode(Node::Kind::StmtFunctionDefine, range);
-      node.literal = this->createHardValueString(symbol);
-      node.addChild(type);
-      node.addChild(value);
       return node;
     }
     virtual Node& stmtFunctionInvoke(const SourceRange& range) override {
@@ -2852,41 +2843,6 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
     assert(top.index <= top.node->children.size());
     if (this->stepBlock(retval) != StepOutcome::Stepped) {
       return this->pop(retval);
-    }
-    break;
-  case IVMModule::Node::Kind::StmtFunctionDefine:
-    assert(top.node->children.size() >= 2);
-    assert(top.index <= top.node->children.size());
-    if (top.index == 0) {
-      // Evaluate the type
-      this->push(*top.node->children[top.index++]);
-    } else if (top.index == 1) {
-      // Evaluate the initial value
-      assert(top.deque.size() == 1);
-      auto& ftype = top.deque.front();
-      if (ftype.hasFlowControl()) {
-        return this->pop(ftype);
-      }
-      Type type;
-      if (!ftype->getHardType(type) || (type == nullptr)) {
-        return this->raise("Invalid type node for function definition");
-      }
-      if (!this->variableScopeBegin(top, type)) {
-        return StepOutcome::Stepped;
-      }
-      top.deque.clear();
-      this->push(*top.node->children[top.index++]);
-    } else {
-      if (top.index == 2) {
-        assert(top.deque.size() == 1);
-        if (!this->symbolSet(top.node, top.deque.front())) {
-          return StepOutcome::Stepped;
-        }
-        top.deque.clear();
-      }
-      if (this->stepBlock(retval, 2) != StepOutcome::Stepped) {
-        return this->pop(retval);
-      }
     }
     break;
   case IVMModule::Node::Kind::StmtFunctionInvoke:
