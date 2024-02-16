@@ -1,6 +1,6 @@
 int counter = 0;
 type Holder {
-  int f() {
+  static int f() {
     ++counter;
     return counter;
   }

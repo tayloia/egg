@@ -1144,17 +1144,17 @@ namespace {
               if ((metashape == nullptr) || (metashape->dotable == nullptr)) {
                 auto description = describe(*infratype);
                 if (infratype.hasProperties()) {
-                  return this->fail(range, "Type '", description, "' does not support properties (though values of type '", description, "' do)");
+                  return this->fail(range, "Type '", description, "' does not support static member (though values of type '", description, "' support properties)");
                 }
-                return this->fail(range, "Type '", description, "' does not support properties");
+                return this->fail(range, "Type '", description, "' does not support static members");
               }
               auto ptype = metashape->dotable->getType(pname);
               if (ptype == nullptr) {
                 auto description = describe(*infratype);
                 if (infratype.hasProperty(pname)) {
-                  return this->fail(range, "Type '", description, "' does not support the property '", pname, "' (though values of type '", description, "' do)");
+                  return this->fail(range, "Type '", description, "' does not support the static member '", pname, "' (though values of type '", description, "' support a property with that name)");
                 }
-                return this->fail(range, "Type '", description, "' does not support the property '", pname, "'");
+                return this->fail(range, "Type '", description, "' does not support the static member '", pname, "'");
               }
               return ptype;
             }

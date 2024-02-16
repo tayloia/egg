@@ -1,7 +1,8 @@
 type Holder {
-  int c = 123;
-  int i;
-  int f();
+  static int a = 1;
+  static int b() { return 2; }
+  int c;
+  int d();
 };
-assert(Holder.i == 1);
-///<COMPILER><ERROR><RESOURCE>(6,8-15): Type 'Holder' does not support the property 'i' (though values of type 'Holder' do)
+assert(Holder.c == 1);
+///<COMPILER><ERROR><RESOURCE>(7,8-15): Type 'Holder' does not support the static member 'c' (though values of type 'Holder' support a property with that name)

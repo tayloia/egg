@@ -848,7 +848,7 @@ TEST(TestEggParser, StatementTypeEmpty) {
 TEST(TestEggParser, StatementTypeStaticData) {
   std::string actual = outputFromLines({
     "type Holder {",
-    " int i = 123;",
+    " static int i = 123;",
     "};"
     });
   std::string expected = "(stmt-define-type 'Holder' (type-specification"
@@ -860,7 +860,7 @@ TEST(TestEggParser, StatementTypeStaticData) {
 TEST(TestEggParser, StatementTypeStaticFunction) {
   std::string actual = outputFromLines({
     "type Holder {",
-    " int f() { return 123; }",
+    " static int f() { return 123; }",
     "};"
     });
   std::string expected = "(stmt-define-type 'Holder' (type-specification"
@@ -890,5 +890,45 @@ TEST(TestEggParser, StatementTypeInstanceFunction) {
   std::string expected = "(stmt-define-type 'Holder' (type-specification"
     " (type-specification-instance-function 'f' (type-signature 'f' (type-int)))"
     "))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementTypeStaticFunctionError) {
+  std::string actual = outputFromLines({
+    "type Holder {",
+    " static int f();",
+    "};"
+    });
+  std::string expected = "<ERROR>: (2,2,3,2): Forward declaration of static member function 'f' not yet supported\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementTypeNonStaticDataError) {
+  std::string actual = outputFromLines({
+    "type Holder {",
+    " int i = 123;",
+    "};"
+    });
+  std::string expected = "<ERROR>: (2,2-8): Expected ';' after identifier 'i' in declaration of non-static member, but instead got operator '='\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementTypeStaticDataError) {
+  std::string actual = outputFromLines({
+    "type Holder {",
+    " static int i;",
+    "};"
+    });
+  std::string expected = "<ERROR>: (2,2-14): Forward declaration of static member 'i' not yet supported\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementTypeNonStaticFunctionError) {
+  std::string actual = outputFromLines({
+    "type Holder {",
+    " int f() { return 123; }",
+    "};"
+    });
+  std::string expected = "<ERROR>: (2,2-10): Expected ';' after ')' in declaration of non-static member function 'f', but instead got operator '{'\n";
   ASSERT_EQ(expected, actual);
 }

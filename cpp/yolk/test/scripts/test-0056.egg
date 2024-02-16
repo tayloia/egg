@@ -1,6 +1,6 @@
 string value = "one";
 type Holder {
-  int i = value;
+  static int i = value;
 };
 value = "two";
 // type 'Holder' is instantiated on the following line

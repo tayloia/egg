@@ -294,6 +294,7 @@ namespace {
           case EggTokenizerKeyword::False:
           case EggTokenizerKeyword::Null:
           case EggTokenizerKeyword::True:
+          case EggTokenizerKeyword::Static:
             // Probably an error, but let the simple statement code generate the message
             break;
           case EggTokenizerKeyword::Break:
@@ -1275,6 +1276,7 @@ namespace {
         case EggTokenizerKeyword::If:
         case EggTokenizerKeyword::Null:
         case EggTokenizerKeyword::Return:
+        case EggTokenizerKeyword::Static:
         case EggTokenizerKeyword::Switch:
         case EggTokenizerKeyword::Throw:
         case EggTokenizerKeyword::True:
@@ -1320,10 +1322,11 @@ namespace {
     }
     Partial parseTypeDefinitionClause(size_t tokidx, const egg::ovum::String& tname) {
       Context context(*this, tokidx);
-      auto type = this->parseTypeExpression(tokidx);
+      auto isstatic = context[0].isKeyword(EggTokenizerKeyword::Static);
+      auto type = this->parseTypeExpression(tokidx + size_t(isstatic));
       if (!type.succeeded()) {
         if (type.skipped()) {
-          return context.expected(tokidx, "type definition clause");
+          return context.expected(tokidx, "type definition clause for '", tname, "'");
         }
         return type;
       }
@@ -1333,25 +1336,38 @@ namespace {
         return context.expected(type.tokensAfter, "identifier after type in type definition of '", tname, "'");
       }
       if (type.after(1).isOperator(EggTokenizerOperator::Semicolon)) {
-        // <type> <identifier> ;
+        // [static] <type> <identifier> ;
+        if (isstatic) {
+          return context.failed(type.tokensAfter + 1, "Forward declaration of static member '", identifier.value.s, "' not yet supported");
+        }
         auto stmt = this->makeNodeString(Node::Kind::TypeSpecificationInstanceData, identifier);
         stmt->children.emplace_back(std::move(type.node));
         return context.success(std::move(stmt), type.tokensAfter + 2);
       }
       if (type.after(1).isOperator(EggTokenizerOperator::ParenthesisLeft)) {
-        // <type> <identifier> (
+        // [static] <type> <identifier> (
         auto signature = this->parseTypeFunctionSignature(type, identifier, type.tokensAfter + 1);
         if (!signature.succeeded()) {
           return signature;
         }
         if (signature.after(0).isOperator(EggTokenizerOperator::Semicolon)) {
+          if (isstatic) {
+            // static <type> <identifier> ( ... ) ;
+            return context.failed(signature.tokensAfter + 1, "Forward declaration of static member function '", identifier.value.s, "' not yet supported");
+          }
+          // <type> <identifier> ( ... ) ;
           auto stmt = this->makeNodeString(Node::Kind::TypeSpecificationInstanceFunction, identifier);
           stmt->children.emplace_back(std::move(signature.node));
           return context.success(std::move(stmt), signature.tokensAfter + 1);
         }
+        if (!isstatic) {
+          // <type> <identifier> ( ... ) ...
+          return context.expected(signature.tokensAfter, "';' after ')' in declaration of non-static member function '", identifier.value.s, "'");
+        }
         if (!signature.after(0).isOperator(EggTokenizerOperator::CurlyLeft)) {
           return context.expected(signature.tokensAfter, "'{' after ')' in definition of static member function '", identifier.value.s, "'");
         }
+        // static <type> <identifier> ( ... ) {
         auto block = this->parseStatementBlock(signature.tokensAfter);
         if (!block.succeeded()) {
           return block;
@@ -1361,21 +1377,32 @@ namespace {
         stmt->children.emplace_back(std::move(block.node));
         return context.success(std::move(stmt), block.tokensAfter);
       }
-      if (type.after(1).isOperator(EggTokenizerOperator::Equal)) {
-        // <type> <identifier> = <expr>
-        auto expr = this->parseValueExpression(type.tokensAfter + 2);
-        if (expr.succeeded()) {
-          if (!expr.after(0).isOperator(EggTokenizerOperator::Semicolon)) {
-            return context.expected(expr.tokensAfter, "';' after value of static '", tname, ".", identifier.value.s, "'");
-          }
-          auto stmt = this->makeNodeString(Node::Kind::TypeSpecificationStaticData, identifier);
-          stmt->children.emplace_back(std::move(type.node));
-          stmt->children.emplace_back(std::move(expr.node));
-          return context.success(std::move(stmt), expr.tokensAfter + 1);
+      if (!isstatic) {
+        // <type> <identifier>
+        if (!type.after(1).isOperator(EggTokenizerOperator::Semicolon)) {
+          return context.expected(type.tokensAfter + 1, "';' after identifier '", identifier.value.s, "' in declaration of non-static member");
         }
+        // <type> <identifier> ;
+        auto stmt = this->makeNodeString(Node::Kind::TypeSpecificationInstanceData, identifier);
+        stmt->children.emplace_back(std::move(type.node));
+        return context.success(std::move(stmt), type.tokensAfter + 2);
+      }
+      // static <type> <identifier>
+      if (!type.after(1).isOperator(EggTokenizerOperator::Equal)) {
+        return context.expected(type.tokensAfter + 1, "'=' after identifier '", identifier.value.s, "' in definition of static member");
+      }
+      // static <type> <identifier> =
+      auto expr = this->parseValueExpression(type.tokensAfter + 2);
+      if (!expr.succeeded()) {
         return expr;
       }
-      return context.expected(tokidx, "clause in type definition of '", tname, "'");
+      if (!expr.after(0).isOperator(EggTokenizerOperator::Semicolon)) {
+        return context.expected(expr.tokensAfter, "';' after value of static member '", identifier.value.s, "'");
+      }
+      auto stmt = this->makeNodeString(Node::Kind::TypeSpecificationStaticData, identifier);
+      stmt->children.emplace_back(std::move(type.node));
+      stmt->children.emplace_back(std::move(expr.node));
+      return context.success(std::move(stmt), expr.tokensAfter + 1);
     }
     Partial parseTypeFunctionSignature(Partial& rtype, const EggTokenizerItem& fname, size_t tokidx) {
       assert(rtype.succeeded());
@@ -1802,6 +1829,7 @@ namespace {
       case EggTokenizerKeyword::For:
       case EggTokenizerKeyword::If:
       case EggTokenizerKeyword::Return:
+      case EggTokenizerKeyword::Static:
       case EggTokenizerKeyword::Switch:
       case EggTokenizerKeyword::Throw:
       case EggTokenizerKeyword::Try:

@@ -1,6 +1,6 @@
 int() f;
 type Holder {
-  int i = f();
+  static int i = f();
 };
 int g() {
   return Holder.i;

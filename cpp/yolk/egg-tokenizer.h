@@ -17,6 +17,7 @@
   macro(Null, "null") \
   macro(Object, "object") \
   macro(Return, "return") \
+  macro(Static, "static") \
   macro(String, "string") \
   macro(Switch, "switch") \
   macro(Throw, "throw") \
