@@ -333,26 +333,20 @@ namespace egg::internal {
     TypeForgeFunctionSignature& operator=(const TypeForgeFunctionSignature&) = delete;
   public:
     Type rtype;
-    Type gtype;
     String name;
     std::vector<const IFunctionSignatureParameter*> parameters;
-    TypeForgeFunctionSignature(const Type& rtype, const Type& gtype, const String& name)
+    TypeForgeFunctionSignature(const Type& rtype, const String& name)
       : rtype(rtype),
-        gtype(gtype),
         name(name),
         parameters() {
     }
     TypeForgeFunctionSignature(TypeForgeFunctionSignature&& rhs) noexcept
       : rtype(std::move(rhs.rtype)),
-        gtype(std::move(rhs.gtype)),
         name(std::move(rhs.name)),
         parameters(std::move(rhs.parameters)) {
     }
     virtual String getName() const override {
       return this->name;
-    }
-    virtual Type getGeneratedType() const override {
-      return this->gtype;
     }
     virtual Type getReturnType() const override {
       return this->rtype;
@@ -365,11 +359,11 @@ namespace egg::internal {
     }
     size_t cacheHash() const {
       Hash hash;
-      hash.add(this->rtype, this->gtype, this->name).addFrom(this->parameters.begin(), this->parameters.end());
+      hash.add(this->rtype, this->name).addFrom(this->parameters.begin(), this->parameters.end());
       return hash;
     }
     static bool cacheEquals(const TypeForgeFunctionSignature& lhs, const TypeForgeFunctionSignature& rhs) {
-      return (lhs.rtype == rhs.rtype) && (lhs.gtype == rhs.gtype) && (lhs.name == rhs.name) && (lhs.parameters == rhs.parameters);
+      return (lhs.rtype == rhs.rtype) && (lhs.name == rhs.name) && (lhs.parameters == rhs.parameters);
     }
   };
 
@@ -573,7 +567,6 @@ namespace egg::internal {
     TypeForgeFunctionBuilder& operator=(const TypeForgeFunctionBuilder&) = delete;
   private:
     Type rtype; // reset to nullptr after building
-    Type gtype;
     String fname;
     std::vector<TypeForgeFunctionSignatureParameter> parameters;
   public:
@@ -583,7 +576,6 @@ namespace egg::internal {
     virtual void setFunctionName(const String& name) override {
       this->fname = name;
     }
-    virtual void setGeneratedType(const Type& type) override;
     virtual void setReturnType(const Type& type) override {
       this->rtype = type;
     }
@@ -940,19 +932,19 @@ namespace egg::internal {
     virtual Type forgeArrayType(const Type& elementType, Modifiability modifiability) override {
       return this->forgeShapeType(this->forgeArrayShape(elementType, modifiability));
     }
-    virtual Type forgeIterationType(const Type& elementType) override {
+    virtual Type forgeIterationType(const Type& container) override {
       // TODO optimize
       auto builder = this->createComplexBuilder();
-      auto flags = elementType->getPrimitiveFlags();
+      auto flags = container->getPrimitiveFlags();
       if (Bits::hasAnySet(flags, ValueFlags::Object)) {
         builder->addFlags(ValueFlags::AnyQ);
       }
       if (Bits::hasAnySet(flags, ValueFlags::String)) {
         builder->addFlags(ValueFlags::String);
       }
-      size_t count = elementType->getShapeCount();
+      size_t count = container->getShapeCount();
       for (size_t index = 0; index < count; ++index) {
-        auto* shape = elementType->getShape(index);
+        auto* shape = container->getShape(index);
         if ((shape != nullptr) && (shape->iterable != nullptr)) {
           builder->addType(shape->iterable->getIterationType());
         }
@@ -1415,15 +1407,9 @@ namespace egg::internal {
     this->forge.destroy(this);
   }
 
-  void TypeForgeFunctionBuilder::setGeneratedType(const Type& type) {
-    // Generated type is 'T' so the generator return type is '(void|T)()' aka 'T!'
-    this->gtype = type;
-    this->rtype = this->forge.forgeIteratorType(type);
-  }
-
   const IFunctionSignature& TypeForgeFunctionBuilder::build() {
     assert(this->rtype != nullptr);
-    TypeForgeFunctionSignature signature(this->rtype, this->gtype, this->fname);
+    TypeForgeFunctionSignature signature(this->rtype, this->fname);
     this->rtype = nullptr;
     for (auto& parameter : this->parameters) {
       auto& forged = this->forge.forgeFunctionSignatureParameter(std::move(parameter));

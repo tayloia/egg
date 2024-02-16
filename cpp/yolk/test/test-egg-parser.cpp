@@ -187,15 +187,7 @@ namespace {
     case Node::Kind::TypeBinary:
       return printNodeExtra(os, "type-binary", node.op.typeBinaryOp, node, ranges);
     case Node::Kind::TypeFunctionSignature:
-      switch (node.op.functionOp) {
-      case Node::FunctionOp::Function:
-        return printNodeExtra(os, "type-signature 'function'", node.value, node, ranges);
-      case Node::FunctionOp::Generator:
-        return printNodeExtra(os, "type-signature 'generator'", node.value, node, ranges);
-      default:
-        return printNodeExtra(os, "type-signature <unknown>", node.value, node, ranges);
-      }
-      break;
+      return printNodeExtra(os, "type-signature", node.value, node, ranges);
     case Node::Kind::TypeFunctionSignatureParameter:
       switch (node.op.parameterOp) {
       case Node::ParameterOp::Required:
@@ -560,19 +552,9 @@ TEST(TestEggParser, StatementDefineFunction) {
   std::string actual = outputFromLines({
     "int f(string a, float? b = null) {}"
     });
-  std::string expected = "(stmt-define-function 'f' (type-signature 'function' 'f' (type-int) "
+  std::string expected = "(stmt-define-function 'f' (type-signature 'f' (type-int) "
                          "(type-parameter 'required' 'a' (type-string)) "
                          "(type-parameter 'optional' 'b' (type-unary '?' (type-float)))) (stmt-block))\n";
-  ASSERT_EQ(expected, actual);
-}
-
-TEST(TestEggParser, StatementDefineGenerator) {
-  std::string actual = outputFromLines({
-    "int ...g(string a, float? b = null) {}"
-    });
-  std::string expected = "(stmt-define-function 'g' (type-signature 'generator' 'g' (type-int) "
-    "(type-parameter 'required' 'a' (type-string)) "
-    "(type-parameter 'optional' 'b' (type-unary '?' (type-float)))) (stmt-block))\n";
   ASSERT_EQ(expected, actual);
 }
 
@@ -868,7 +850,7 @@ TEST(TestEggParser, StatementTypeStaticFunction) {
     "};"
     });
   std::string expected = "(stmt-define-type 'Holder' (type-specification"
-                         " (type-specification-static-function 'f' (type-signature 'function' 'f' (type-int)) (stmt-block (stmt-return 123)))"
+                         " (type-specification-static-function 'f' (type-signature 'f' (type-int)) (stmt-block (stmt-return 123)))"
                          "))\n";
   ASSERT_EQ(expected, actual);
 }

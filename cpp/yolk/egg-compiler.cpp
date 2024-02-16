@@ -93,11 +93,15 @@ namespace {
       }
     };
     struct StmtContextData {
+      struct Count {
+        egg::ovum::Type type = nullptr;
+        size_t count = 0;
+      };
       bool canBreak : 1 = false;
       bool canContinue : 1 = false;
       bool canRethrow : 1 = false;
-      egg::ovum::Type canReturn = nullptr;
-      egg::ovum::Type canYield = nullptr;
+      Count* canReturn = nullptr;
+      Count* canYield = nullptr;
       ModuleNode* target = nullptr;
     };
     class StmtContext : public ExprContext, public StmtContextData {
@@ -252,6 +256,16 @@ namespace {
       assert(type != nullptr);
       type = this->vm.getTypeForge().forgeNullableType(type, nullable);
       assert(type != nullptr);
+    }
+    egg::ovum::Type forgeYieldability(const egg::ovum::Type& type) {
+      if (type->getShapeCount() != 1) {
+        return nullptr;
+      }
+      auto* shape = type->getShape(0);
+      if ((shape == nullptr) || (shape->iterable == nullptr)) {
+        return nullptr;
+      }
+      return shape->iterable->getIterationType();
     }
     egg::ovum::Assignability isAssignable(const egg::ovum::Type& dst, const egg::ovum::Type& src) {
       assert(dst != nullptr);
@@ -642,14 +656,12 @@ ModuleNode* ModuleCompiler::compileStmtDefineFunction(ParserNode& pnode, StmtCon
   }
   auto okay = this->addSymbol(context, phead, StmtContext::Symbol::Kind::Function, symbol, type);
   std::set<egg::ovum::String> captures;
+  StmtContextData::Count canReturn{ signature->getReturnType() };
+  assert(canReturn.type != nullptr);
+  StmtContextData::Count canYield{ this->forgeYieldability(canReturn.type) };
   StmtContext inner{ &context, &captures };
-  inner.canYield = signature->getGeneratedType();
-  if (inner.canYield == nullptr) {
-    inner.canReturn = signature->getReturnType();
-    assert(inner.canReturn != nullptr);
-  } else {
-    inner.canReturn = nullptr;
-  }
+  inner.canReturn = &canReturn;
+  inner.canYield = (canYield.type == nullptr) ? nullptr : &canYield;
   size_t pcount = signature->getParameterCount();
   for (size_t pindex = 0; pindex < pcount; ++pindex) {
     auto& parameter = signature->getParameter(pindex);
@@ -663,13 +675,15 @@ ModuleNode* ModuleCompiler::compileStmtDefineFunction(ParserNode& pnode, StmtCon
   }
   auto& ptail = *pnode.children.back();
   assert(ptail.kind == ParserNode::Kind::StmtBlock);
-  auto& invoke = (inner.canYield == nullptr) ? this->mbuilder.stmtFunctionInvoke(pnode.range) : this->mbuilder.stmtGeneratorInvoke(pnode.range);
-  auto block = this->compileStmtBlockInto(ptail.children, inner, invoke);
-  if (block == nullptr) {
+  auto mblock = this->compileStmtBlockInto(ptail.children, inner, this->mbuilder.stmtFunctionInvoke(pnode.range));
+  if (mblock == nullptr) {
     return nullptr;
   }
-  assert(block == &invoke);
-  auto& mvalue = this->mbuilder.exprFunctionConstruct(*mtype, invoke, pnode.range);
+  if (canYield.count > 0) {
+    // Promote the function invocation to a generator
+    mblock = &this->mbuilder.stmtGeneratorInvoke(*mblock, pnode.range);
+  }
+  auto& mvalue = this->mbuilder.exprFunctionConstruct(*mtype, *mblock, pnode.range);
   for (const auto& capture : captures) {
     this->mbuilder.appendChild(mvalue, this->mbuilder.exprFunctionCapture(capture, pnode.range));
   }
@@ -921,16 +935,20 @@ ModuleNode* ModuleCompiler::compileStmtReturn(ParserNode& pnode, StmtContext& co
   if (context.canReturn == nullptr) {
     return this->error(pnode, "'return' statements are only valid within function definitions");
   }
+  if ((context.canYield != nullptr) && (context.canYield->count > 0)) {
+    return this->error(pnode, "Cannot mix 'return' and 'yield statements within generator definitions");
+  }
+  egg::ovum::Type expected{ context.canReturn->type };
   auto* stmt = &this->mbuilder.stmtReturn(pnode.range);
   if (pnode.children.empty()) {
     // return ;
-    if (context.canReturn != egg::ovum::Type::Void) {
-      return this->error(pnode, "Expected 'return' statement with a value of type '", *context.canReturn, "'");
+    if (expected != egg::ovum::Type::Void) {
+      return this->error(pnode, "Expected 'return' statement with a value of type '", *expected, "'");
     }
   } else {
     // return <expr> ;
     auto& pchild = *pnode.children.back();
-    if (context.canReturn == egg::ovum::Type::Void) {
+    if (expected == egg::ovum::Type::Void) {
       return this->error(pchild, "Expected 'return' statement with no value");
     }
     auto* expr = this->compileValueExpr(pchild, context);
@@ -939,12 +957,13 @@ ModuleNode* ModuleCompiler::compileStmtReturn(ParserNode& pnode, StmtContext& co
     }
     auto type = this->deduceType(*expr, context);
     assert(type != nullptr);
-    auto assignable = this->isAssignable(context.canReturn, type);
+    auto assignable = this->isAssignable(expected, type);
     if (assignable == egg::ovum::Assignability::Never) {
-      return this->error(pchild, "Expected 'return' statement with a value of type '", *context.canReturn, "', but instead got a value of type '", *type, "'");
+      return this->error(pchild, "Expected 'return' statement with a value of type '", *expected, "', but instead got a value of type '", *type, "'");
     }
     this->mbuilder.appendChild(*stmt, *expr);
   }
+  context.canReturn->count++;
   return stmt;
 }
 
@@ -954,6 +973,10 @@ ModuleNode* ModuleCompiler::compileStmtYield(ParserNode& pnode, StmtContext& con
   if (context.canYield == nullptr) {
     return this->error(pnode, "'yield' statements are only valid within generator definitions");
   }
+  if ((context.canReturn != nullptr) && (context.canReturn->count > 0)) {
+    return this->error(pnode, "Cannot mix 'return' and 'yield statements within function definitions");
+  }
+  context.canYield->count++;
   auto& pchild = *pnode.children.front();
   if (pchild.kind == ParserNode::Kind::StmtBreak) {
     // yield break ;
@@ -968,7 +991,7 @@ ModuleNode* ModuleCompiler::compileStmtYield(ParserNode& pnode, StmtContext& con
     assert(pchild.children.size() == 1);
     auto& pgrandchild = *pchild.children.front();
     ExprContext inner{ &context };
-    inner.arrayElementType = context.canYield;
+    inner.arrayElementType = context.canYield->type;
     auto* expr = this->compileValueExpr(pgrandchild, inner);
     if (expr == nullptr) {
       return nullptr;
@@ -980,9 +1003,9 @@ ModuleNode* ModuleCompiler::compileStmtYield(ParserNode& pnode, StmtContext& con
     if (itype == nullptr) {
       return this->error(pgrandchild, "Value of type '", *xtype, "' is not iterable in 'yield ...' statement");
     }
-    auto assignable = this->isAssignable(context.canYield, itype);
+    auto assignable = this->isAssignable(context.canYield->type, itype);
     if (assignable == egg::ovum::Assignability::Never) {
-      return this->error(pchild, "Expected 'yield ...' statement with values of type '", *context.canYield, "', but instead got values of type '", *itype, "'");
+      return this->error(pchild, "Expected 'yield ...' statement with values of type '", *context.canYield->type, "', but instead got values of type '", *itype, "'");
     }
     return &this->mbuilder.stmtYieldAll(*expr, pnode.range);
   }
@@ -993,9 +1016,9 @@ ModuleNode* ModuleCompiler::compileStmtYield(ParserNode& pnode, StmtContext& con
   }
   auto type = this->deduceType(*expr, context);
   assert(type != nullptr);
-  auto assignable = this->isAssignable(context.canYield, type);
+  auto assignable = this->isAssignable(context.canYield->type, type);
   if (assignable == egg::ovum::Assignability::Never) {
-    return this->error(pchild, "Expected 'yield' statement with a value of type '", *context.canYield, "', but instead got a value of type '", *type, "'");
+    return this->error(pchild, "Expected 'yield' statement with a value of type '", *context.canYield->type, "', but instead got a value of type '", *type, "'");
   }
   return &this->mbuilder.stmtYield(*expr, pnode.range);
 }
@@ -1889,7 +1912,6 @@ ModuleNode* ModuleCompiler::compileTypeExprBinary(ParserNode& op, ParserNode& lh
 
 ModuleNode* ModuleCompiler::compileTypeExprFunctionSignature(ParserNode& pnode, const ExprContext& context) {
   assert(pnode.kind == ParserNode::Kind::TypeFunctionSignature);
-  EXPECT(pnode, (pnode.op.functionOp == ParserNode::FunctionOp::Function) || (pnode.op.functionOp == ParserNode::FunctionOp::Generator));
   egg::ovum::String fname;
   (void)pnode.value->getString(fname); // may be anonymous
   ModuleNode* mtype;
@@ -1897,12 +1919,6 @@ ModuleNode* ModuleCompiler::compileTypeExprFunctionSignature(ParserNode& pnode, 
   mtype = this->compileTypeExpr(ptype, context);
   if (mtype == nullptr) {
     return nullptr;
-  }
-  if (pnode.op.functionOp == ParserNode::FunctionOp::Generator) {
-    mtype = &this->mbuilder.typeGenerator(*mtype, pnode.range);
-    if (mtype == nullptr) {
-      return nullptr;
-    }
   }
   auto* mnode = &this->mbuilder.typeFunctionSignature(fname, *mtype, pnode.range);
   for (size_t index = 1; index < pnode.children.size(); ++index) {
@@ -2013,8 +2029,10 @@ ModuleNode* ModuleCompiler::compileTypeSpecificationStaticFunction(ParserNode& p
   auto* signature = type.getOnlyFunctionSignature();
   assert(signature != nullptr);
   std::set<egg::ovum::String> captures;
+  StmtContextData::Count canReturn{};
+  canReturn.type = signature->getReturnType();
   StmtContextData data{};
-  data.canReturn = signature->getReturnType();
+  data.canReturn = &canReturn;
   StmtContext inner{ context, &captures, std::move(data) };
   assert(inner.canReturn != nullptr);
   auto okay = this->addSymbol(inner, phead, StmtContext::Symbol::Kind::Function, symbol, type);

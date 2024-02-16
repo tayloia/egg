@@ -6,7 +6,7 @@ void test(string name, object generator) {
   print(result);
 }
 
-int... countdown_explicit() {
+int! countdown_explicit() {
   yield 3;
   yield 2;
   yield 1;
@@ -14,7 +14,7 @@ int... countdown_explicit() {
 test("countdown_explicit", countdown_explicit());
 ///>countdown_explicit:321
 
-int... countdown_while(int counter) {
+int! countdown_while(int counter) {
   while (counter > 0) {
     yield counter;
     --counter;
@@ -23,7 +23,7 @@ int... countdown_while(int counter) {
 test("countdown_while", countdown_while(3));
 ///>countdown_while:321
 
-int... countdown_do(int counter) {
+int! countdown_do(int counter) {
   do {
     yield counter;
     --counter;
@@ -32,7 +32,7 @@ int... countdown_do(int counter) {
 test("countdown_do", countdown_do(3));
 ///>countdown_do:321
 
-int... countdown_for(int counter) {
+int! countdown_for(int counter) {
   for (var i = counter; i > 0; --i) {
     yield i;
   }
@@ -40,7 +40,7 @@ int... countdown_for(int counter) {
 test("countdown_for", countdown_for(3));
 ///>countdown_for:321
 
-int... countdown_break(int counter) {
+int! countdown_break(int counter) {
   for (;;) {
     yield counter;
     --counter;
@@ -52,7 +52,7 @@ int... countdown_break(int counter) {
 test("countdown_break", countdown_break(3));
 ///>countdown_break:321
 
-int... countdown_continue(int counter) {
+int! countdown_continue(int counter) {
   for (; counter > 0; --counter) {
     yield counter;
     yield continue;
@@ -61,25 +61,25 @@ int... countdown_continue(int counter) {
 test("countdown_continue", countdown_continue(3));
 ///>countdown_continue:321
 
-int... countdown_array() {
+int! countdown_array() {
   yield ...[3,2,1];
 }
 test("countdown_array", countdown_array());
 ///>countdown_array:321
 
-any... countdown_arraywise(int[] array) {
+any! countdown_arraywise(int[] array) {
   yield array;
 }
 test("countdown_arraywise", countdown_arraywise([3,2,1]));
 ///>countdown_arraywise:[3,2,1]
 
-any... countdown_elementwise(int[] array) {
+any! countdown_elementwise(int[] array) {
   yield ...array;
 }
 test("countdown_elementwise", countdown_elementwise([3,2,1]));
 ///>countdown_elementwise:321
 
-int... countdown_any(any value) {
+int! countdown_any(any value) {
   yield ...value;
 }
 test("countdown_any_array", countdown_any([3,2,1]));

@@ -1,4 +1,4 @@
-int... countdown(int counter) {
+int! countdown(int counter) {
   while (counter > 0) {
     yield counter;
     --counter;

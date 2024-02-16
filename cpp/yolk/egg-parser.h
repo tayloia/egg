@@ -72,10 +72,6 @@ namespace egg::yolk {
         Named,
         Missing
       };
-      enum class FunctionOp {
-        Function,
-        Generator
-      };
       enum class ParameterOp {
         Required,
         Optional
@@ -90,7 +86,6 @@ namespace egg::yolk {
         egg::ovum::ValueMutationOp valueMutationOp;
         egg::ovum::TypeUnaryOp typeUnaryOp;
         egg::ovum::TypeBinaryOp typeBinaryOp;
-        FunctionOp functionOp;
         ParameterOp parameterOp;
       } op;
       egg::ovum::SourceRange range;

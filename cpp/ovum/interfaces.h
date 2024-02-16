@@ -297,7 +297,6 @@ namespace egg::ovum {
     virtual ~IFunctionSignature() {}
     virtual String getName() const = 0;
     virtual Type getReturnType() const = 0;
-    virtual Type getGeneratedType() const = 0;
     virtual size_t getParameterCount() const = 0;
     virtual const IFunctionSignatureParameter& getParameter(size_t index) const = 0;
   };
@@ -366,7 +365,6 @@ namespace egg::ovum {
   public:
     virtual void setFunctionName(const String& name) = 0;
     virtual void setReturnType(const Type& type) = 0;
-    virtual void setGeneratedType(const Type& type) = 0;
     virtual void addRequiredParameter(const Type& type, const String& name) = 0;
     virtual void addOptionalParameter(const Type& type, const String& name) = 0;
     virtual const IFunctionSignature& build() = 0;

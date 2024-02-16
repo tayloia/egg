@@ -1,0 +1,8 @@
+int! countdown(int counter) {
+  while (counter > 0) {
+    yield counter;
+    --counter;
+  }
+  return counter;
+}
+///<COMPILER><ERROR><RESOURCE>(6,3-8): Cannot mix 'return' and 'yield statements within generator definitions

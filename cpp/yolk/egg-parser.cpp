@@ -16,16 +16,6 @@ namespace {
     return "<unknown>";
   }
 
-  const char* describe(IEggParser::Node::FunctionOp flavour) {
-    switch (flavour) {
-    case IEggParser::Node::FunctionOp::Function:
-      break;
-    case IEggParser::Node::FunctionOp::Generator:
-      return "generator";
-    }
-    return "function";
-  }
-
   int precedence(egg::ovum::ValueBinaryOp op) {
     // See egg/www/v1/syntax/syntax.html#binary-operator
     // OPTIMIZE
@@ -589,22 +579,20 @@ namespace {
       if (!type.succeeded()) {
         return context.skip();
       }
-      auto flavour = type.after(0).isOperator(EggTokenizerOperator::Ellipsis) ? Node::FunctionOp::Generator: Node::FunctionOp::Function;
-      auto offset = size_t(flavour == Node::FunctionOp::Generator);
-      auto& fname = type.after(offset);
+      auto& fname = type.after(0);
       if (fname.kind != EggTokenizerKind::Identifier) {
         return context.skip();
       }
-      if (!type.after(++offset).isOperator(EggTokenizerOperator::ParenthesisLeft)) {
+      if (!type.after(1).isOperator(EggTokenizerOperator::ParenthesisLeft)) {
         return context.skip();
       }
-      // <type> [...] <identifier> ( <parameters> ) { <block> }
-      auto signature = this->parseTypeFunctionSignature(type, flavour, fname, type.tokensAfter + offset);
+      // <type> <identifier> ( <parameters> ) { <block> }
+      auto signature = this->parseTypeFunctionSignature(type, fname, type.tokensAfter + 1);
       if (!signature.succeeded()) {
         return signature;
       }
       if (!signature.after(0).isOperator(EggTokenizerOperator::CurlyLeft)) {
-        return context.expected(signature.tokensAfter, "'{' after ')' in definition of ", describe(flavour), " '", fname.value.s, "'");
+        return context.expected(signature.tokensAfter, "'{' after ')' in definition of function '", fname.value.s, "'");
       }
       auto block = this->parseStatementBlock(signature.tokensAfter);
       if (!block.succeeded()) {
@@ -1231,7 +1219,6 @@ namespace {
             // type()
             partial.wrap(Node::Kind::TypeFunctionSignature);
             partial.node->range.end = { last.line, last.column + 1 };
-            partial.node->op.functionOp = Node::FunctionOp::Function;
             partial.tokensAfter += 2;
           } else {
             // TODO type(<parameters>)
@@ -1347,7 +1334,7 @@ namespace {
       }
       if (type.after(1).isOperator(EggTokenizerOperator::ParenthesisLeft)) {
         // <type> <identifier> (
-        auto signature = this->parseTypeFunctionSignature(type, Node::FunctionOp::Function, identifier, type.tokensAfter + 1);
+        auto signature = this->parseTypeFunctionSignature(type, identifier, type.tokensAfter + 1);
         if (!signature.succeeded()) {
           return signature;
         }
@@ -1379,12 +1366,11 @@ namespace {
       }
       return context.failed(tokidx, "Invalid clause in type definition of '", tname, "'");
     }
-    Partial parseTypeFunctionSignature(Partial& rtype, Node::FunctionOp flavour, const EggTokenizerItem& fname, size_t tokidx) {
+    Partial parseTypeFunctionSignature(Partial& rtype, const EggTokenizerItem& fname, size_t tokidx) {
       assert(rtype.succeeded());
       Context context(*this, tokidx);
       assert(context[0].isOperator(EggTokenizerOperator::ParenthesisLeft));
       auto signature = this->makeNodeString(Node::Kind::TypeFunctionSignature, fname);
-      signature->op.functionOp = flavour;
       signature->range.begin = rtype.node->range.begin;
       signature->children.emplace_back(std::move(rtype.node));
       if (context[1].isOperator(EggTokenizerOperator::ParenthesisRight)) {
@@ -1395,7 +1381,7 @@ namespace {
       auto ambiguous = false;
       for (;;) {
         // Parse the parameters
-        auto parameter = this->parseTypeFunctionSignatureParameter(flavour, nxtidx);
+        auto parameter = this->parseTypeFunctionSignatureParameter(nxtidx);
         if (!parameter.succeeded()) {
           return parameter;
         }
@@ -1408,12 +1394,12 @@ namespace {
           return context.success(std::move(signature), nxtidx + 1);
         }
         if (!next.isOperator(EggTokenizerOperator::Comma)) {
-          return context.expected(nxtidx, "',' between parameters in definition of ", describe(flavour), " '", fname.value.s, "'");
+          return context.expected(nxtidx, "',' between parameters in definition of function '", fname.value.s, "'");
         }
         nxtidx++;
       }
     }
-    Partial parseTypeFunctionSignatureParameter(Node::FunctionOp flavour, size_t tokidx) {
+    Partial parseTypeFunctionSignatureParameter(size_t tokidx) {
       Context context(*this, tokidx);
       auto type = this->parseTypeExpression(tokidx);
       if (!type.succeeded()) {
@@ -1427,7 +1413,7 @@ namespace {
       if (type.after(1).isOperator(EggTokenizerOperator::Equal)) {
         // <type> <name> = null
         if (!type.after(2).isKeyword(EggTokenizerKeyword::Null)) {
-          return context.expected(type.tokensAfter + 2, "'null' as default value after '=' in ", describe(flavour), " parameter definition");
+          return context.expected(type.tokensAfter + 2, "'null' as default value after '=' in function parameter definition");
         }
         auto optional = this->makeNodeString(Node::Kind::TypeFunctionSignatureParameter, pname);
         optional->op.parameterOp = Node::ParameterOp::Optional;

@@ -53,7 +53,6 @@ public:
     TypeManifestation,
     TypeFunctionSignature,
     TypeFunctionSignatureParameter,
-    TypeGenerator,
     TypeSpecification,
     TypeSpecificationDescription,
     TypeSpecificationTypeMember,
@@ -1107,7 +1106,6 @@ namespace {
       case Node::Kind::ExprFunctionCapture:
       case Node::Kind::ExprGuard:
       case Node::Kind::ExprNamed:
-      case Node::Kind::TypeGenerator:
       case Node::Kind::TypeInfer:
       case Node::Kind::TypeManifestation:
       case Node::Kind::TypeSpecificationTypeMember:
@@ -1368,20 +1366,12 @@ namespace {
       assert(count > 0);
       auto* rnode = function.children.front();
       assert(rnode != nullptr);
-      auto generator = (rnode->kind == Node::Kind::TypeGenerator);
-      if (generator) {
-        rnode = rnode->children.front();
-      }
       auto rtype = this->deduce(*rnode);
       if (rtype == nullptr) {
         return nullptr;
       }
       auto fb = this->forge.createFunctionBuilder();
-      if (generator) {
-        fb->setGeneratedType(rtype);
-      } else {
-        fb->setReturnType(rtype);
-      }
+      fb->setReturnType(rtype);
       for (size_t index = 1; index < count; ++index) {
         auto* parameter = function.children[index];
         if ((parameter == nullptr) || (parameter->kind != Node::Kind::TypeFunctionSignatureParameter)) {
@@ -1609,11 +1599,6 @@ namespace {
       node.addChild(ptype);
       return node;
     }
-    virtual Node& typeGenerator(Node& etype, const SourceRange& range) override {
-      auto& node = this->module->createNode(Node::Kind::TypeGenerator, range);
-      node.addChild(etype);
-      return node;
-    }
     virtual Node& typeSpecification(const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::TypeSpecification, range);
       return node;
@@ -1697,9 +1682,12 @@ namespace {
       auto& node = this->module->createNode(Node::Kind::StmtFunctionInvoke, range);
       return node;
     }
-    virtual Node& stmtGeneratorInvoke(const SourceRange& range) override {
-      auto& node = this->module->createNode(Node::Kind::StmtGeneratorInvoke, range);
-      return node;
+    virtual Node& stmtGeneratorInvoke(Node& function, const SourceRange& range) override {
+      // TODO do not modify in-place
+      assert(function.kind == Node::Kind::StmtFunctionInvoke);
+      function.kind = Node::Kind::StmtGeneratorInvoke;
+      function.range = range;
+      return function;
     }
     virtual Node& stmtManifestationInvoke(const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::StmtManifestationInvoke, range);
@@ -4319,7 +4307,6 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
   case IVMModule::Node::Kind::TypeBinaryOp:
   case IVMModule::Node::Kind::TypeFunctionSignature:
   case IVMModule::Node::Kind::TypeFunctionSignatureParameter:
-  case IVMModule::Node::Kind::TypeGenerator:
   case IVMModule::Node::Kind::TypeSpecification:
   case IVMModule::Node::Kind::TypeSpecificationDescription:
   case IVMModule::Node::Kind::TypeSpecificationTypeMember:

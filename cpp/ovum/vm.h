@@ -224,7 +224,6 @@ namespace egg::ovum {
     virtual Node& typeBinaryOp(TypeBinaryOp op, Node& lhs, Node& rhs, const SourceRange& range) = 0;
     virtual Node& typeFunctionSignature(const String& fname, Node& rtype, const SourceRange& range) = 0;
     virtual Node& typeFunctionSignatureParameter(const String& pname, IFunctionSignatureParameter::Flags pflags, Node& ptype, const SourceRange& range) = 0;
-    virtual Node& typeGenerator(Node& etype, const SourceRange& range) = 0;
     virtual Node& typeSpecification(const SourceRange& range) = 0;
     virtual Node& typeSpecificationDescription(const String& description, const SourceRange& range) = 0;
     virtual Node& typeSpecificationTypeMember(const String& symbol, Node& type, const SourceRange& range) = 0;
@@ -241,7 +240,7 @@ namespace egg::ovum {
     virtual Node& stmtContinue(const SourceRange& range) = 0;
     virtual Node& stmtFunctionDefine(const String& symbol, Node& type, Node& value, const SourceRange& range) = 0;
     virtual Node& stmtFunctionInvoke(const SourceRange& range) = 0;
-    virtual Node& stmtGeneratorInvoke(const SourceRange& range) = 0;
+    virtual Node& stmtGeneratorInvoke(Node& function, const SourceRange& range) = 0;
     virtual Node& stmtManifestationInvoke(const SourceRange& range) = 0;
     virtual Node& stmtManifestationProperty(const String& property, Node& type, Node& value, Modifiability modifiability, const SourceRange& range) = 0;
     virtual Node& stmtVariableDeclare(const String& symbol, Node& type, const SourceRange& range) = 0;
