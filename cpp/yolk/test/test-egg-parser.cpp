@@ -932,3 +932,27 @@ TEST(TestEggParser, StatementTypeNonStaticFunctionError) {
   std::string expected = "<ERROR>: (2,2-10): Expected ';' after ')' in declaration of non-static member function 'f', but instead got operator '{'\n";
   ASSERT_EQ(expected, actual);
 }
+
+TEST(TestEggParser, StatementTypeStaticGet) {
+  std::string actual = outputFromLines({
+    "type Holder {",
+    " static int i = 123;",
+    "};",
+    "print(Holder.i);"
+    });
+  std::string expected = "(stmt-define-type 'Holder' (type-specification (type-specification-static-data 'i' (type-int) 123)))\n"
+                         "(expr-call (variable 'print') (expr-property (variable 'Holder') \"i\"))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementTypeStaticSet) {
+  std::string actual = outputFromLines({
+    "type Holder {",
+    " static int i = 123;",
+    "};",
+    "Holder.i = 321;"
+    });
+  std::string expected = "(stmt-define-type 'Holder' (type-specification (type-specification-static-data 'i' (type-int) 123)))\n"
+                         "(stmt-mutate '=' (expr-property (variable 'Holder') \"i\") 321)\n";
+  ASSERT_EQ(expected, actual);
+}

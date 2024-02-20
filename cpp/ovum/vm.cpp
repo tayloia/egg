@@ -64,11 +64,9 @@ public:
     StmtManifestationProperty,
     StmtVariableDeclare,
     StmtVariableDefine,
-    StmtVariableSet,
     StmtVariableMutate,
     StmtVariableUndeclare,
     StmtTypeDefine,
-    StmtPropertySet,
     StmtPropertyMutate,
     StmtIndexMutate,
     StmtPointerMutate,
@@ -1073,11 +1071,9 @@ namespace {
       case Node::Kind::StmtManifestationProperty:
       case Node::Kind::StmtVariableDeclare:
       case Node::Kind::StmtVariableDefine:
-      case Node::Kind::StmtVariableSet:
       case Node::Kind::StmtVariableMutate:
       case Node::Kind::StmtVariableUndeclare:
       case Node::Kind::StmtTypeDefine:
-      case Node::Kind::StmtPropertySet:
       case Node::Kind::StmtPropertyMutate:
       case Node::Kind::StmtIndexMutate:
       case Node::Kind::StmtPointerMutate:
@@ -1722,12 +1718,6 @@ namespace {
       node.addChild(value);
       return node;
     }
-    virtual Node& stmtVariableSet(const String& symbol, Node& value, const SourceRange& range) override {
-      auto& node = this->module->createNode(Node::Kind::StmtVariableSet, range);
-      node.literal = this->createHardValueString(symbol);
-      node.addChild(value);
-      return node;
-    }
     virtual Node& stmtVariableMutate(const String& symbol, ValueMutationOp op, Node& value, const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::StmtVariableMutate, range);
       node.literal = this->createHardValueString(symbol);
@@ -1744,13 +1734,6 @@ namespace {
       auto& node = this->module->createNode(Node::Kind::StmtTypeDefine, range);
       node.literal = this->createHardValueString(symbol);
       node.addChild(type);
-      return node;
-    }
-    virtual Node& stmtPropertySet(Node& instance, Node& property, Node& value, const SourceRange& range) override {
-      auto& node = this->module->createNode(Node::Kind::StmtPropertySet, range);
-      node.addChild(instance);
-      node.addChild(property);
-      node.addChild(value);
       return node;
     }
     virtual Node& stmtPropertyMutate(Node& instance, Node& property, ValueMutationOp op, Node& value, const SourceRange& range) override {
@@ -2210,16 +2193,6 @@ namespace {
     StepOutcome raise(ARGS&&... args) {
       auto error = this->raiseRuntimeError(std::forward<ARGS>(args)...);
       return this->pop(error);
-    }
-    StepOutcome raiseBadPropertyModification(const HardValue& instance, const HardValue& property) {
-      if (instance->getPrimitiveFlag() == ValueFlags::String) {
-        String pname;
-        if (property->getString(pname)) {
-          return this->raise("Strings do not support modification of properties such as '", pname, "'");
-        }
-        return this->raise("Strings do not support modification of properties");
-      }
-      return this->raise("Expected left-hand side of property operator '.' to be an object, but instead got ", describe(instance));
     }
     bool typeScopeBegin(NodeStack& top, const Type& type) {
       assert(top.scope.empty());
@@ -3013,25 +2986,24 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       }
     }
     break;
-  case IVMModule::Node::Kind::StmtVariableSet:
-    assert(top.node->children.size() == 1);
-    assert(top.index <= top.node->children.size());
-    if (top.index == 0) {
-      // Evaluate the value
-      this->push(*top.node->children[top.index++]);
-    } else {
-      assert(top.deque.size() == 1);
-      if (!this->symbolSet(top.node, top.deque.front())) {
-        return StepOutcome::Stepped;
-      }
-      return this->pop(HardValue::Void);
-    }
-    break;
   case IVMModule::Node::Kind::StmtVariableMutate:
     assert(top.node->children.size() == 1);
     assert(top.index <= 1);
-    {
+    if (top.node->valueMutationOp == ValueMutationOp::Assign) {
+      // Assignment
+      if (top.index == 0) {
+        // Evaluate the value
+        this->push(*top.node->children[top.index++]);
+      } else {
+        assert(top.deque.size() == 1);
+        if (!this->symbolSet(top.node, top.deque.front())) {
+          return StepOutcome::Stepped;
+        }
+        return this->pop(HardValue::Void);
+      }
+    } else {
       // TODO: thread safety
+      // Mutation
       String symbol;
       if (!top.node->literal->getString(symbol)) {
         return this->raise("Invalid program node literal for variable identifier");
@@ -3110,33 +3082,6 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       }
     }
     break;
-  case IVMModule::Node::Kind::StmtPropertySet:
-    assert(top.node->literal->getVoid());
-    assert(top.node->children.size() == 3);
-    assert(top.index <= 3);
-    if (!top.deque.empty()) {
-      // Check the last evaluation
-      auto& latest = top.deque.back();
-      if (latest.hasFlowControl()) {
-        return this->pop(latest);
-      }
-    }
-    if (top.index < 3) {
-      // Evaluate the expressions
-      this->push(*top.node->children[top.index++]);
-    } else {
-      // Perform the property fetch (object targets only, not strings)
-      assert(top.deque.size() == 3);
-      auto& instance = top.deque.front();
-      auto& property = top.deque[1];
-      HardObject object;
-      if (!instance->getHardObject(object)) {
-        return this->raiseBadPropertyModification(instance, property);
-      }
-      auto& value = top.deque.back();
-      return this->pop(object->vmPropertySet(this->execution, property, value));
-    }
-    break;
   case IVMModule::Node::Kind::StmtPropertyMutate:
     assert(top.node->literal->getVoid());
     assert(top.node->children.size() == 3);
@@ -3152,15 +3097,33 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       // Evaluate the expressions
       this->push(*top.node->children[top.index++]);
     } else {
-      // Perform the property mutation (object targets only, not strings)
+      // Perform the property assignment/mutation (object targets only, not strings)
       assert(top.deque.size() == 3);
       auto& instance = top.deque.front();
       auto& property = top.deque[1];
       HardObject object;
       if (!instance->getHardObject(object)) {
-        return this->raiseBadPropertyModification(instance, property);
+        std::string what;
+        Type type;
+        if (instance->getHardType(type)) {
+          what = "Types such as '" + describe(*type) + "'";
+        } else if (instance->getPrimitiveFlag() == ValueFlags::String) {
+          what = "Strings";
+        } else {
+          return this->raise("Expected left-hand side of property operator '.' to be an object, but instead got ", describe(instance));
+        }
+        String pname;
+        if (property->getString(pname)) {
+          return this->raise(what, " do not support modification of properties such as '", pname, "'");
+        }
+        return this->raise(what, " do not support modification of properties");
       }
       auto& value = top.deque.back();
+      if (top.node->valueMutationOp == ValueMutationOp::Assign) {
+        // Perform the property assignment (void return)
+        return this->pop(object->vmPropertySet(this->execution, property, value));
+      }
+      // Perform the property mutation (discard the result)
       auto result = object->vmPropertyMut(this->execution, property, top.node->valueMutationOp, value);
       return this->pop(result.hasFlowControl() ? result : HardValue::Void);
     }
@@ -4207,7 +4170,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
     }
     break;
   case IVMModule::Node::Kind::ExprFunctionCapture:
-    return this->raise("WIBBLE Unexpected function symbol capture module node encountered");
+    return this->raise("TODO: Function symbol capture unexpected at this time");
   case IVMModule::Node::Kind::ExprGuard:
     assert(top.node->children.size() == 1);
     if (top.index == 0) {

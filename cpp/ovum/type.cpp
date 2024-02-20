@@ -1300,7 +1300,7 @@ namespace egg::internal {
         }
         auto dsti = dst->getIndexType();
         auto srci = src->getIndexType();
-        if (dst == nullptr) {
+        if (dsti == nullptr) {
           // Destination is an array; source must also be an array
           if (srci != nullptr) {
             return Assignability::Never;
@@ -1328,8 +1328,7 @@ namespace egg::internal {
           // Iterator signature required but not supplied
           return Assignability::Never;
         }
-        // TODO iterator assignability
-        assert(false);
+        retval = assignabilityIntersection(retval, this->computeTypeAssignability(dst->getIterationType(), src->getIterationType()));
       }
       return retval;
     }
