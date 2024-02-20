@@ -10,6 +10,26 @@ using Result = egg::yolk::IEggParser::Result;
 namespace {
   std::ostream& printNode(std::ostream& os, const Node& node, bool ranges);
 
+  void printAccessPart(std::ostream& os, char& separator, const char* text, Node::AccessOp& access, Node::AccessOp part) {
+    if (egg::ovum::Bits::hasAnySet(access, part)) {
+      os << separator << text;
+      separator = ' ';
+      access = egg::ovum::Bits::clear(access, part);
+    }
+  }
+
+  void printAccess(std::ostream& os, Node::AccessOp access) {
+    char separator = '(';
+    printAccessPart(os, separator, "get", access, Node::AccessOp::Get);
+    printAccessPart(os, separator, "set", access, Node::AccessOp::Set);
+    printAccessPart(os, separator, "mut", access, Node::AccessOp::Mut);
+    printAccessPart(os, separator, "del", access, Node::AccessOp::Del);
+    if (separator == '(') {
+      os << '(';
+    }
+    os << ')';
+  }
+
   std::ostream& printValue(std::ostream& os, const egg::ovum::HardValue& value, char quote) {
     egg::ovum::Print::Options options{};
     options.quote = quote;
@@ -32,6 +52,23 @@ namespace {
     os << ' ' << '\'';
     egg::ovum::Printer{ os, egg::ovum::Print::Options::DEFAULT } << extra;
     os << '\'';
+    for (auto& child : node.children) {
+      os << ' ';
+      printNode(os, *child, ranges);
+    }
+    return os << ')';
+  }
+
+  template<typename T>
+  std::ostream& printNodeExtraAccess(std::ostream& os, const char* prefix, T extra, Node::AccessOp access, const Node& node, bool ranges) {
+    os << '(' << prefix;
+    if (ranges) {
+      printRange(os, node.range);
+    }
+    os << ' ' << '\'';
+    egg::ovum::Printer{ os, egg::ovum::Print::Options::DEFAULT } << extra;
+    os << '\'' << ' ';
+    printAccess(os, access);
     for (auto& child : node.children) {
       os << ' ';
       printNode(os, *child, ranges);
@@ -205,7 +242,7 @@ namespace {
     case Node::Kind::TypeSpecificationStaticFunction:
       return printNodeExtra(os, "type-specification-static-function", node.value, node, ranges);
     case Node::Kind::TypeSpecificationInstanceData:
-      return printNodeExtra(os, "type-specification-instance-data", node.value, node, ranges);
+      return printNodeExtraAccess(os, "type-specification-instance-data", node.value, node.op.accessOp, node, ranges);
     case Node::Kind::TypeSpecificationInstanceFunction:
       return printNodeExtra(os, "type-specification-instance-function", node.value, node, ranges);
     case Node::Kind::Literal:
@@ -876,7 +913,7 @@ TEST(TestEggParser, StatementTypeInstanceData) {
     "};"
     });
   std::string expected = "(stmt-define-type 'Holder' (type-specification"
-    " (type-specification-instance-data 'i' (type-int))"
+    " (type-specification-instance-data 'i' () (type-int))"
     "))\n";
   ASSERT_EQ(expected, actual);
 }
@@ -954,5 +991,65 @@ TEST(TestEggParser, StatementTypeStaticSet) {
     });
   std::string expected = "(stmt-define-type 'Holder' (type-specification (type-specification-static-data 'i' (type-int) 123)))\n"
                          "(stmt-mutate '=' (expr-property (variable 'Holder') \"i\") 321)\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementTypeModifiabilityAll) {
+  std::string actual = outputFromLines({
+    "type Holder {",
+    " int i { get; set; mut; del; }",
+    "};"
+    });
+  std::string expected = "(stmt-define-type 'Holder' (type-specification (type-specification-instance-data 'i' (get set mut del) (type-int))))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementTypeModifiabilityGet) {
+  std::string actual = outputFromLines({
+    "type Holder {",
+    " int i { get; }",
+    "};"
+    });
+  std::string expected = "(stmt-define-type 'Holder' (type-specification (type-specification-instance-data 'i' (get) (type-int))))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementTypeModifiabilityGetSet) {
+  std::string actual = outputFromLines({
+    "type Holder {",
+    " int i { set; get; }",
+    "};"
+    });
+  std::string expected = "(stmt-define-type 'Holder' (type-specification (type-specification-instance-data 'i' (get set) (type-int))))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementTypeModifiabilityEmpty) {
+  std::string actual = outputFromLines({
+    "type Holder {",
+    " int i {}",
+    "};"
+    });
+  std::string expected = "<ERROR>: (2,8-9): Expected at least one 'get', 'set', 'mut' or 'del' in access clause of declaration of member 'i'\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementTypeModifiabilityDuplicate) {
+  std::string actual = outputFromLines({
+    "type Holder {",
+    " int i { get; get; }",
+    "};"
+    });
+  std::string expected = "<ERROR>: (2,15-17): Duplicated 'get' in access clause of declaration of member 'i'\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, StatementTypeModifiabilityUnknown) {
+  std::string actual = outputFromLines({
+    "type Holder {",
+    " int i { foo; }",
+    "};"
+    });
+  std::string expected = "<ERROR>: (2,10-12): Expected 'get', 'set', 'mut' or 'del' in access clause of declaration of member 'i', but instead got 'foo'\n";
   ASSERT_EQ(expected, actual);
 }

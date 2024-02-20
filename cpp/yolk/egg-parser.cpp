@@ -1335,16 +1335,19 @@ namespace {
       if (identifier.kind != EggTokenizerKind::Identifier) {
         return context.expected(type.tokensAfter, "identifier after type in type definition of '", tname, "'");
       }
-      if (type.after(1).isOperator(EggTokenizerOperator::Semicolon)) {
+      auto& next = type.after(1);
+      if (next.isOperator(EggTokenizerOperator::Semicolon)) {
         // [static] <type> <identifier> ;
         if (isstatic) {
           return context.failed(type.tokensAfter + 1, "Forward declaration of static member '", identifier.value.s, "' not yet supported");
         }
-        auto stmt = this->makeNodeString(Node::Kind::TypeSpecificationInstanceData, identifier);
-        stmt->children.emplace_back(std::move(type.node));
-        return context.success(std::move(stmt), type.tokensAfter + 2);
+        return this->parseTypeDefinitionAccess(type, identifier);
       }
-      if (type.after(1).isOperator(EggTokenizerOperator::ParenthesisLeft)) {
+      if (!isstatic && next.isOperator(EggTokenizerOperator::CurlyLeft)) {
+        // <type> <identifier> {
+        return this->parseTypeDefinitionAccess(type, identifier);
+      }
+      if (next.isOperator(EggTokenizerOperator::ParenthesisLeft)) {
         // [static] <type> <identifier> (
         auto signature = this->parseTypeFunctionSignature(type, identifier, type.tokensAfter + 1);
         if (!signature.succeeded()) {
@@ -1379,30 +1382,95 @@ namespace {
       }
       if (!isstatic) {
         // <type> <identifier>
-        if (!type.after(1).isOperator(EggTokenizerOperator::Semicolon)) {
-          return context.expected(type.tokensAfter + 1, "';' after identifier '", identifier.value.s, "' in declaration of non-static member");
-        }
-        // <type> <identifier> ;
-        auto stmt = this->makeNodeString(Node::Kind::TypeSpecificationInstanceData, identifier);
-        stmt->children.emplace_back(std::move(type.node));
-        return context.success(std::move(stmt), type.tokensAfter + 2);
+        return context.expected(type.tokensAfter + 1, "';' after identifier '", identifier.value.s, "' in declaration of non-static member");
       }
       // static <type> <identifier>
-      if (!type.after(1).isOperator(EggTokenizerOperator::Equal)) {
-        return context.expected(type.tokensAfter + 1, "'=' after identifier '", identifier.value.s, "' in definition of static member");
+      if (next.isOperator(EggTokenizerOperator::Equal)) {
+        // static <type> <identifier> =
+        auto expr = this->parseValueExpression(type.tokensAfter + 2);
+        if (!expr.succeeded()) {
+          return expr;
+        }
+        if (!expr.after(0).isOperator(EggTokenizerOperator::Semicolon)) {
+          return context.expected(expr.tokensAfter, "';' after value of static member '", identifier.value.s, "'");
+        }
+        auto stmt = this->makeNodeString(Node::Kind::TypeSpecificationStaticData, identifier);
+        stmt->children.emplace_back(std::move(type.node));
+        stmt->children.emplace_back(std::move(expr.node));
+        return context.success(std::move(stmt), expr.tokensAfter + 1);
       }
-      // static <type> <identifier> =
-      auto expr = this->parseValueExpression(type.tokensAfter + 2);
-      if (!expr.succeeded()) {
-        return expr;
+      return context.expected(type.tokensAfter + 1, "'=' after identifier '", identifier.value.s, "' in definition of static member");
+    }
+    Partial parseTypeDefinitionAccess(Partial& partial, const EggTokenizerItem& identifier) {
+      // 'partial' is the successful parsing of <type> before the <identifier>
+      assert(partial.succeeded());
+      Context context(*this, partial.tokensBefore);
+      auto nxtidx = partial.tokensAfter + 1;
+      auto access = Node::AccessOp::None;
+      auto* next = &this->getAbsolute(nxtidx);
+      if (next->isOperator(EggTokenizerOperator::Semicolon)) {
+        // <type> <identifier> ;
+        ++nxtidx;
+      } else {
+        // <type> <identifier> {
+        assert(next->isOperator(EggTokenizerOperator::CurlyLeft));
+        auto curly = nxtidx;
+        auto get = egg::ovum::String::fromUTF8(this->allocator, "get");
+        auto set = egg::ovum::String::fromUTF8(this->allocator, "set");
+        auto mut = egg::ovum::String::fromUTF8(this->allocator, "mut");
+        auto del = egg::ovum::String::fromUTF8(this->allocator, "del");
+        std::map<egg::ovum::String, size_t> known{
+          { get, 0 },
+          { set, 0 },
+          { mut, 0 },
+          { del, 0 }
+        };
+        next = &this->getAbsolute(++nxtidx);
+        while (!next->isOperator(EggTokenizerOperator::CurlyRight)) {
+          size_t* count = nullptr;
+          if (next->kind == EggTokenizerKind::Identifier) {
+            auto found = known.find(next->value.s);
+            if (found != known.end()) {
+              count = &found->second;
+            }
+          }
+          if (count == nullptr) {
+            context.tokensBefore = nxtidx;
+            return context.expected(nxtidx, "'get', 'set', 'mut' or 'del' in access clause of declaration of member '", identifier.value.s, "'");
+          }
+          if (++*count == 2) {
+            context.tokensBefore = nxtidx;
+            return context.failed(nxtidx, "Duplicated '", next->value.s, "' in access clause of declaration of member '", identifier.value.s, "'");
+          }
+          if (!this->getAbsolute(nxtidx + 1).isOperator(EggTokenizerOperator::Semicolon)) {
+            context.tokensBefore = nxtidx;
+            return context.expected(nxtidx, "';' after '", next->value.s, "' in access clause of declaration of member '", identifier.value.s, "'");
+          }
+          nxtidx += 2;
+          next = &this->getAbsolute(nxtidx);
+        }
+        if (known[get] > 0) {
+          access = egg::ovum::Bits::set(access, Node::AccessOp::Get);
+        }
+        if (known[set] > 0) {
+          access = egg::ovum::Bits::set(access, Node::AccessOp::Set);
+        }
+        if (known[mut] > 0) {
+          access = egg::ovum::Bits::set(access, Node::AccessOp::Mut);
+        }
+        if (known[del] > 0) {
+          access = egg::ovum::Bits::set(access, Node::AccessOp::Del);
+        }
+        if (access == Node::AccessOp::None) {
+          context.tokensBefore = curly;
+          return context.failed(nxtidx, "Expected at least one 'get', 'set', 'mut' or 'del' in access clause of declaration of member '", identifier.value.s, "'");
+        }
+        ++nxtidx;
       }
-      if (!expr.after(0).isOperator(EggTokenizerOperator::Semicolon)) {
-        return context.expected(expr.tokensAfter, "';' after value of static member '", identifier.value.s, "'");
-      }
-      auto stmt = this->makeNodeString(Node::Kind::TypeSpecificationStaticData, identifier);
-      stmt->children.emplace_back(std::move(type.node));
-      stmt->children.emplace_back(std::move(expr.node));
-      return context.success(std::move(stmt), expr.tokensAfter + 1);
+      auto stmt = this->makeNodeString(Node::Kind::TypeSpecificationInstanceData, identifier);
+      stmt->op.accessOp = access;
+      stmt->children.emplace_back(std::move(partial.node));
+      return context.success(std::move(stmt), nxtidx);
     }
     Partial parseTypeFunctionSignature(Partial& rtype, const EggTokenizerItem& fname, size_t tokidx) {
       assert(rtype.succeeded());

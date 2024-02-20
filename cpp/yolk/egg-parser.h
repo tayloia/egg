@@ -78,6 +78,13 @@ namespace egg::yolk {
         Required,
         Optional
       };
+      enum class AccessOp {
+        None = 0x0,
+        Get = 0x1,
+        Set = 0x2,
+        Mut = 0x4,
+        Del = 0x8
+      };
       Kind kind;
       std::vector<std::unique_ptr<Node>> children;
       egg::ovum::HardValue value;
@@ -88,6 +95,7 @@ namespace egg::yolk {
         egg::ovum::ValueMutationOp valueMutationOp;
         egg::ovum::TypeUnaryOp typeUnaryOp;
         egg::ovum::TypeBinaryOp typeBinaryOp;
+        AccessOp accessOp;
         ParameterOp parameterOp;
       } op;
       egg::ovum::SourceRange range;
