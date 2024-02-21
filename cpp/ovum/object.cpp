@@ -64,10 +64,10 @@ namespace {
     virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
       return this->raisePrefixError(execution, " does not support properties");
     }
-    virtual HardValue vmPropertyDel(IVMExecution& execution, const HardValue&) override {
+    virtual HardValue vmPropertyRef(IVMExecution& execution, const HardValue&) override {
       return this->raisePrefixError(execution, " does not support properties");
     }
-    virtual HardValue vmPropertyRef(IVMExecution& execution, const HardValue&) override {
+    virtual HardValue vmPropertyDel(IVMExecution& execution, const HardValue&) override {
       return this->raisePrefixError(execution, " does not support properties");
     }
     virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
@@ -79,10 +79,10 @@ namespace {
     virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
       return this->raisePrefixError(execution, " does not support indexing");
     }
-    virtual HardValue vmIndexDel(IVMExecution& execution, const HardValue&) override {
+    virtual HardValue vmIndexRef(IVMExecution& execution, const HardValue&) override {
       return this->raisePrefixError(execution, " does not support indexing");
     }
-    virtual HardValue vmIndexRef(IVMExecution& execution, const HardValue&) override {
+    virtual HardValue vmIndexDel(IVMExecution& execution, const HardValue&) override {
       return this->raisePrefixError(execution, " does not support indexing");
     }
     virtual HardValue vmPointeeGet(IVMExecution& execution) override {
@@ -93,256 +93,6 @@ namespace {
     }
     virtual HardValue vmPointeeMut(IVMExecution& execution, ValueMutationOp, const HardValue&) override {
       return this->raisePrefixError(execution, " does not support pointer semantics");
-    }
-  };
-
-  class VMObjectBuiltinAssert : public VMObjectBase {
-    VMObjectBuiltinAssert(const VMObjectBuiltinAssert&) = delete;
-    VMObjectBuiltinAssert& operator=(const VMObjectBuiltinAssert&) = delete;
-  protected:
-    virtual void printPrefix(Printer& printer) const override {
-      printer << "Builtin 'assert()'";
-    }
-  public:
-    explicit VMObjectBuiltinAssert(IVM& vm)
-      : VMObjectBase(vm) {
-    }
-    virtual void softVisit(ICollectable::IVisitor&) const override {
-      // No soft links
-    }
-    virtual int print(Printer& printer) const override {
-      printer << "[builtin assert]";
-      return 0;
-    }
-    virtual Type vmRuntimeType() override {
-      // TODO
-      return Type::Object;
-    }
-    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
-      if (arguments.getArgumentCount() != 1) {
-        return this->raisePrefixError(execution, " expects exactly one argument");
-      }
-      HardValue value;
-      Bool success = false;
-      if (!arguments.getArgumentValueByIndex(0, value) || !value->getBool(success)) {
-        return this->raisePrefixError(execution, " expects a 'bool' argument, but instead got ", describe(value.get()));
-      }
-      if (!success) {
-        auto message = StringBuilder::concat(this->vm.getAllocator(), "Assertion failure");
-        SourceRange source;
-        if (arguments.getArgumentSourceByIndex(0, source)) {
-          return execution.raiseRuntimeError(message, &source);
-        }
-        return execution.raiseRuntimeError(message, nullptr);
-      }
-      return HardValue::Void;
-    }
-  };
-
-  class VMObjectBuiltinPrint : public VMObjectBase {
-    VMObjectBuiltinPrint(const VMObjectBuiltinPrint&) = delete;
-    VMObjectBuiltinPrint& operator=(const VMObjectBuiltinPrint&) = delete;
-  protected:
-    virtual void printPrefix(Printer& printer) const override {
-      printer << "Builtin 'print()'";
-    }
-  public:
-    explicit VMObjectBuiltinPrint(IVM& vm)
-      : VMObjectBase(vm) {
-    }
-    virtual void softVisit(ICollectable::IVisitor&) const override {
-      // No soft links
-    }
-    virtual int print(Printer& printer) const override {
-      printer << "[builtin print]";
-      return 0;
-    }
-    virtual Type vmRuntimeType() override {
-      // TODO
-      return Type::Object;
-    }
-    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
-      StringBuilder sb;
-      size_t n = arguments.getArgumentCount();
-      String name;
-      HardValue value;
-      for (size_t i = 0; i < n; ++i) {
-        if (!arguments.getArgumentValueByIndex(i, value) || arguments.getArgumentNameByIndex(i, name)) {
-          return this->raisePrefixError(execution, " expects unnamed arguments");
-        }
-        sb.add(value);
-      }
-      execution.log(ILogger::Source::User, ILogger::Severity::None, sb.build(this->vm.getAllocator()));
-      return HardValue::Void;
-    }
-  };
-
-  class VMObjectExpando : public VMObjectBase {
-    VMObjectExpando(const VMObjectExpando&) = delete;
-    VMObjectExpando& operator=(const VMObjectExpando&) = delete;
-  private:
-    std::map<SoftKey, SoftValue, SoftComparator> properties;
-  protected:
-    virtual void printPrefix(Printer& printer) const override {
-      printer << "Expando object";
-    }
-  public:
-    explicit VMObjectExpando(IVM& vm)
-      : VMObjectBase(vm) {
-    }
-    virtual void softVisit(ICollectable::IVisitor& visitor) const override {
-      for (const auto& property : this->properties) {
-        property.first.visit(visitor);
-        property.second.visit(visitor);
-      }
-    }
-    virtual int print(Printer& printer) const override {
-      printer << "[expando]";
-      return 0;
-    }
-    virtual Type vmRuntimeType() override {
-      // TODO
-      return Type::Object;
-    }
-    virtual HardValue vmIterate(IVMExecution& execution) override {
-      return this->raiseRuntimeError(execution, "TODO: Expando objects do not yet support iteration");
-    }
-    virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue& index) override {
-      auto pfound = this->properties.find(index);
-      if (pfound == this->properties.end()) {
-        return this->raiseRuntimeError(execution, "TODO: Cannot find index '", index, "' in expando object");
-      }
-      return execution.getSoftValue(pfound->second);
-    }
-    virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue& index, const HardValue& value) override {
-      auto pfound = this->properties.find(index);
-      if (pfound == this->properties.end()) {
-        SoftKey key{ this->vm, index };
-        auto pair = this->properties.emplace(std::piecewise_construct, std::forward_as_tuple(key), std::forward_as_tuple(this->vm));
-        assert(pair.second);
-        pfound = pair.first;
-      }
-      if (!execution.setSoftValue(pfound->second, value)) {
-        return this->raiseRuntimeError(execution, "TODO: Cannot modify index '", index, "'");
-      }
-      return HardValue::Void;
-    }
-    virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "TODO: Expando objects do not yet support index mutation");
-    }
-    virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue& property) override {
-      auto pfound = this->properties.find(property);
-      if (pfound == this->properties.end()) {
-        return this->raiseRuntimeError(execution, "TODO: Cannot find property '", property, "' in expando object");
-      }
-      return execution.getSoftValue(pfound->second);
-    }
-    virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue& property, const HardValue& value) override {
-      auto pfound = this->properties.find(property);
-      if (pfound == this->properties.end()) {
-        auto pair = this->properties.emplace(std::piecewise_construct, std::forward_as_tuple(this->vm, property), std::forward_as_tuple(this->vm));
-        assert(pair.second);
-        pfound = pair.first;
-      }
-      if (!execution.setSoftValue(pfound->second, value)) {
-        return this->raiseRuntimeError(execution, "TODO: Cannot modify property '", property, "'");
-      }
-      return HardValue::Void;
-    }
-    virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raiseRuntimeError(execution, "TODO: Expando objects do not yet support property mutation");
-    }
-  };
-
-  class VMObjectBuiltinExpando : public VMObjectBase {
-    VMObjectBuiltinExpando(const VMObjectBuiltinExpando&) = delete;
-    VMObjectBuiltinExpando& operator=(const VMObjectBuiltinExpando&) = delete;
-  protected:
-    virtual void printPrefix(Printer& printer) const override {
-      printer << "Builtin 'expando()'";
-    }
-  public:
-    explicit VMObjectBuiltinExpando(IVM& vm)
-      : VMObjectBase(vm) {
-    }
-    virtual void softVisit(ICollectable::IVisitor&) const override {
-      // No soft links
-    }
-    virtual int print(Printer& printer) const override {
-      printer << "[builtin expando]";
-      return 0;
-    }
-    virtual Type vmRuntimeType() override {
-      // TODO
-      return Type::Object;
-    }
-    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
-      if (arguments.getArgumentCount() != 0) {
-        return this->raisePrefixError(execution, " expects no arguments");
-      }
-      auto instance = makeHardObject<VMObjectExpando>(this->vm);
-      return execution.createHardValueObject(instance);
-    }
-  };
-
-  class VMObjectBuiltinCollector : public VMObjectBase {
-    VMObjectBuiltinCollector(const VMObjectBuiltinCollector&) = delete;
-    VMObjectBuiltinCollector& operator=(const VMObjectBuiltinCollector&) = delete;
-  protected:
-    virtual void printPrefix(Printer& printer) const override {
-      printer << "Builtin 'collector()'";
-    }
-  public:
-    explicit VMObjectBuiltinCollector(IVM& vm)
-      : VMObjectBase(vm) {
-    }
-    virtual void softVisit(ICollectable::IVisitor&) const override {
-      // No soft links
-    }
-    virtual int print(Printer& printer) const override {
-      printer << "[builtin collector]";
-      return 0;
-    }
-    virtual Type vmRuntimeType() override {
-      // TODO
-      return Type::Object;
-    }
-    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
-      if (arguments.getArgumentCount() != 0) {
-        return this->raisePrefixError(execution, " expects no arguments");
-      }
-      auto collected = this->vm.getBasket().collect();
-      return execution.createHardValueInt(Int(collected));
-    }
-  };
-
-  class VMObjectBuiltinSymtable : public VMObjectBase {
-    VMObjectBuiltinSymtable(const VMObjectBuiltinSymtable&) = delete;
-    VMObjectBuiltinSymtable& operator=(const VMObjectBuiltinSymtable&) = delete;
-  protected:
-    virtual void printPrefix(Printer& printer) const override {
-      printer << "Builtin 'symtable()'";
-    }
-  public:
-    explicit VMObjectBuiltinSymtable(IVM& vm)
-      : VMObjectBase(vm) {
-    }
-    virtual void softVisit(ICollectable::IVisitor&) const override {
-      // No soft links
-    }
-    virtual int print(Printer& printer) const override {
-      printer << "[builtin symtable]";
-      return 0;
-    }
-    virtual Type vmRuntimeType() override {
-      // TODO
-      return Type::Object;
-    }
-    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
-      if (arguments.getArgumentCount() != 0) {
-        return this->raisePrefixError(execution, " expects no arguments");
-      }
-      return execution.debugSymtable();
     }
   };
 
@@ -670,6 +420,7 @@ namespace {
     };
   private:
     std::map<SoftKey, SoftValue, SoftComparator> properties;
+    std::map<SoftKey, Accessability, SoftComparator> accessabilities;
     std::vector<SoftKey> keys;
   protected:
     virtual void printPrefix(Printer& printer) const override {
@@ -709,16 +460,19 @@ namespace {
       Print::Options options{ printer.options };
       options.quote = '"';
       Printer quoted{ printer.stream, options };
+      Print::Options unoptions{ printer.options };
+      unoptions.quote = '\0';
+      Printer unquoted{ printer.stream, unoptions };
       char separator = '{';
       for (const auto& key : this->keys) {
-        printer << separator << key.get() << ':';
+        unquoted << separator << key.get() << ':';
         quoted << this->properties.find(key)->second.get();
         separator = ',';
       }
       if (separator == '{') {
-        printer << '{';
+        unquoted << '{';
       }
-      printer << '}';
+      unquoted << '}';
       return 0;
     }
     virtual Type vmRuntimeType() override {
@@ -734,6 +488,12 @@ namespace {
     virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue& index, ValueMutationOp mutation, const HardValue& value) override {
       return this->propertyMut(execution, index, mutation, value);
     }
+    virtual HardValue vmIndexRef(IVMExecution& execution, const HardValue& index) override {
+      return this->propertyRef(execution, index);
+    }
+    virtual HardValue vmIndexDel(IVMExecution& execution, const HardValue& index) override {
+      return this->propertyDel(execution, index);
+    }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue& property) override {
       return this->propertyGet(execution, property);
     }
@@ -743,25 +503,43 @@ namespace {
     virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue& property, ValueMutationOp mutation, const HardValue& value) override {
       return this->propertyMut(execution, property, mutation, value);
     }
+    virtual HardValue vmPropertyRef(IVMExecution& execution, const HardValue& property) override {
+      return this->propertyRef(execution, property);
+    }
+    virtual HardValue vmPropertyDel(IVMExecution& execution, const HardValue& property) override {
+      return this->propertyDel(execution, property);
+    }
   private:
     HardValue propertyGet(IVMExecution& execution, const HardValue& property) {
+      VMObjectVanillaMutex::ReadLock lock{ this->mutex };
       auto pfound = this->properties.find(property);
       if (pfound == this->properties.end()) {
         return this->raisePrefixError(execution, " does not contain property '", property, "'");
       }
+      if (!this->hasAccessability(property, Accessability::Get)) {
+        return this->raisePrefixError(execution, " does not permit getting of property '", property, "'");
+      }
       return execution.getSoftValue(pfound->second);
     }
     HardValue propertySet(IVMExecution& execution, const HardValue& property, const HardValue& value) {
+      if (!this->hasAccessability(property, Accessability::Set)) {
+        return this->raisePrefixError(execution, " does not permit setting of property '", property, "'");
+      }
+      VMObjectVanillaMutex::WriteLock lock{ this->mutex };
       auto pfound = this->properties.find(property);
       if (pfound == this->properties.end()) {
         pfound = this->propertyCreate(property);
       }
       if (!execution.setSoftValue(pfound->second, value)) {
-        return this->raisePrefixError(execution, " cannot modify property '", property, "'");
+        return this->raisePrefixError(execution, " cannot set property '", property, "'");
       }
       return HardValue::Void;
     }
     HardValue propertyMut(IVMExecution& execution, const HardValue& property, ValueMutationOp mutation, const HardValue& value) {
+      if (!this->hasAccessability(property, Accessability::Mut)) {
+        return this->raisePrefixError(execution, " does not permit modifying property '", property, "'");
+      }
+      VMObjectVanillaMutex::WriteLock lock{ this->mutex };
       auto pfound = this->properties.find(property);
       if (pfound == this->properties.end()) {
         if (mutation != ValueMutationOp::Assign) {
@@ -771,29 +549,56 @@ namespace {
       }
       return execution.mutateSoftValue(pfound->second, mutation, value);
     }
+    HardValue propertyRef(IVMExecution& execution, const HardValue& property) {
+      if (!this->hasAccessability(property, Accessability::Ref)) {
+        return this->raisePrefixError(execution, " does not permit referencing property '", property, "'");
+      }
+      VMObjectVanillaMutex::WriteLock lock{ this->mutex };
+      return this->raisePrefixError(execution, " does not yet support referencing property '", property, "'"); // TODO
+    }
+    HardValue propertyDel(IVMExecution& execution, const HardValue& property) {
+      if (!this->hasAccessability(property, Accessability::Del)) {
+        return this->raisePrefixError(execution, " does not permit deleting property '", property, "'");
+      }
+      VMObjectVanillaMutex::WriteLock lock{ this->mutex };
+      return this->raisePrefixError(execution, " does not yet support deleting property '", property, "'"); // TODO
+    }
   protected:
-    std::map<SoftKey, SoftValue, SoftComparator>::iterator propertyCreate(const HardValue& property) {
-      auto pair = this->properties.emplace(std::piecewise_construct, std::forward_as_tuple(this->vm, property), std::forward_as_tuple(this->vm));
+    std::map<SoftKey, SoftValue, SoftComparator>::iterator propertyCreate(const HardValue& pkey) {
+      auto pair = this->properties.emplace(std::piecewise_construct, std::forward_as_tuple(this->vm, pkey), std::forward_as_tuple(this->vm));
       assert(pair.first != this->properties.end());
       assert(pair.second);
       this->keys.emplace_back(pair.first->first);
       return pair.first;
     }
-    HardValue propertyFind(IVMExecution& execution, const HardValue& property) {
+    HardValue propertyFind(IVMExecution& execution, const HardValue& property) const {
       auto pfound = this->properties.find(property);
       if (pfound == this->properties.end()) {
         return HardValue::Void;
       }
       return execution.getSoftValue(pfound->second);
     }
-    void propertyAdd(const HardValue& pkey, const HardValue& pvalue, Accessability) {
-      // WIBBLE implement accessability
+    Accessability propertyAccessibility(const HardValue& pkey) const {
+      auto afound = this->accessabilities.find(pkey);
+      if (afound == this->accessabilities.end()) {
+        return this->accessability;
+      }
+      return afound->second;
+    }
+    bool hasAccessability(const HardValue& pkey, Accessability bits) const {
+      return Bits::hasAllSet(this->propertyAccessibility(pkey), bits);
+    }
+    void propertyAdd(const HardValue& pkey, const HardValue& pvalue, Accessability paccessability) {
+      // Only used during construction, so implicitly thread-safe
       auto pair = this->properties.emplace(std::piecewise_construct, std::forward_as_tuple(this->vm, pkey), std::forward_as_tuple(this->vm));
       assert(pair.first != this->properties.end());
       assert(pair.second);
       auto success = this->vm.setSoftValue(pair.first->second, pvalue);
       if (success) {
         this->keys.emplace_back(pair.first->first);
+        if (paccessability != this->accessability) {
+          this->accessabilities.emplace(std::piecewise_construct, std::forward_as_tuple(this->vm, pkey), std::forward_as_tuple(paccessability));
+        }
       } else {
         this->properties.erase(pair.first);
       }
@@ -1050,6 +855,179 @@ namespace {
         return HardValue::Void;
       }
       return retval;
+    }
+  };
+
+  class VMObjectBuiltinAssert : public VMObjectBase {
+    VMObjectBuiltinAssert(const VMObjectBuiltinAssert&) = delete;
+    VMObjectBuiltinAssert& operator=(const VMObjectBuiltinAssert&) = delete;
+  protected:
+    virtual void printPrefix(Printer& printer) const override {
+      printer << "Builtin 'assert()'";
+    }
+  public:
+    explicit VMObjectBuiltinAssert(IVM& vm)
+      : VMObjectBase(vm) {
+    }
+    virtual void softVisit(ICollectable::IVisitor&) const override {
+      // No soft links
+    }
+    virtual int print(Printer& printer) const override {
+      printer << "[builtin assert]";
+      return 0;
+    }
+    virtual Type vmRuntimeType() override {
+      // TODO
+      return Type::Object;
+    }
+    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
+      if (arguments.getArgumentCount() != 1) {
+        return this->raisePrefixError(execution, " expects exactly one argument");
+      }
+      HardValue value;
+      Bool success = false;
+      if (!arguments.getArgumentValueByIndex(0, value) || !value->getBool(success)) {
+        return this->raisePrefixError(execution, " expects a 'bool' argument, but instead got ", describe(value.get()));
+      }
+      if (!success) {
+        auto message = StringBuilder::concat(this->vm.getAllocator(), "Assertion failure");
+        SourceRange source;
+        if (arguments.getArgumentSourceByIndex(0, source)) {
+          return execution.raiseRuntimeError(message, &source);
+        }
+        return execution.raiseRuntimeError(message, nullptr);
+      }
+      return HardValue::Void;
+    }
+  };
+
+  class VMObjectBuiltinPrint : public VMObjectBase {
+    VMObjectBuiltinPrint(const VMObjectBuiltinPrint&) = delete;
+    VMObjectBuiltinPrint& operator=(const VMObjectBuiltinPrint&) = delete;
+  protected:
+    virtual void printPrefix(Printer& printer) const override {
+      printer << "Builtin 'print()'";
+    }
+  public:
+    explicit VMObjectBuiltinPrint(IVM& vm)
+      : VMObjectBase(vm) {
+    }
+    virtual void softVisit(ICollectable::IVisitor&) const override {
+      // No soft links
+    }
+    virtual int print(Printer& printer) const override {
+      printer << "[builtin print]";
+      return 0;
+    }
+    virtual Type vmRuntimeType() override {
+      // TODO
+      return Type::Object;
+    }
+    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
+      StringBuilder sb;
+      size_t n = arguments.getArgumentCount();
+      String name;
+      HardValue value;
+      for (size_t i = 0; i < n; ++i) {
+        if (!arguments.getArgumentValueByIndex(i, value) || arguments.getArgumentNameByIndex(i, name)) {
+          return this->raisePrefixError(execution, " expects unnamed arguments");
+        }
+        sb.add(value);
+      }
+      execution.log(ILogger::Source::User, ILogger::Severity::None, sb.build(this->vm.getAllocator()));
+      return HardValue::Void;
+    }
+  };
+
+  class VMObjectBuiltinExpando : public VMObjectBase {
+    VMObjectBuiltinExpando(const VMObjectBuiltinExpando&) = delete;
+    VMObjectBuiltinExpando& operator=(const VMObjectBuiltinExpando&) = delete;
+  protected:
+    virtual void printPrefix(Printer& printer) const override {
+      printer << "Builtin 'expando()'";
+    }
+  public:
+    explicit VMObjectBuiltinExpando(IVM& vm)
+      : VMObjectBase(vm) {
+    }
+    virtual void softVisit(ICollectable::IVisitor&) const override {
+      // No soft links
+    }
+    virtual int print(Printer& printer) const override {
+      printer << "[builtin expando]";
+      return 0;
+    }
+    virtual Type vmRuntimeType() override {
+      // TODO
+      return Type::Object;
+    }
+    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
+      if (arguments.getArgumentCount() != 0) {
+        return this->raisePrefixError(execution, " expects no arguments");
+      }
+      auto instance = makeHardObject<VMObjectVanillaObject>(this->vm, Accessability::All);
+      return execution.createHardValueObject(instance);
+    }
+  };
+
+  class VMObjectBuiltinCollector : public VMObjectBase {
+    VMObjectBuiltinCollector(const VMObjectBuiltinCollector&) = delete;
+    VMObjectBuiltinCollector& operator=(const VMObjectBuiltinCollector&) = delete;
+  protected:
+    virtual void printPrefix(Printer& printer) const override {
+      printer << "Builtin 'collector()'";
+    }
+  public:
+    explicit VMObjectBuiltinCollector(IVM& vm)
+      : VMObjectBase(vm) {
+    }
+    virtual void softVisit(ICollectable::IVisitor&) const override {
+      // No soft links
+    }
+    virtual int print(Printer& printer) const override {
+      printer << "[builtin collector]";
+      return 0;
+    }
+    virtual Type vmRuntimeType() override {
+      // TODO
+      return Type::Object;
+    }
+    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
+      if (arguments.getArgumentCount() != 0) {
+        return this->raisePrefixError(execution, " expects no arguments");
+      }
+      auto collected = this->vm.getBasket().collect();
+      return execution.createHardValueInt(Int(collected));
+    }
+  };
+
+  class VMObjectBuiltinSymtable : public VMObjectBase {
+    VMObjectBuiltinSymtable(const VMObjectBuiltinSymtable&) = delete;
+    VMObjectBuiltinSymtable& operator=(const VMObjectBuiltinSymtable&) = delete;
+  protected:
+    virtual void printPrefix(Printer& printer) const override {
+      printer << "Builtin 'symtable()'";
+    }
+  public:
+    explicit VMObjectBuiltinSymtable(IVM& vm)
+      : VMObjectBase(vm) {
+    }
+    virtual void softVisit(ICollectable::IVisitor&) const override {
+      // No soft links
+    }
+    virtual int print(Printer& printer) const override {
+      printer << "[builtin symtable]";
+      return 0;
+    }
+    virtual Type vmRuntimeType() override {
+      // TODO
+      return Type::Object;
+    }
+    virtual HardValue vmCall(IVMExecution& execution, const ICallArguments& arguments) override {
+      if (arguments.getArgumentCount() != 0) {
+        return this->raisePrefixError(execution, " expects no arguments");
+      }
+      return execution.debugSymtable();
     }
   };
 

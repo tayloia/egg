@@ -390,15 +390,38 @@ void egg::ovum::Printer::write(const Type& value) {
 }
 
 void egg::ovum::Printer::write(const IValue& value) {
-  value.print(*this);
+  if (Bits::hasAnySet(value.getPrimitiveFlag(), ValueFlags::Object)) {
+    this->anticycle(value);
+  } else {
+    value.print(*this);
+  }
 }
 
 void egg::ovum::Printer::write(const IObject& value) {
-  value.print(*this);
+  this->anticycle(value);
 }
 
 void egg::ovum::Printer::write(const IType& value) {
-  value.print(*this);
+  this->anticycle(value);
+}
+
+void egg::ovum::Printer::anticycle(const ICollectable& value) {
+  // Prevent cycles causing stack overflows
+  if (this->options.visited == nullptr) {
+    // Create a 'visited' context
+    Print::Options voptions{ this->options };
+    std::set<const ICollectable*> visited;
+    visited.emplace(&value);
+    voptions.visited = &visited;
+    Printer vprinter{ this->stream, voptions };
+    value.print(vprinter);
+  } else if (this->options.visited->emplace(&value).second) {
+    // First time visited
+    value.print(*this);
+  } else {
+    // Cycle found
+    this->stream << "<cycle>";
+  }
 }
 
 int egg::ovum::Printer::describe(ValueFlags value) {

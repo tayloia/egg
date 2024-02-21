@@ -262,13 +262,13 @@ namespace egg::ovum {
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue& property) = 0;
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue& property, const HardValue& value) = 0;
     virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue& property, ValueMutationOp mutation, const HardValue& value) = 0;
-    virtual HardValue vmPropertyDel(IVMExecution& execution, const HardValue& property) = 0;
     virtual HardValue vmPropertyRef(IVMExecution& execution, const HardValue& property) = 0;
+    virtual HardValue vmPropertyDel(IVMExecution& execution, const HardValue& property) = 0;
     virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue& index) = 0;
     virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue& index, const HardValue& value) = 0;
     virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue& index, ValueMutationOp mutation, const HardValue& value) = 0;
-    virtual HardValue vmIndexDel(IVMExecution& execution, const HardValue& index) = 0;
     virtual HardValue vmIndexRef(IVMExecution& execution, const HardValue& index) = 0;
+    virtual HardValue vmIndexDel(IVMExecution& execution, const HardValue& index) = 0;
     virtual HardValue vmPointeeGet(IVMExecution& execution) = 0;
     virtual HardValue vmPointeeSet(IVMExecution& execution, const HardValue& value) = 0;
     virtual HardValue vmPointeeMut(IVMExecution& execution, ValueMutationOp mutation, const HardValue& value) = 0;

@@ -14,6 +14,7 @@ namespace egg::ovum {
       char quote = '\0';
       bool concise = false;
       bool names = true;
+      std::set<const ICollectable*>* visited = nullptr; // optional cycle detection
       static const Options DEFAULT;
     };
 
@@ -82,10 +83,6 @@ namespace egg::ovum {
       Print::write(this->stream, value, this->options);
     }
     template<typename T>
-    void write(const ICollectable& value) {
-      value.print(*this);
-    }
-    template<typename T>
     void write(T* value) {
       if (value == nullptr) {
         this->stream << "null";
@@ -103,5 +100,7 @@ namespace egg::ovum {
     void write(const IValue& value);
     void write(const IObject& value);
     void write(const IType& value);
+  private:
+    void anticycle(const ICollectable& value);
   };
 }

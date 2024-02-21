@@ -482,7 +482,7 @@ TEST(TestVM, ExpandoPair) {
     )
   );
   buildAndRunSucceeded(vm, *pbuilder, *mbuilder);
-  ASSERT_EQ("[expando][expando]\n", vm.logger.logged.str());
+  ASSERT_EQ("{x:{}}{}\n", vm.logger.logged.str());
 }
 
 TEST(TestVM, ExpandoCycle) {
@@ -504,7 +504,7 @@ TEST(TestVM, ExpandoCycle) {
     )
   );
   buildAndRunSucceeded(vm, *pbuilder, *mbuilder);
-  ASSERT_EQ("[expando][expando]\n", vm.logger.logged.str());
+  ASSERT_EQ("{x:{x:{x:<cycle>}}}{x:{x:{x:<cycle>}}}\n", vm.logger.logged.str());
 }
 
 TEST(TestVM, ExpandoCollector) {
@@ -564,14 +564,14 @@ TEST(TestVM, ExpandoKeys) {
       STMT_PRINT(EXPR_PROP_GET(EXPR_VAR_GET("x"), EXPR_LITERAL("i"))),
       // print(x.n); -- should print 'null'
       STMT_PRINT(EXPR_PROP_GET(EXPR_VAR_GET("x"), EXPR_LITERAL("n"))),
-      // print(x.o); -- should print '[expando]'
+      // print(x.o); -- should print '{n:null,b:true,i:12345,f:1234.5,s:"hello world",o:<cycle>}'
       STMT_PRINT(EXPR_PROP_GET(EXPR_VAR_GET("x"), EXPR_LITERAL("o"))),
       // print(x.s); -- should print 'hello world'
       STMT_PRINT(EXPR_PROP_GET(EXPR_VAR_GET("x"), EXPR_LITERAL("s")))
     )
   );
   buildAndRunSucceeded(vm, *pbuilder, *mbuilder);
-  ASSERT_EQ("true\n1234.5\n12345\nnull\n[expando]\nhello world\n", vm.logger.logged.str());
+  ASSERT_EQ("true\n1234.5\n12345\nnull\n{n:null,b:true,i:12345,f:1234.5,s:\"hello world\",o:<cycle>}\nhello world\n", vm.logger.logged.str());
 }
 
 TEST(TestVM, UnaryNegate) {
