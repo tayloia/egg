@@ -1404,9 +1404,10 @@ namespace {
     Partial parseTypeDefinitionAccess(Partial& partial, const EggTokenizerItem& identifier) {
       // 'partial' is the successful parsing of <type> before the <identifier>
       assert(partial.succeeded());
+      auto stmt = this->makeNodeString(Node::Kind::TypeSpecificationInstanceData, identifier);
+      stmt->children.emplace_back(std::move(partial.node));
       Context context(*this, partial.tokensBefore);
       auto nxtidx = partial.tokensAfter + 1;
-      auto access = Node::AccessOp::None;
       auto* next = &this->getAbsolute(nxtidx);
       if (next->isOperator(EggTokenizerOperator::Semicolon)) {
         // <type> <identifier> ;
@@ -1415,61 +1416,41 @@ namespace {
         // <type> <identifier> {
         assert(next->isOperator(EggTokenizerOperator::CurlyLeft));
         auto curly = nxtidx;
-        auto get = egg::ovum::String::fromUTF8(this->allocator, "get");
-        auto set = egg::ovum::String::fromUTF8(this->allocator, "set");
-        auto mut = egg::ovum::String::fromUTF8(this->allocator, "mut");
-        auto del = egg::ovum::String::fromUTF8(this->allocator, "del");
-        std::map<egg::ovum::String, size_t> known{
-          { get, 0 },
-          { set, 0 },
-          { mut, 0 },
-          { del, 0 }
+        std::map<egg::ovum::String, egg::ovum::Accessability> known{
+          { egg::ovum::String::fromUTF8(this->allocator, "get"), egg::ovum::Accessability::Get },
+          { egg::ovum::String::fromUTF8(this->allocator, "set"), egg::ovum::Accessability::Set },
+          { egg::ovum::String::fromUTF8(this->allocator, "mut"), egg::ovum::Accessability::Mut },
+          { egg::ovum::String::fromUTF8(this->allocator, "ref"), egg::ovum::Accessability::Ref },
+          { egg::ovum::String::fromUTF8(this->allocator, "del"), egg::ovum::Accessability::Del }
         };
         next = &this->getAbsolute(++nxtidx);
+        auto empty = true;
         while (!next->isOperator(EggTokenizerOperator::CurlyRight)) {
-          size_t* count = nullptr;
           if (next->kind == EggTokenizerKind::Identifier) {
             auto found = known.find(next->value.s);
             if (found != known.end()) {
-              count = &found->second;
+              auto access = this->makeNodeString(Node::Kind::TypeSpecificationAccess, *next);
+              access->op.accessability = found->second;
+              stmt->children.emplace_back(std::move(access));
+              if (!this->getAbsolute(nxtidx + 1).isOperator(EggTokenizerOperator::Semicolon)) {
+                context.tokensBefore = nxtidx;
+                return context.expected(nxtidx, "';' after '", next->value.s, "' in access clause of declaration of member '", identifier.value.s, "'");
+              }
+              nxtidx += 2;
+              next = &this->getAbsolute(nxtidx);
+              empty = false;
+              continue;
             }
           }
-          if (count == nullptr) {
-            context.tokensBefore = nxtidx;
-            return context.expected(nxtidx, "'get', 'set', 'mut' or 'del' in access clause of declaration of member '", identifier.value.s, "'");
-          }
-          if (++*count == 2) {
-            context.tokensBefore = nxtidx;
-            return context.failed(nxtidx, "Duplicated '", next->value.s, "' in access clause of declaration of member '", identifier.value.s, "'");
-          }
-          if (!this->getAbsolute(nxtidx + 1).isOperator(EggTokenizerOperator::Semicolon)) {
-            context.tokensBefore = nxtidx;
-            return context.expected(nxtidx, "';' after '", next->value.s, "' in access clause of declaration of member '", identifier.value.s, "'");
-          }
-          nxtidx += 2;
-          next = &this->getAbsolute(nxtidx);
+          context.tokensBefore = nxtidx;
+          return context.expected(nxtidx, "'get', 'set', 'mut', 'ref' or 'del' in access clause of declaration of member '", identifier.value.s, "'");
         }
-        if (known[get] > 0) {
-          access = egg::ovum::Bits::set(access, Node::AccessOp::Get);
-        }
-        if (known[set] > 0) {
-          access = egg::ovum::Bits::set(access, Node::AccessOp::Set);
-        }
-        if (known[mut] > 0) {
-          access = egg::ovum::Bits::set(access, Node::AccessOp::Mut);
-        }
-        if (known[del] > 0) {
-          access = egg::ovum::Bits::set(access, Node::AccessOp::Del);
-        }
-        if (access == Node::AccessOp::None) {
+        if (empty) {
           context.tokensBefore = curly;
-          return context.failed(nxtidx, "Expected at least one 'get', 'set', 'mut' or 'del' in access clause of declaration of member '", identifier.value.s, "'");
+          return context.failed(nxtidx, "Expected at least one 'get', 'set', 'mut', 'ref' or 'del' in access clause of declaration of member '", identifier.value.s, "'");
         }
         ++nxtidx;
       }
-      auto stmt = this->makeNodeString(Node::Kind::TypeSpecificationInstanceData, identifier);
-      stmt->op.accessOp = access;
-      stmt->children.emplace_back(std::move(partial.node));
       return context.success(std::move(stmt), nxtidx);
     }
     Partial parseTypeFunctionSignature(Partial& rtype, const EggTokenizerItem& fname, size_t tokidx) {

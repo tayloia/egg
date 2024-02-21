@@ -102,7 +102,7 @@ public:
     TypeUnaryOp typeUnaryOp;
     TypeBinaryOp typeBinaryOp;
     IFunctionSignatureParameter::Flags parameterFlags;
-    Modifiability modifiability;
+    Accessability accessability;
     size_t defaultIndex;
   };
   std::vector<Node*> children; // Reference-counting hard pointers are stored in the chain
@@ -929,11 +929,11 @@ namespace {
       auto ob = this->createRuntimeErrorBuilder(message);
       if (comparison != nullptr) {
         if (!lhs->getVoid()) {
-          ob->addProperty(this->createHardValue("left"), lhs, Modifiability::Read);
+          ob->addProperty(this->createHardValue("left"), lhs, Accessability::Get);
         }
-        ob->addProperty(this->createHardValue("operator"), this->createHardValue(comparison), Modifiability::Read);
+        ob->addProperty(this->createHardValue("operator"), this->createHardValue(comparison), Accessability::Get);
         if (!rhs->getVoid()) {
-          ob->addProperty(this->createHardValue("right"), rhs, Modifiability::Read);
+          ob->addProperty(this->createHardValue("right"), rhs, Accessability::Get);
         }
       }
       auto error = this->createHardValueObject(ob->build());
@@ -1039,7 +1039,7 @@ namespace {
       case Node::Kind::ExprPredicateOp:
         return Type::Bool;
       case Node::Kind::ExprArrayConstruct:
-        return this->deduceExprArray(node, Modifiability::All);
+        return this->deduceExprArray(node, Accessability::All);
       case Node::Kind::ExprObjectConstruct:
         return Type::Object;
       case Node::Kind::TypeLiteral:
@@ -1278,13 +1278,13 @@ namespace {
       }
       return this->forge.forgeUnionType(ltype, rtype);
     }
-    Type deduceExprArray(Node& array, Modifiability modifiability) {
+    Type deduceExprArray(Node& array, Accessability accessability) {
       assert(array.kind == Node::Kind::ExprArrayConstruct);
       Type atype;
       if (!array.literal->getHardType(atype)) {
         atype = Type::AnyQ;
       }
-      return this->forge.forgeArrayType(atype, modifiability);
+      return this->forge.forgeArrayType(atype, accessability);
     }
     Type deduceExprFunctionCall(Node& function, const SourceRange& range) {
       if (function.kind == Node::Kind::TypeManifestation) {
@@ -1337,13 +1337,13 @@ namespace {
       }
       switch (op) {
       case TypeUnaryOp::Array:
-        return this->forge.forgeArrayType(atype, egg::ovum::Modifiability::All);
+        return this->forge.forgeArrayType(atype, Accessability::All);
       case TypeUnaryOp::Iterator:
         return this->forge.forgeIteratorType(atype);
       case TypeUnaryOp::Nullable:
         return this->forge.forgeNullableType(atype, true);
       case TypeUnaryOp::Pointer:
-        return this->forge.forgePointerType(atype, egg::ovum::Modifiability::ReadWriteMutate);
+        return this->forge.forgePointerType(atype, Modifiability::All);
       }
       return this->fail(range, "TODO: Cannot deduce type for type unary operator: ", op);
     }
@@ -1618,10 +1618,10 @@ namespace {
       node.addChild(type);
       return node;
     }
-    virtual Node& typeSpecificationInstanceMember(const String& symbol, Node& type, Modifiability modifiability, const SourceRange& range) {
+    virtual Node& typeSpecificationInstanceMember(const String& symbol, Node& type, Accessability accessability, const SourceRange& range) {
       auto& node = this->module->createNode(Node::Kind::TypeSpecificationInstanceMember, range);
       node.literal = this->createHardValueString(symbol);
-      node.modifiability = modifiability;
+      node.accessability = accessability;
       node.addChild(type);
       return node;
     }
@@ -1697,10 +1697,10 @@ namespace {
       auto& node = this->module->createNode(Node::Kind::StmtManifestationInvoke, range);
       return node;
     }
-    virtual Node& stmtManifestationProperty(const String& property, Node& type, Node& value, Modifiability modifiability, const SourceRange& range) override {
+    virtual Node& stmtManifestationProperty(const String& property, Node& type, Node& value, Accessability accessability, const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::StmtManifestationProperty, range);
       node.literal = this->createHardValueString(property);
-      node.modifiability = modifiability;
+      node.accessability = accessability;
       node.addChild(type);
       node.addChild(value);
       return node;
@@ -1844,7 +1844,7 @@ namespace {
             if (type == nullptr) {
               return nullptr;
             }
-            sb->addInstanceMember(name, type, clause->modifiability);
+            sb->addInstanceMember(name, type, clause->accessability);
           }
           break;
         case Node::Kind::StmtManifestationInvoke:
@@ -2306,10 +2306,10 @@ namespace {
       extant->kind = VMSymbolTable::Kind::Variable;
       return HardValue::True;
     }
-    HardValue arrayConstruct(const Type& elementType, Modifiability modifiability, const std::deque<HardValue>& elements, const std::vector<IVMModule::Node*>& mnodes) {
+    HardValue arrayConstruct(const Type& elementType, Accessability accessability, const std::deque<HardValue>& elements, const std::vector<IVMModule::Node*>& mnodes) {
       // TODO: support '...' inclusion
       assert(elements.size() == mnodes.size());
-      auto array = ObjectFactory::createVanillaArray(this->vm, elementType, modifiability);
+      auto array = ObjectFactory::createVanillaArray(this->vm, elementType, accessability);
       assert(array != nullptr);
       if (!elements.empty()) {
         auto push = array->vmPropertyGet(this->execution, this->createHardValue("push"));
@@ -2330,10 +2330,10 @@ namespace {
       }
       return this->createHardValueObject(array);
     }
-    HardValue objectConstruct(Modifiability modifiability, const std::deque<HardValue>& elements) {
+    HardValue objectConstruct(Accessability accessability, const std::deque<HardValue>& elements) {
       // TODO: support '...' inclusion
       assert((elements.size() % 2) == 0);
-      auto object = ObjectFactory::createVanillaObject(this->vm, modifiability);
+      auto object = ObjectFactory::createVanillaObject(this->vm, accessability);
       assert(object != nullptr);
       auto element = elements.cbegin();
       while (element != elements.cend()) {
@@ -2451,7 +2451,7 @@ namespace {
       auto manifestation = ObjectFactory::createVanillaManifestation(this->vm, infratype, metatype);
       return this->createHardValueObject(manifestation);
     }
-    HardValue manifestationProperty(const HardValue& container, const HardValue& pname, const HardValue&, const HardValue& pvalue, Modifiability) {
+    HardValue manifestationProperty(const HardValue& container, const HardValue& pname, const HardValue&, const HardValue& pvalue, Accessability) {
       // TODO optimize
       // TODO type checks
       HardObject manifestation;
@@ -2608,11 +2608,11 @@ namespace {
     }
     virtual void addStaticMember(const String& name, const Type& type) override {
       assert(this->metashaper != nullptr);
-      this->metashaper->addProperty(name, type, Modifiability::Read);
+      this->metashaper->addProperty(name, type, Accessability::Get);
     }
-    virtual void addInstanceMember(const String& name, const Type& type, Modifiability modifiability) override {
+    virtual void addInstanceMember(const String& name, const Type& type, Accessability accessability) override {
       assert(this->infrashaper != nullptr);
-      this->infrashaper->addProperty(name, type, modifiability);
+      this->infrashaper->addProperty(name, type, accessability);
     }
     virtual IVMTypeSpecification& build() override {
       // The VM cache takes ownership via an internal HardPtr
@@ -2919,7 +2919,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       }
       if (top.index == 2) {
         assert(top.deque.size() == 2);
-        return this->pop(this->manifestationProperty(top.value, top.node->literal, top.deque.front(), top.deque.back(), top.node->modifiability));
+        return this->pop(this->manifestationProperty(top.value, top.node->literal, top.deque.front(), top.deque.back(), top.node->accessability));
       }
       this->push(*top.node->children[top.index++]);
     }
@@ -3962,7 +3962,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       if (extant == nullptr) {
         return this->raise("Unknown identifier: '", symbol, "'");
       }
-      auto modifiability = (extant->kind == VMSymbolTable::Kind::Builtin) ? Modifiability::Read : Modifiability::ReadWriteMutate;
+      auto modifiability = (extant->kind == VMSymbolTable::Kind::Builtin) ? Modifiability::Read : Modifiability::All;
       HardValue pointee{ *extant->soft };
       auto pointer = ObjectFactory::createPointerToValue(this->vm, pointee, modifiability);
       assert(pointer != nullptr);
@@ -4126,7 +4126,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       if (!top.node->literal->getHardType(elementType) || (elementType == nullptr)) {
         return this->raise("Invalid type literal module node for array expression");
       }
-      return this->pop(this->arrayConstruct(elementType, Modifiability::All, top.deque, top.node->children));
+      return this->pop(this->arrayConstruct(elementType, Accessability::All, top.deque, top.node->children));
     }
     break;
   case IVMModule::Node::Kind::ExprObjectConstruct:
@@ -4146,7 +4146,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       this->push(*child.children.front());
     } else {
       // Construct the object
-      return this->pop(this->objectConstruct(Modifiability::All, top.deque));
+      return this->pop(this->objectConstruct(Accessability::All, top.deque));
     }
     break;
   case IVMModule::Node::Kind::ExprFunctionConstruct:

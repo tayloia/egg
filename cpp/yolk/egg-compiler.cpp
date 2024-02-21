@@ -510,6 +510,7 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, StmtContext& context)
   case ParserNode::Kind::TypeSpecificationStaticFunction:
   case ParserNode::Kind::TypeSpecificationInstanceData:
   case ParserNode::Kind::TypeSpecificationInstanceFunction:
+  case ParserNode::Kind::TypeSpecificationAccess:
   case ParserNode::Kind::Literal:
   case ParserNode::Kind::Variable:
   case ParserNode::Kind::Named:
@@ -1398,6 +1399,7 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode, const ExprContex
   case ParserNode::Kind::TypeSpecificationStaticFunction:
   case ParserNode::Kind::TypeSpecificationInstanceData:
   case ParserNode::Kind::TypeSpecificationInstanceFunction:
+  case ParserNode::Kind::TypeSpecificationAccess:
   case ParserNode::Kind::StmtBlock:
   case ParserNode::Kind::StmtDeclareVariable:
   case ParserNode::Kind::StmtDefineVariable:
@@ -1839,6 +1841,7 @@ ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode, const ExprContext
   case ParserNode::Kind::TypeSpecificationStaticFunction:
   case ParserNode::Kind::TypeSpecificationInstanceData:
   case ParserNode::Kind::TypeSpecificationInstanceFunction:
+  case ParserNode::Kind::TypeSpecificationAccess:
     // Should not be compiled directly
     break;
   case ParserNode::Kind::ModuleRoot:
@@ -2018,7 +2021,7 @@ ModuleNode* ModuleCompiler::compileTypeSpecificationStaticData(ParserNode& pnode
     return nullptr;
   }
   auto* mnode = &this->mbuilder.typeSpecificationStaticMember(symbol, *mtype, pnode.range);
-  inode = &this->mbuilder.stmtManifestationProperty(symbol, *mtype, *mvalue, egg::ovum::Modifiability::Read, pnode.range);
+  inode = &this->mbuilder.stmtManifestationProperty(symbol, *mtype, *mvalue, egg::ovum::Accessability::Get, pnode.range);
   return mnode;
 }
 
@@ -2074,21 +2077,21 @@ ModuleNode* ModuleCompiler::compileTypeSpecificationStaticFunction(ParserNode& p
     this->mbuilder.appendChild(mvalue, this->mbuilder.exprFunctionCapture(capture, pnode.range));
   }
   auto* mnode = &this->mbuilder.typeSpecificationStaticMember(symbol, *mtype, pnode.range);
-  inode = &this->mbuilder.stmtManifestationProperty(symbol, *mtype, mvalue, egg::ovum::Modifiability::Read, pnode.range);
+  inode = &this->mbuilder.stmtManifestationProperty(symbol, *mtype, mvalue, egg::ovum::Accessability::Get, pnode.range);
   return mnode;
 }
 
 ModuleNode* ModuleCompiler::compileTypeSpecificationInstanceData(ParserNode& pnode, const ExprContext& context) {
   assert(pnode.kind == ParserNode::Kind::TypeSpecificationInstanceData);
-  EXPECT(pnode, pnode.children.size() == 1);
+  EXPECT(pnode, pnode.children.size() >= 1);
   egg::ovum::String symbol;
   EXPECT(pnode, pnode.value->getString(symbol));
   auto mtype = this->compileTypeExpr(*pnode.children.front(), context);
   if (mtype == nullptr) {
     return nullptr;
   }
-  auto modifiability = egg::ovum::Modifiability::ReadWriteMutate; // WIBBLE
-  auto* mnode = &this->mbuilder.typeSpecificationInstanceMember(symbol, *mtype, modifiability, pnode.range);
+  auto accessability = egg::ovum::Accessability::All; // WIBBLE
+  auto* mnode = &this->mbuilder.typeSpecificationInstanceMember(symbol, *mtype, accessability, pnode.range);
   return mnode;
 }
 
@@ -2105,8 +2108,8 @@ ModuleNode* ModuleCompiler::compileTypeSpecificationInstanceFunction(ParserNode&
   if (mtype == nullptr) {
     return nullptr;
   }
-  auto modifiability = egg::ovum::Modifiability::ReadWriteMutate; // WIBBLE
-  auto* mnode = &this->mbuilder.typeSpecificationInstanceMember(symbol, *mtype, modifiability, pnode.range);
+  auto accessability = egg::ovum::Accessability::Get; // WIBBLE
+  auto* mnode = &this->mbuilder.typeSpecificationInstanceMember(symbol, *mtype, accessability, pnode.range);
   return mnode;
 }
 
@@ -2497,6 +2500,8 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
     return "type specification instance data";
   case ParserNode::Kind::TypeSpecificationInstanceFunction:
     return "type specification instance function";
+  case ParserNode::Kind::TypeSpecificationAccess:
+    return "type specification access";
   case ParserNode::Kind::Literal:
     return "literal";
   case ParserNode::Kind::Variable:

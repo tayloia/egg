@@ -373,12 +373,12 @@ namespace egg::internal {
   public:
     struct Entry {
       Type type = nullptr;
-      Modifiability modifiability = Modifiability::None;
+      Accessability accessability = Accessability::None;
       size_t hash() const {
-        return Hash::combine(this->type.get(), this->modifiability);
+        return Hash::combine(this->type.get(), this->accessability);
       }
       bool operator==(const Entry& rhs) const {
-        return (this->type == rhs.type) && (this->modifiability == rhs.modifiability);
+        return (this->type == rhs.type) && (this->accessability == rhs.accessability);
       }
     };
     std::map<String, Entry> entries;
@@ -392,8 +392,8 @@ namespace egg::internal {
     virtual Type getType(const String& property) const override {
       return this->findByName(property).type;
     }
-    virtual Modifiability getModifiability(const String& property) const override {
-      return this->findByName(property).modifiability;
+    virtual Accessability getAccessability(const String& property) const override {
+      return this->findByName(property).accessability;
     }
     virtual String getName(size_t index) const override {
       return this->findByIndex(index);
@@ -404,12 +404,12 @@ namespace egg::internal {
     virtual bool isClosed() const override {
       return this->unknown.type == nullptr;
     }
-    void setUnknown(const Type& type, Modifiability modifiability) {
+    void setUnknown(const Type& type, Accessability accessability) {
       this->unknown.type = type;
-      this->unknown.modifiability = modifiability;
+      this->unknown.accessability = accessability;
     }
-    bool addProperty(const String& name, const Type& type, Modifiability modifiability) {
-      return this->entries.emplace(std::piecewise_construct, std::forward_as_tuple(name), std::forward_as_tuple(type, modifiability)).second;
+    bool addProperty(const String& name, const Type& type, Accessability accessability) {
+      return this->entries.emplace(std::piecewise_construct, std::forward_as_tuple(name), std::forward_as_tuple(type, accessability)).second;
     }
     const Entry& findByName(const String& name) const {
       auto found = this->entries.find(name);
@@ -450,13 +450,13 @@ namespace egg::internal {
   public:
     Type resultType = nullptr;
     Type indexType = nullptr;
-    Modifiability modifiability = Modifiability::ReadWriteMutate;
+    Accessability accessability = Accessability::Get | Accessability::Set;
     TypeForgeIndexSignature() {
     }
     TypeForgeIndexSignature(TypeForgeIndexSignature&& rhs) noexcept
       : resultType(std::move(rhs.resultType)),
         indexType(std::move(rhs.indexType)),
-        modifiability(std::move(rhs.modifiability)) {
+        accessability(std::move(rhs.accessability)) {
     }
     virtual Type getResultType() const override {
       return this->resultType;
@@ -464,14 +464,14 @@ namespace egg::internal {
     virtual Type getIndexType() const override {
       return this->indexType;
     }
-    virtual Modifiability getModifiability() const override {
-      return this->modifiability;
+    virtual Accessability getAccessability() const override {
+      return this->accessability;
     }
     size_t cacheHash() const {
-      return Hash::combine(this->resultType, this->indexType, this->modifiability);
+      return Hash::combine(this->resultType, this->indexType, this->accessability);
     }
     static bool cacheEquals(const TypeForgeIndexSignature& lhs, const TypeForgeIndexSignature& rhs) {
-      return (lhs.resultType == rhs.resultType) && (lhs.indexType == rhs.indexType) && (lhs.modifiability == rhs.modifiability);
+      return (lhs.resultType == rhs.resultType) && (lhs.indexType == rhs.indexType) && (lhs.accessability == rhs.accessability);
     }
   };
 
@@ -501,7 +501,7 @@ namespace egg::internal {
     TypeForgePointerSignature& operator=(const TypeForgePointerSignature&) = delete;
   public:
     Type pointeeType = nullptr;
-    Modifiability modifiability = Modifiability::ReadWriteMutate;
+    Modifiability modifiability = Modifiability::All;
     TypeForgePointerSignature() {
     }
     TypeForgePointerSignature(TypeForgePointerSignature&& rhs) noexcept
@@ -597,13 +597,13 @@ namespace egg::internal {
     explicit TypeForgePropertyBuilder(TypeForgeDefault& forge)
       : TypeForgeBaseBuilder(forge) {
     }
-    virtual void setUnknownProperty(const Type& type, Modifiability modifiability) override {
+    virtual void setUnknownProperty(const Type& type, Accessability accessability) override {
       assert(!this->built);
-      this->signature.setUnknown(type, modifiability);
+      this->signature.setUnknown(type, accessability);
     }
-    virtual void addProperty(const String& name, const Type& type, Modifiability modifiability) override {
+    virtual void addProperty(const String& name, const Type& type, Accessability accessability) override {
       assert(!this->built);
-      auto added = this->signature.addProperty(name, type, modifiability);
+      auto added = this->signature.addProperty(name, type, accessability);
       assert(added);
       (void)added;
     }
@@ -629,9 +629,9 @@ namespace egg::internal {
       assert(type != nullptr);
       this->signature.indexType = type;
     }
-    virtual void setModifiability(Modifiability modifiability) override {
+    virtual void setAccessability(Accessability accessability) override {
       assert(!this->built);
-      this->signature.modifiability = modifiability;
+      this->signature.accessability = accessability;
     }
     virtual const IIndexSignature& build() override;
   };
@@ -752,8 +752,8 @@ namespace egg::internal {
     virtual void setDescription(const String& description, int precedence) override {
       this->getTaggableBuilder().setDescription(description, precedence);
     }
-    virtual void addProperty(const String& name, const Type& type, Modifiability modifiability) override {
-      this->getPropertyBuilder().addProperty(name, type, modifiability);
+    virtual void addProperty(const String& name, const Type& type, Accessability accessability) override {
+      this->getPropertyBuilder().addProperty(name, type, accessability);
     }
     virtual TypeShape build(const Type& infratype) override;
     ITypeForgePropertyBuilder& getPropertyBuilder();
@@ -790,20 +790,20 @@ namespace egg::internal {
         this->destroy(instance);
       }
     }
-    virtual TypeShape forgeArrayShape(const Type& elementType, Modifiability modifiability) override {
+    virtual TypeShape forgeArrayShape(const Type& elementType, Accessability accessability) override {
       TypeForgeShape shape;
       {
         // Properties
         auto builder = this->createPropertyBuilder();
-        auto lengthModifiability = Bits::hasAnySet(modifiability, Modifiability::Delete) ? Modifiability::ReadWriteMutate : Modifiability::Read;
-        builder->addProperty(StringBuilder::concat(this->allocator, "length"), Type::Int, lengthModifiability);
+        auto lengthAccessability = Bits::hasAnySet(accessability, Accessability::Del) ? (Accessability::Get | Accessability::Set | Accessability::Mut) : Accessability::Get;
+        builder->addProperty(StringBuilder::concat(this->allocator, "length"), Type::Int, lengthAccessability);
         shape.dotable = &builder->build();
       }
       {
         // Indexing
         auto builder = this->createIndexBuilder();
         builder->setResultType(elementType);
-        builder->setModifiability(modifiability);
+        builder->setAccessability(accessability);
         shape.indexable = &builder->build();
       }
       {
@@ -879,7 +879,7 @@ namespace egg::internal {
       {
         // Properties
         auto builder = this->createPropertyBuilder();
-        builder->addProperty(StringBuilder::concat(this->allocator, "length"), Type::Int, Modifiability::Read);
+        builder->addProperty(StringBuilder::concat(this->allocator, "length"), Type::Int, Accessability::Get);
         shape.dotable = &builder->build();
       }
       {
@@ -929,8 +929,8 @@ namespace egg::internal {
     virtual Type forgeVoidableType(const Type& type, bool voidable) override {
       return this->forgeFlags(type, ValueFlags::Void, voidable);
     }
-    virtual Type forgeArrayType(const Type& elementType, Modifiability modifiability) override {
-      return this->forgeShapeType(this->forgeArrayShape(elementType, modifiability));
+    virtual Type forgeArrayType(const Type& elementType, Accessability accessability) override {
+      return this->forgeShapeType(this->forgeArrayShape(elementType, accessability));
     }
     virtual Type forgeIterationType(const Type& container) override {
       // TODO optimize
@@ -1376,12 +1376,12 @@ namespace egg::internal {
         : forge(forge),
           builder(forge->createMetashapeBuilder()) {
       }
-      void addPropertyData(const char* pname, const Type& ptype, Modifiability pmodifiability = Modifiability::Read) {
-        this->builder->addProperty(String::fromUTF8(this->forge->allocator, pname), ptype, pmodifiability);
+      void addPropertyData(const char* pname, const Type& ptype, Accessability paccessability) {
+        this->builder->addProperty(String::fromUTF8(this->forge->allocator, pname), ptype, paccessability);
       }
-      void addPropertyFunction(const char* fname, const Type& ftype, Modifiability pmodifiability = Modifiability::Read) {
+      void addPropertyFunction(const char* fname, const Type& ftype, Accessability paccessability) {
         // TODO
-        this->builder->addProperty(String::fromUTF8(this->forge->allocator, fname), ftype, pmodifiability);
+        this->builder->addProperty(String::fromUTF8(this->forge->allocator, fname), ftype, paccessability);
       }
       void build(const Type& infratype) {
         assert(infratype.validate());
@@ -1390,12 +1390,12 @@ namespace egg::internal {
     };
     void addMetashapeType() {
       MetashapeBuilder mb{ this };
-      mb.addPropertyFunction("of", Type::String);
+      mb.addPropertyFunction("of", Type::String, Accessability::Get);
       mb.build(Type::Type_);
     }
     void addMetashapeString() {
       MetashapeBuilder mb{ this };
-      mb.addPropertyData("WIBBLE", Type::String, Modifiability::ReadWriteMutate);
+      mb.addPropertyData("WIBBLE", Type::String, Accessability::Mut);
       mb.build(Type::String);
     }
   };

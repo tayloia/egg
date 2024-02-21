@@ -149,38 +149,38 @@ TEST(TestType, ForgeFunctionSignature) {
 TEST(TestType, ForgePropertySignatureClosed) {
   TestForge forge;
   auto pb = forge->createPropertyBuilder();
-  pb->addProperty(forge.makeName("alpha"), Type::Int, Modifiability::ReadWrite);
+  pb->addProperty(forge.makeName("alpha"), Type::Int, Accessability::Get | Accessability::Set);
   auto& built = pb->build();
   ASSERT_EQ(1u, built.getNameCount());
   ASSERT_TRUE(built.isClosed());
   auto name = built.getName(0);
   ASSERT_STRING("alpha", name);
   ASSERT_TYPE(Type::Int, built.getType(name));
-  ASSERT_EQ(Modifiability::ReadWrite, built.getModifiability(name));
+  ASSERT_EQ(Accessability::Get | Accessability::Set, built.getAccessability(name));
   name = forge.allocator.concat("omega");
   ASSERT_TYPE(nullptr, built.getType(name));
-  ASSERT_EQ(Modifiability::None, built.getModifiability(name));
+  ASSERT_EQ(Accessability::None, built.getAccessability(name));
 }
 
 TEST(TestType, ForgePropertySignatureOpen) {
   TestForge forge;
   auto pb = forge->createPropertyBuilder();
-  pb->addProperty(forge.makeName("alpha"), Type::Int, Modifiability::Read);
-  pb->addProperty(forge.makeName("beta"), Type::Arithmetic, Modifiability::ReadWrite);
-  pb->setUnknownProperty(Type::String, Modifiability::All);
+  pb->addProperty(forge.makeName("alpha"), Type::Int, Accessability::Get);
+  pb->addProperty(forge.makeName("beta"), Type::Arithmetic, Accessability::Get | Accessability::Set);
+  pb->setUnknownProperty(Type::String, Accessability::All);
   auto& built = pb->build();
   ASSERT_EQ(2u, built.getNameCount());
   ASSERT_FALSE(built.isClosed());
   auto name = built.getName(0);
   ASSERT_STRING("alpha", name);
   ASSERT_TYPE(Type::Int, built.getType(name));
-  ASSERT_EQ(Modifiability::Read, built.getModifiability(name));
+  ASSERT_EQ(Accessability::Get, built.getAccessability(name));
   name = forge.allocator.concat("beta");
   ASSERT_TYPE(Type::Arithmetic, built.getType(name));
-  ASSERT_EQ(Modifiability::ReadWrite, built.getModifiability(name));
+  ASSERT_EQ(Accessability::Get | Accessability::Set, built.getAccessability(name));
   name = forge.allocator.concat("omega");
   ASSERT_TYPE(Type::String, built.getType(name));
-  ASSERT_EQ(Modifiability::All, built.getModifiability(name));
+  ASSERT_EQ(Accessability::All, built.getAccessability(name));
 }
 
 TEST(TestType, ForgeComplexNone) {
@@ -204,7 +204,7 @@ TEST(TestType, ForgeComplexArithmetic) {
 TEST(TestType, ForgeComplexIntArray) {
   TestForge forge;
   auto cb = forge->createComplexBuilder();
-  cb->addShape(forge->forgeArrayShape(Type::Int, Modifiability::All));
+  cb->addShape(forge->forgeArrayShape(Type::Int, Accessability::All));
   auto built = cb->build();
   ASSERT_FALSE(built->isPrimitive());
   ASSERT_EQ(ValueFlags::None, built->getPrimitiveFlags());
@@ -215,7 +215,7 @@ TEST(TestType, ForgeComplexIntArray) {
 TEST(TestType, ForgeComplexArithmeticArray) {
   TestForge forge;
   auto cb = forge->createComplexBuilder();
-  cb->addShape(forge->forgeArrayShape(Type::Arithmetic, Modifiability::All));
+  cb->addShape(forge->forgeArrayShape(Type::Arithmetic, Accessability::All));
   auto built = cb->build();
   ASSERT_FALSE(built->isPrimitive());
   ASSERT_EQ(ValueFlags::None, built->getPrimitiveFlags());
@@ -226,7 +226,7 @@ TEST(TestType, ForgeComplexArithmeticArray) {
 TEST(TestType, ForgeComplexIntPointer) {
   TestForge forge;
   auto cb = forge->createComplexBuilder();
-  cb->addShape(forge->forgePointerShape(Type::Int, Modifiability::ReadWriteMutate));
+  cb->addShape(forge->forgePointerShape(Type::Int, Modifiability::All));
   auto built = cb->build();
   ASSERT_FALSE(built->isPrimitive());
   ASSERT_EQ(ValueFlags::None, built->getPrimitiveFlags());
@@ -237,7 +237,7 @@ TEST(TestType, ForgeComplexIntPointer) {
 TEST(TestType, ForgeComplexArithmeticPointer) {
   TestForge forge;
   auto cb = forge->createComplexBuilder();
-  cb->addShape(forge->forgePointerShape(Type::Arithmetic, Modifiability::ReadWriteMutate));
+  cb->addShape(forge->forgePointerShape(Type::Arithmetic, Modifiability::All));
   auto built = cb->build();
   ASSERT_FALSE(built->isPrimitive());
   ASSERT_EQ(ValueFlags::None, built->getPrimitiveFlags());

@@ -427,10 +427,10 @@ namespace {
     VMObjectVanillaContainer& operator=(const VMObjectVanillaContainer&) = delete;
   protected:
     mutable VMObjectVanillaMutex mutex;
-    Modifiability modifiability;
-    VMObjectVanillaContainer(IVM& vm, Modifiability modifiability)
+    Accessability accessability;
+    VMObjectVanillaContainer(IVM& vm, Accessability accessability)
       : VMObjectBase(vm),
-        modifiability(modifiability) {
+        accessability(accessability) {
     }
   };
 
@@ -481,8 +481,8 @@ namespace {
       printer << "Vanilla array";
     }
   public:
-    VMObjectVanillaArray(IVM& vm, const Type& containerType, const Type& elementType, Modifiability modifiability)
-      : VMObjectVanillaContainer(vm, modifiability),
+    VMObjectVanillaArray(IVM& vm, const Type& containerType, const Type& elementType, Accessability accessability)
+      : VMObjectVanillaContainer(vm, accessability),
         elements(),
         containerType(containerType),
         elementType(elementType) {
@@ -676,8 +676,8 @@ namespace {
       printer << "Vanilla object";
     }
   public:
-    VMObjectVanillaObject(IVM& vm, Modifiability modifiability)
-      : VMObjectVanillaContainer(vm, modifiability) {
+    VMObjectVanillaObject(IVM& vm, Accessability accessability)
+      : VMObjectVanillaContainer(vm, accessability) {
     }
     HardValue iteratorNext(IVMExecution& execution, IteratorState& state) {
       VMObjectVanillaMutex::ReadLock lock{ this->mutex };
@@ -695,7 +695,7 @@ namespace {
       }
       const auto& softvalue = found->second;
       auto value = this->vm.getSoftValue(softvalue);
-      auto object = ObjectFactory::createVanillaKeyValue(this->vm, key, value, Modifiability::Read);
+      auto object = ObjectFactory::createVanillaKeyValue(this->vm, key, value, Accessability::Get);
       return execution.createHardValueObject(object);
     }
     virtual void softVisit(ICollectable::IVisitor& visitor) const override {
@@ -786,8 +786,8 @@ namespace {
       }
       return execution.getSoftValue(pfound->second);
     }
-    void propertyAdd(const HardValue& pkey, const HardValue& pvalue, Modifiability) {
-      // TODO implement modifiability
+    void propertyAdd(const HardValue& pkey, const HardValue& pvalue, Accessability) {
+      // WIBBLE implement accessability
       auto pair = this->properties.emplace(std::piecewise_construct, std::forward_as_tuple(this->vm, pkey), std::forward_as_tuple(this->vm));
       assert(pair.first != this->properties.end());
       assert(pair.second);
@@ -800,12 +800,12 @@ namespace {
       assert(success);
     }
     template<typename K>
-    void propertyAdd(K pkey, const HardValue& pvalue, Modifiability pmodifiability) {
-      this->propertyAdd(this->vm.createHardValue(pkey), pvalue, pmodifiability);
+    void propertyAdd(K pkey, const HardValue& pvalue, Accessability paccessability) {
+      this->propertyAdd(this->vm.createHardValue(pkey), pvalue, paccessability);
     }
     template<typename K, typename V>
-    void propertyAdd(K pkey, V pvalue, Modifiability pmodifiability) {
-      this->propertyAdd(this->vm.createHardValue(pkey), this->vm.createHardValue(pvalue), pmodifiability);
+    void propertyAdd(K pkey, V pvalue, Accessability paccessability) {
+      this->propertyAdd(this->vm.createHardValue(pkey), this->vm.createHardValue(pvalue), paccessability);
     }
   };
 
@@ -838,10 +838,10 @@ namespace {
       printer << "Vanilla key-value pair";
     }
   public:
-    VMObjectVanillaKeyValue(IVM& vm, const HardValue& key, const HardValue& value, Modifiability modifiability)
-      : VMObjectVanillaObject(vm, modifiability) {
-      this->propertyAdd("key", key, Modifiability::Read);
-      this->propertyAdd("value", value, Modifiability::Read);
+    VMObjectVanillaKeyValue(IVM& vm, const HardValue& key, const HardValue& value, Accessability accessability)
+      : VMObjectVanillaObject(vm, accessability) {
+      this->propertyAdd("key", key, Accessability::Get);
+      this->propertyAdd("value", value, Accessability::Get);
     }
   };
 
@@ -858,14 +858,14 @@ namespace {
     }
   public:
     VMObjectVanillaManifestation(IVM& vm, const Type& infratype, const Type& metatype)
-      : VMObjectVanillaContainer(vm, Modifiability::ReadWrite),
+      : VMObjectVanillaContainer(vm, Accessability::Get | Accessability::Set),
         infratype(infratype),
         metatype(metatype) {
       assert(this->metatype.validate());
     }
     virtual ~VMObjectVanillaManifestation() override {
       // If we go out of scope before freezing, the manifestation failed
-      if (this->modifiability != Modifiability::Read) {
+      if (this->accessability != Accessability::Get) {
         this->vm.finalizeManifestation(this->infratype, HardObject());
       }
     }
@@ -890,13 +890,13 @@ namespace {
       return execution.getSoftValue(pfound->second);
     }
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue& property, const HardValue& value) override {
-      if (this->modifiability == Modifiability::Read) {
+      if (this->accessability == Accessability::Get) {
         // We're frozen
         return this->raisePrefixError(execution, " does not support property modification");
       }
       if (property->getNull()) {
         // Freeze the instance
-        this->modifiability = Modifiability::Read;
+        this->accessability = Accessability::Get;
         this->vm.finalizeManifestation(this->infratype, HardObject(this));
         return HardValue::Void;
       }
@@ -1084,7 +1084,7 @@ namespace {
       return this->pointeeSet(execution, value);
     }
     virtual HardValue vmPointeeMut(IVMExecution& execution, ValueMutationOp mutation, const HardValue& value) {
-      if (Bits::hasNoneSet(this->modifiability, Modifiability::Mutate)) {
+      if (Bits::hasNoneSet(this->modifiability, Modifiability::Write)) {
         return this->raisePrefixError(execution, "Pointer does not permit modifying values");
       }
       return this->pointeeMut(execution, mutation, value);
@@ -1861,16 +1861,16 @@ namespace {
     ObjectBuilderInstance(const ObjectBuilderInstance&) = delete;
     ObjectBuilderInstance& operator=(const ObjectBuilderInstance&) = delete;
   public:
-    explicit ObjectBuilderInstance(IVM& vm)
-      : VMObjectVanillaObject(vm, Modifiability::All) {
+    ObjectBuilderInstance(IVM& vm, Accessability accessability)
+      : VMObjectVanillaObject(vm, accessability) {
     }
-    void withProperty(const HardValue& pkey, const HardValue& pvalue, Modifiability pmodifiability) {
+    void withProperty(const HardValue& pkey, const HardValue& pvalue, Accessability paccessability) {
       // TODO
-      this->propertyAdd(pkey, pvalue, pmodifiability);
+      this->propertyAdd(pkey, pvalue, paccessability);
     }
     template<typename T>
-    void withProperty(const char* pname, T pvalue, Modifiability pmodifiability) {
-      this->withProperty(this->vm.createHardValue(pname), this->vm.createHardValue(pvalue), pmodifiability);
+    void withProperty(const char* pname, T pvalue, Accessability paccessability) {
+      this->withProperty(this->vm.createHardValue(pname), this->vm.createHardValue(pvalue), paccessability);
     }
   };
 
@@ -1886,7 +1886,7 @@ namespace {
     }
   public:
     ObjectBuilderRuntimeError(IVM& vm, const String& message, const HardPtr<IVMCallStack>& callstack)
-      : ObjectBuilderInstance(vm),
+      : ObjectBuilderInstance(vm, Accessability::Get),
         message(message),
         callstack(callstack) {
     }
@@ -1910,9 +1910,9 @@ namespace {
       : vm(vm),
         instance(std::move(instance)) {
     }
-    virtual void addProperty(const HardValue& property, const HardValue& value, Modifiability modifiability) override {
+    virtual void addProperty(const HardValue& property, const HardValue& value, Accessability accessability) override {
       assert(this->instance != nullptr);
-      this->instance->withProperty(property, value, modifiability);
+      this->instance->withProperty(property, value, accessability);
     }
     virtual HardObject build() override {
       assert(this->instance != nullptr);
@@ -1980,17 +1980,17 @@ egg::ovum::HardObject egg::ovum::ObjectFactory::createBuiltinSymtable(IVM& vm) {
   return makeHardObject<VMObjectBuiltinSymtable>(vm);
 }
 
-egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaArray(IVM& vm, const Type& elementType, Modifiability modifiability) {
-  auto containerType = vm.getTypeForge().forgeArrayType(elementType, modifiability);
-  return makeHardObject<VMObjectVanillaArray>(vm, containerType, elementType, modifiability);
+egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaArray(IVM& vm, const Type& elementType, Accessability accessability) {
+  auto containerType = vm.getTypeForge().forgeArrayType(elementType, accessability);
+  return makeHardObject<VMObjectVanillaArray>(vm, containerType, elementType, accessability);
 }
 
-egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaObject(IVM& vm, Modifiability modifiability) {
-  return makeHardObject<VMObjectVanillaObject>(vm, modifiability);
+egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaObject(IVM& vm, Accessability accessability) {
+  return makeHardObject<VMObjectVanillaObject>(vm, accessability);
 }
 
-egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaKeyValue(IVM& vm, const HardValue& key, const HardValue& value, Modifiability modifiability) {
-  return makeHardObject<VMObjectVanillaKeyValue>(vm, key, value, modifiability);
+egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaKeyValue(IVM& vm, const HardValue& key, const HardValue& value, Accessability accessability) {
+  return makeHardObject<VMObjectVanillaKeyValue>(vm, key, value, accessability);
 }
 
 egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaManifestation(IVM& vm, const Type& infratype, const Type& metatype) {
@@ -2097,33 +2097,33 @@ egg::ovum::HardObject egg::ovum::ObjectFactory::createManifestationAny(IVM& vm) 
   return makeHardObject<VMManifestionAny>(vm);
 }
 
-egg::ovum::HardPtr<egg::ovum::IObjectBuilder> egg::ovum::ObjectFactory::createObjectBuilder(IVM& vm) {
+egg::ovum::HardPtr<egg::ovum::IObjectBuilder> egg::ovum::ObjectFactory::createObjectBuilder(IVM& vm, Accessability accessability) {
   auto& allocator = vm.getAllocator();
-  HardPtr instance{ allocator.makeRaw<ObjectBuilderInstance>(vm) };
+  HardPtr instance{ allocator.makeRaw<ObjectBuilderInstance>(vm, accessability) };
   return HardPtr{ allocator.makeRaw<ObjectBuilder>(vm, std::move(instance)) };
 }
 
 egg::ovum::HardPtr<egg::ovum::IObjectBuilder> egg::ovum::ObjectFactory::createRuntimeErrorBuilder(IVM& vm, const String& message, const HardPtr<IVMCallStack>& callstack) {
   auto& allocator = vm.getAllocator();
   HardPtr instance{ allocator.makeRaw<ObjectBuilderRuntimeError>(vm, message, callstack) };
-  instance->withProperty("message", message, Modifiability::Read);
+  instance->withProperty("message", message, Accessability::Get);
   if (callstack != nullptr) {
     auto resource = callstack->getResource();
     if (!resource.empty()) {
-      instance->withProperty("resource", resource, Modifiability::Read);
+      instance->withProperty("resource", resource, Accessability::Get);
     }
     auto* range = callstack->getSourceRange();
     if (range != nullptr) {
       if ((range->begin.line != 0) || (range->begin.column != 0)) {
-        instance->withProperty("line", int(range->begin.line), Modifiability::Read);
+        instance->withProperty("line", int(range->begin.line), Accessability::Get);
         if (range->begin.column != 0) {
-          instance->withProperty("column", int(range->begin.column), Modifiability::Read);
+          instance->withProperty("column", int(range->begin.column), Accessability::Get);
         }
       }
     }
     auto function = callstack->getFunction();
     if (!function.empty()) {
-      instance->withProperty("function", function, Modifiability::Read);
+      instance->withProperty("function", function, Accessability::Get);
     }
   }
   return HardPtr{ allocator.makeRaw<ObjectBuilder>(vm, std::move(instance)) };

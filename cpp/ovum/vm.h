@@ -138,7 +138,7 @@ namespace egg::ovum {
   public:
     virtual void setDescription(const String& description, int precedence) = 0;
     virtual void addStaticMember(const String& name, const Type& type) = 0;
-    virtual void addInstanceMember(const String& name, const Type& type, Modifiability modifiability) = 0;
+    virtual void addInstanceMember(const String& name, const Type& type, Accessability accessability) = 0;
     virtual IVMTypeSpecification& build() = 0;
   };
 
@@ -227,7 +227,7 @@ namespace egg::ovum {
     virtual Node& typeSpecification(const SourceRange& range) = 0;
     virtual Node& typeSpecificationDescription(const String& description, const SourceRange& range) = 0;
     virtual Node& typeSpecificationStaticMember(const String& symbol, Node& type, const SourceRange& range) = 0;
-    virtual Node& typeSpecificationInstanceMember(const String& symbol, Node& type, Modifiability modifiability, const SourceRange& range) = 0;
+    virtual Node& typeSpecificationInstanceMember(const String& symbol, Node& type, Accessability accessability, const SourceRange& range) = 0;
     // Statement factories
     virtual Node& stmtBlock(const SourceRange& range) = 0;
     virtual Node& stmtIf(Node& condition, const SourceRange& range) = 0;
@@ -242,7 +242,7 @@ namespace egg::ovum {
     virtual Node& stmtFunctionInvoke(const SourceRange& range) = 0;
     virtual Node& stmtGeneratorInvoke(Node& function, const SourceRange& range) = 0;
     virtual Node& stmtManifestationInvoke(const SourceRange& range) = 0;
-    virtual Node& stmtManifestationProperty(const String& property, Node& type, Node& value, Modifiability modifiability, const SourceRange& range) = 0;
+    virtual Node& stmtManifestationProperty(const String& property, Node& type, Node& value, Accessability accessability, const SourceRange& range) = 0;
     virtual Node& stmtVariableDeclare(const String& symbol, Node& type, const SourceRange& range) = 0;
     virtual Node& stmtVariableDefine(const String& symbol, Node& type, Node& value, const SourceRange& range) = 0;
     virtual Node& stmtVariableMutate(const String& symbol, ValueMutationOp op, Node& value, const SourceRange& range) = 0;

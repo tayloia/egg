@@ -25,15 +25,27 @@ namespace egg::ovum {
     Always
   };
 
+  enum class Accessability {
+    None = 0,
+    Get = 1 << 0,
+    Set = 1 << 1,
+    Mut = 1 << 2,
+    Ref = 1 << 3,
+    Del = 1 << 4,
+    All = Get | Set | Mut | Ref | Del
+  };
+
+  inline Accessability operator|(Accessability lhs, Accessability rhs) {
+    return Accessability(std::underlying_type_t<Accessability>(lhs) | std::underlying_type_t<Accessability>(rhs));
+  }
+
   enum class Modifiability {
-    None = 0x00,
-    Read = 0x1,
-    Write = 0x2,
-    Mutate = 0x4,
-    Delete = 0x8,
+    None = 0,
+    Read = 1 << 0,
+    Write = 1 << 2,
+    Mutate = 1 << 3,
     ReadWrite = Read | Write,
-    ReadWriteMutate = Read | Write | Mutate,
-    All = Read | Write | Mutate | Delete
+    All = Read | Write | Mutate
   };
 
   // Value operators
@@ -306,7 +318,7 @@ namespace egg::ovum {
     // Interface
     virtual ~IPropertySignature() {}
     virtual Type getType(const String& property) const = 0;
-    virtual Modifiability getModifiability(const String& property) const = 0;
+    virtual Accessability getAccessability(const String& property) const = 0;
     virtual String getName(size_t index) const = 0;
     virtual size_t getNameCount() const = 0;
     virtual bool isClosed() const = 0;
@@ -318,7 +330,7 @@ namespace egg::ovum {
     virtual ~IIndexSignature() {}
     virtual Type getResultType() const = 0;
     virtual Type getIndexType() const = 0;
-    virtual Modifiability getModifiability() const = 0;
+    virtual Accessability getAccessability() const = 0;
   };
 
   class IIteratorSignature {
@@ -372,8 +384,8 @@ namespace egg::ovum {
 
   class ITypeForgePropertyBuilder : public IHardAcquireRelease {
   public:
-    virtual void setUnknownProperty(const Type& type, Modifiability modifiability) = 0;
-    virtual void addProperty(const String& name, const Type& type, Modifiability modifiability) = 0;
+    virtual void setUnknownProperty(const Type& type, Accessability accessability) = 0;
+    virtual void addProperty(const String& name, const Type& type, Accessability accessability) = 0;
     virtual const IPropertySignature& build() = 0;
   };
 
@@ -381,7 +393,7 @@ namespace egg::ovum {
   public:
     virtual void setResultType(const Type& type) = 0;
     virtual void setIndexType(const Type& type) = 0;
-    virtual void setModifiability(Modifiability modifiability) = 0;
+    virtual void setAccessability(Accessability accessability) = 0;
     virtual const IIndexSignature& build() = 0;
   };
 
@@ -418,14 +430,14 @@ namespace egg::ovum {
   class ITypeForgeMetashapeBuilder : public IHardAcquireRelease {
   public:
     virtual void setDescription(const String& description, int precedence) = 0;
-    virtual void addProperty(const String& name, const Type& type, Modifiability modifiability) = 0;
+    virtual void addProperty(const String& name, const Type& type, Accessability accessability) = 0;
     virtual TypeShape build(const Type& infratype) = 0;
   };
 
   class ITypeForge : public IHardAcquireRelease {
   public:
     // Interface
-    virtual TypeShape forgeArrayShape(const Type& element, Modifiability modifiability) = 0;
+    virtual TypeShape forgeArrayShape(const Type& element, Accessability accessability) = 0;
     virtual TypeShape forgeFunctionShape(const IFunctionSignature& signature) = 0;
     virtual TypeShape forgeIteratorShape(const Type& element) = 0;
     virtual TypeShape forgePointerShape(const Type& pointee, Modifiability modifiability) = 0;
@@ -435,7 +447,7 @@ namespace egg::ovum {
     virtual Type forgeUnionType(const Type& lhs, const Type& rhs) = 0;
     virtual Type forgeNullableType(const Type& type, bool nullable) = 0;
     virtual Type forgeVoidableType(const Type& type, bool voidable) = 0;
-    virtual Type forgeArrayType(const Type& element, Modifiability modifiability) = 0;
+    virtual Type forgeArrayType(const Type& element, Accessability accessability) = 0;
     virtual Type forgeIterationType(const Type& container) = 0;
     virtual Type forgeIteratorType(const Type& element) = 0;
     virtual Type forgeFunctionType(const IFunctionSignature& signature) = 0;

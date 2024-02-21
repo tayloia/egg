@@ -41,7 +41,7 @@ namespace egg::ovum {
   class IObjectBuilder : public IHardAcquireRelease {
   public:
     // Interface
-    virtual void addProperty(const HardValue& property, const HardValue& value, Modifiability modifiability) = 0;
+    virtual void addProperty(const HardValue& property, const HardValue& value, Accessability accessability) = 0;
     virtual HardObject build() = 0;
   };
 
@@ -63,9 +63,9 @@ namespace egg::ovum {
     static HardObject createManifestationObject(IVM& vm);
     static HardObject createManifestationAny(IVM& vm);
     // Vanilla factories
-    static HardObject createVanillaArray(IVM& vm, const Type& elementType, Modifiability modifiability);
-    static HardObject createVanillaObject(IVM& vm, Modifiability modifiability);
-    static HardObject createVanillaKeyValue(IVM& vm, const HardValue& key, const HardValue& value, Modifiability modifiability);
+    static HardObject createVanillaArray(IVM& vm, const Type& elementType, Accessability accessability);
+    static HardObject createVanillaObject(IVM& vm, Accessability accessability);
+    static HardObject createVanillaKeyValue(IVM& vm, const HardValue& key, const HardValue& value, Accessability accessability);
     static HardObject createVanillaManifestation(IVM& vm, const Type& infratype, const Type& metatype);
     // Pointer factories
     static HardObject createPointerToValue(IVM& vm, const HardValue& value, Modifiability modifiability);
@@ -87,7 +87,7 @@ namespace egg::ovum {
     static HardObject createStringProxyStartsWith(IVM& vm, const String& instance);
     static HardObject createStringProxyToString(IVM& vm, const String& instance);
     // Builder factories
-    static HardPtr<IObjectBuilder> createObjectBuilder(IVM& vm);
+    static HardPtr<IObjectBuilder> createObjectBuilder(IVM& vm, Accessability accessability);
     static HardPtr<IObjectBuilder> createRuntimeErrorBuilder(IVM& vm, const String& message, const HardPtr<IVMCallStack>& callstack);
   };
 }
