@@ -1434,7 +1434,7 @@ namespace {
               stmt->children.emplace_back(std::move(access));
               if (!this->getAbsolute(nxtidx + 1).isOperator(EggTokenizerOperator::Semicolon)) {
                 context.tokensBefore = nxtidx;
-                return context.expected(nxtidx, "';' after '", next->value.s, "' in access clause of declaration of member '", identifier.value.s, "'");
+                return context.expected(nxtidx + 1, "';' after '", next->value.s, "' in access clause of declaration of member '", identifier.value.s, "'");
               }
               nxtidx += 2;
               next = &this->getAbsolute(nxtidx);

@@ -1,0 +1,4 @@
+type Holder {
+  int i { ref; ref; }
+};
+///<COMPILER><WARNING><RESOURCE>(2,16-18): Duplicate 'ref' access clause in instance data declaration of 'i'

@@ -1,3 +1,3 @@
 type Holder {
-  int i { get; set; mut; del; }
+  int i { get; set; mut; ref; del; }
 };

@@ -2086,11 +2086,31 @@ ModuleNode* ModuleCompiler::compileTypeSpecificationInstanceData(ParserNode& pno
   EXPECT(pnode, pnode.children.size() >= 1);
   egg::ovum::String symbol;
   EXPECT(pnode, pnode.value->getString(symbol));
-  auto mtype = this->compileTypeExpr(*pnode.children.front(), context);
+  auto pchild = pnode.children.begin();
+  auto mtype = this->compileTypeExpr(**pchild, context);
   if (mtype == nullptr) {
     return nullptr;
   }
-  auto accessability = egg::ovum::Accessability::All; // WIBBLE
+  auto accessability = egg::ovum::Accessability::None;
+  while (++pchild != pnode.children.end()) {
+    auto& child = **pchild;
+    if (child.kind != ParserNode::Kind::TypeSpecificationAccess) {
+      return this->expected(child, "type specification access node in instance data declaration");
+    }
+    if (egg::ovum::Bits::hasAnySet(accessability, child.op.accessability)) {
+      egg::ovum::String keyword;
+      if (child.value->getString(keyword)) {
+        this->warning(child, "Duplicate '", keyword, "' access clause in instance data declaration of '", symbol, "'");
+      } else {
+        this->warning(child, "Duplicate access clause in instance data declaration of '", symbol, "'");
+      }
+    }
+    accessability = accessability | child.op.accessability;
+  }
+  if (accessability == egg::ovum::Accessability::None) {
+    accessability = egg::ovum::Accessability::All;
+  }
+  assert(egg::ovum::Bits::clear(accessability, egg::ovum::Accessability::All) == egg::ovum::Accessability::None);
   auto* mnode = &this->mbuilder.typeSpecificationInstanceMember(symbol, *mtype, accessability, pnode.range);
   return mnode;
 }
@@ -2108,7 +2128,7 @@ ModuleNode* ModuleCompiler::compileTypeSpecificationInstanceFunction(ParserNode&
   if (mtype == nullptr) {
     return nullptr;
   }
-  auto accessability = egg::ovum::Accessability::Get; // WIBBLE
+  auto accessability = egg::ovum::Accessability::Get;
   auto* mnode = &this->mbuilder.typeSpecificationInstanceMember(symbol, *mtype, accessability, pnode.range);
   return mnode;
 }
