@@ -40,6 +40,7 @@ public:
     ExprPropertyRef,
     ExprIndexRef,
     ExprArrayConstruct,
+    ExprEonConstruct,
     ExprObjectConstruct,
     ExprFunctionConstruct,
     ExprFunctionCapture,
@@ -1078,8 +1079,10 @@ namespace {
         return Type::Bool;
       case Node::Kind::ExprArrayConstruct:
         return this->deduceExprArray(node, Accessability::All);
-      case Node::Kind::ExprObjectConstruct:
+      case Node::Kind::ExprEonConstruct:
         return Type::Object;
+      case Node::Kind::ExprObjectConstruct:
+        return Type::Object; // WIBBLE
       case Node::Kind::TypeLiteral:
         return getHardTypeOrNone(node.literal);
       case Node::Kind::TypeVariableGet:
@@ -1577,8 +1580,13 @@ namespace {
       node.literal = this->createHardValueType(elementType);
       return node;
     }
-    virtual Node& exprObjectConstruct(const SourceRange& range) override {
+    virtual Node& exprEonConstruct(const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::ExprEonConstruct, range);
+      return node;
+    }
+    virtual Node& exprObjectConstruct(Node& objectType, const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::ExprObjectConstruct, range);
+      node.addChild(objectType);
       return node;
     }
     virtual Node& exprFunctionConstruct(Node& functionType, Node& invoke, const SourceRange& range) override {
@@ -2359,7 +2367,7 @@ namespace {
         if (!push->getHardObject(pusher)) {
           return this->raiseRuntimeError("Vanilla array does not have 'push()' property");
         }
-        auto mnode = mnodes.cbegin();
+        auto mnode = mnodes.begin();
         for (const auto& element : elements) {
           // OPTIMIZE
           CallArguments arguments;
@@ -2372,19 +2380,27 @@ namespace {
       }
       return this->createHardValueObject(array);
     }
-    HardValue objectConstruct(Accessability accessability, const std::deque<HardValue>& elements) {
+    HardValue eonConstruct(const std::deque<HardValue>& elements) {
       // TODO: support '...' inclusion
       assert((elements.size() % 2) == 0);
-      auto object = ObjectFactory::createVanillaObject(this->vm, accessability);
+      auto object = ObjectFactory::createVanillaObject(this->vm, Accessability::All);
       assert(object != nullptr);
-      auto element = elements.cbegin();
-      while (element != elements.cend()) {
+      auto element = elements.begin();
+      while (element != elements.end()) {
         auto& property = *element++;
         auto& value = *element++;
         auto retval = object->vmPropertySet(this->execution, property, value);
         if (retval.hasFlowControl()) {
           return retval;
         }
+      }
+      return this->createHardValueObject(object);
+    }
+    HardValue objectConstruct(const Type&, const std::deque<HardValue>& elements) {
+      // WIBBLE
+      auto object = ObjectFactory::createVanillaObject(this->vm, Accessability::All);
+      if (elements.size() != 0) {
+        return this->raiseRuntimeError("Non-empty objects not yet supported");
       }
       return this->createHardValueObject(object);
     }
@@ -3835,7 +3851,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
         return this->raise("Function calls are not supported by ", describe(head));
       }
       top.deque.pop_front();
-      auto mnode = top.node->children.cbegin();
+      auto mnode = top.node->children.begin();
       CallArguments arguments;
       for (auto& argument : top.deque) {
         // TODO support named arguments
@@ -4171,7 +4187,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       return this->pop(this->arrayConstruct(elementType, Accessability::All, top.deque, top.node->children));
     }
     break;
-  case IVMModule::Node::Kind::ExprObjectConstruct:
+  case IVMModule::Node::Kind::ExprEonConstruct:
     if (!top.deque.empty()) {
       // Check the last evaluation
       auto& latest = top.deque.back();
@@ -4188,7 +4204,29 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
       this->push(*child.children.front());
     } else {
       // Construct the object
-      return this->pop(this->objectConstruct(Accessability::All, top.deque));
+      return this->pop(this->eonConstruct(top.deque));
+    }
+    break;
+  case IVMModule::Node::Kind::ExprObjectConstruct:
+    assert(top.node->children.size() >= 1);
+    if (!top.deque.empty()) {
+      // Check the last evaluation
+      auto& latest = top.deque.back();
+      if (latest.hasFlowControl()) {
+        return this->pop(latest);
+      }
+    }
+    if (top.index < top.node->children.size()) {
+      // Assemble the values
+      this->push(*top.node->children[top.index++]);
+    } else {
+      // Construct the object
+      Type type;
+      if (!top.deque.front()->getHardType(type) || (type == nullptr)) {
+        return this->raise("Invalid type node for object construction");
+      }
+      top.deque.pop_front();
+      return this->pop(this->objectConstruct(type, top.deque));
     }
     break;
   case IVMModule::Node::Kind::ExprFunctionConstruct:

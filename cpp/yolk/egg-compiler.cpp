@@ -186,6 +186,8 @@ namespace {
     ModuleNode* compileValueExprArrayHintedElement(ParserNode& pnode, const ExprContext& context, const egg::ovum::Type& elementType);
     ModuleNode* compileValueExprArrayUnhinted(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileValueExprArrayUnhintedElement(ParserNode& pnode, const ExprContext& context);
+    ModuleNode* compileValueExprEon(ParserNode& pnode, const ExprContext& context);
+    ModuleNode* compileValueExprEonElement(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileValueExprObject(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileValueExprObjectElement(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileValueExprGuard(ParserNode& pnode, ParserNode& ptype, ParserNode& pexpr, const ExprContext& context);
@@ -488,6 +490,7 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, StmtContext& context)
   case ParserNode::Kind::ExprReference:
   case ParserNode::Kind::ExprDereference:
   case ParserNode::Kind::ExprArray:
+  case ParserNode::Kind::ExprEon:
   case ParserNode::Kind::ExprObject:
   case ParserNode::Kind::ExprEllipsis:
   case ParserNode::Kind::ExprGuard:
@@ -1349,6 +1352,8 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode, const ExprContex
     return this->compileValueExprDereference(pnode, *pnode.children.front(), context);
   case ParserNode::Kind::ExprArray:
     return this->compileValueExprArray(pnode, context);
+  case ParserNode::Kind::ExprEon:
+    return this->compileValueExprEon(pnode, context);
   case ParserNode::Kind::ExprObject:
     return this->compileValueExprObject(pnode, context);
   case ParserNode::Kind::ExprGuard:
@@ -1755,10 +1760,42 @@ ModuleNode* ModuleCompiler::compileValueExprArrayUnhintedElement(ParserNode& pno
   return this->compileValueExpr(pnode, context);
 }
 
-ModuleNode* ModuleCompiler::compileValueExprObject(ParserNode& pnode, const ExprContext& context) {
-  auto* object = &this->mbuilder.exprObjectConstruct(pnode.range);
+ModuleNode* ModuleCompiler::compileValueExprEon(ParserNode& pnode, const ExprContext& context) {
+  auto* object = &this->mbuilder.exprEonConstruct(pnode.range);
   for (auto& child : pnode.children) {
-    auto* element = this->compileValueExprObjectElement(*child, context);
+    auto* element = this->compileValueExprEonElement(*child, context);
+    if (element == nullptr) {
+      object = nullptr;
+    } else if (object != nullptr) {
+      this->mbuilder.appendChild(*object, *element);
+    }
+  }
+  return object;
+}
+
+ModuleNode* ModuleCompiler::compileValueExprEonElement(ParserNode& pnode, const ExprContext& context) {
+  // TODO: handle ellipsis '...'
+  if (pnode.kind == ParserNode::Kind::Named) {
+    EXPECT(pnode, pnode.children.size() == 1);
+    auto* value = this->compileValueExpr(*pnode.children.front(), context);
+    if (value == nullptr) {
+      return nullptr;
+    }
+    return &this->mbuilder.exprNamed(pnode.value, *value, pnode.range);
+  }
+  return this->expected(pnode, "EON expression element");
+}
+
+ModuleNode* ModuleCompiler::compileValueExprObject(ParserNode& pnode, const ExprContext& context) {
+  EXPECT(pnode, pnode.children.size() > 0);
+  auto child = pnode.children.begin();
+  auto* type = this->compileTypeExpr(**child, context);
+  if (type == nullptr) {
+    return nullptr;
+  }
+  auto* object = &this->mbuilder.exprObjectConstruct(*type, pnode.range);
+  while (++child != pnode.children.end()) {
+    auto* element = this->compileValueExprObjectElement(**child, context);
     if (element == nullptr) {
       object = nullptr;
     } else if (object != nullptr) {
@@ -1769,7 +1806,7 @@ ModuleNode* ModuleCompiler::compileValueExprObject(ParserNode& pnode, const Expr
 }
 
 ModuleNode* ModuleCompiler::compileValueExprObjectElement(ParserNode& pnode, const ExprContext& context) {
-  // TODO: handle ellipsis '...'
+  // WIBBLE
   if (pnode.kind == ParserNode::Kind::Named) {
     EXPECT(pnode, pnode.children.size() == 1);
     auto* value = this->compileValueExpr(*pnode.children.front(), context);
@@ -1879,6 +1916,7 @@ ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode, const ExprContext
   case ParserNode::Kind::ExprReference:
   case ParserNode::Kind::ExprDereference:
   case ParserNode::Kind::ExprArray:
+  case ParserNode::Kind::ExprEon:
   case ParserNode::Kind::ExprObject:
   case ParserNode::Kind::ExprEllipsis:
   case ParserNode::Kind::ExprGuard:
@@ -2486,6 +2524,8 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
     return "property access";
   case ParserNode::Kind::ExprArray:
     return "array expression";
+  case ParserNode::Kind::ExprEon:
+    return "eon expression";
   case ParserNode::Kind::ExprObject:
     return "object expression";
   case ParserNode::Kind::ExprEllipsis:

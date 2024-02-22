@@ -1,0 +1,9 @@
+type Class {
+  static int a = 1;
+  static int b() { return 2; }
+  int c;
+  int d();
+};
+assert(Class.a == 1);
+assert(Class.b() == 2);
+var instance = Class {};

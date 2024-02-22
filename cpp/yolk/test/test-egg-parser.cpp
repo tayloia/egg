@@ -143,6 +143,8 @@ namespace {
       return printNodeChildren(os, "expr-property", node, ranges);
     case Node::Kind::ExprArray:
       return printNodeChildren(os, "expr-array", node, ranges);
+    case Node::Kind::ExprEon:
+      return printNodeChildren(os, "expr-eon", node, ranges);
     case Node::Kind::ExprObject:
       return printNodeChildren(os, "expr-object", node, ranges);
     case Node::Kind::ExprEllipsis:
@@ -553,11 +555,27 @@ TEST(TestEggParser, ValueArray) {
   ASSERT_EQ(expected, actual);
 }
 
-TEST(TestEggParser, ValueObject) {
+TEST(TestEggParser, ValueEon) {
   std::string actual = outputFromLines({
     "var x = {a:1,b:\"hello\",c:3.14159};"
     });
-  std::string expected = "(stmt-define-variable 'x' (type-infer) (expr-object (named 'a' 1) (named 'b' \"hello\") (named 'c' 3.14159)))\n";
+  std::string expected = "(stmt-define-variable 'x' (type-infer) (expr-eon (named 'a' 1) (named 'b' \"hello\") (named 'c' 3.14159)))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, ValueObject) {
+  std::string actual = outputFromLines({
+    "var x = object {};"
+    });
+  std::string expected = "(stmt-define-variable 'x' (type-infer) (expr-object (type-object)))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, ValueClass) {
+  std::string actual = outputFromLines({
+    "var x = Class {};"
+    });
+  std::string expected = "(stmt-define-variable 'x' (type-infer) (expr-object (variable 'Class')))\n";
   ASSERT_EQ(expected, actual);
 }
 

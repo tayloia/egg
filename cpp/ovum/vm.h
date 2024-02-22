@@ -211,7 +211,8 @@ namespace egg::ovum {
     virtual Node& exprPropertyRef(Node& instance, Node& property, const SourceRange& range) = 0;
     virtual Node& exprIndexRef(Node& instance, Node& index, const SourceRange& range) = 0;
     virtual Node& exprArrayConstruct(const Type& elementType, const SourceRange& range) = 0;
-    virtual Node& exprObjectConstruct(const SourceRange& range) = 0;
+    virtual Node& exprEonConstruct(const SourceRange& range) = 0;
+    virtual Node& exprObjectConstruct(Node& objectType, const SourceRange& range) = 0;
     virtual Node& exprFunctionConstruct(Node& functionType, Node& invoke, const SourceRange& range) = 0;
     virtual Node& exprFunctionCapture(const String& symbol, const SourceRange& range) = 0;
     virtual Node& exprGuard(const String& symbol, Node& value, const SourceRange& range) = 0;

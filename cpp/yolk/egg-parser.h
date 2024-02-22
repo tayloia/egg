@@ -47,6 +47,7 @@ namespace egg::yolk {
         ExprReference,
         ExprDereference,
         ExprArray,
+        ExprEon,
         ExprObject,
         ExprEllipsis,
         ExprGuard,

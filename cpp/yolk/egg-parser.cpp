@@ -1679,6 +1679,8 @@ namespace {
           return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::BitwiseOr);
         case EggTokenizerOperator::BarBar: // "||"
           return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::IfFalse);
+        case EggTokenizerOperator::CurlyLeft: // "{"
+          return this->parseValueExpressionBinaryCurly(lhs);
         case EggTokenizerOperator::Bang: // "!"
         case EggTokenizerOperator::BangBangEqual: // "!!="
         case EggTokenizerOperator::PercentEqual: // "%="
@@ -1709,7 +1711,6 @@ namespace {
         case EggTokenizerOperator::BracketLeft: // "["
         case EggTokenizerOperator::BracketRight: // "]"
         case EggTokenizerOperator::CaretEqual: // "^="
-        case EggTokenizerOperator::CurlyLeft: // "{"
         case EggTokenizerOperator::BarEqual: // "|="
         case EggTokenizerOperator::BarBarEqual: // "||="
         case EggTokenizerOperator::CurlyRight: // "}"
@@ -1718,6 +1719,19 @@ namespace {
         }
       }
       return lhs;
+    }
+    Partial parseValueExpressionBinaryCurly(Partial& lhs) {
+      // object {
+      // <type-expression> {
+      assert(lhs.succeeded());
+      Context context(*this, lhs.tokensAfter);
+      assert(context[0].isOperator(EggTokenizerOperator::CurlyLeft));
+      if (!context[1].isOperator(EggTokenizerOperator::CurlyRight)) {
+        return context.expected(lhs.tokensAfter + 1, "'}' after '{' in object instantiation");
+      }
+      lhs.wrap(Node::Kind::ExprObject);
+      lhs.tokensAfter += 2;
+      return std::move(lhs);
     }
     Partial parseValueExpressionBinaryOperator(Partial& lhs, egg::ovum::ValueBinaryOp op) {
       assert(lhs.succeeded());
@@ -1879,7 +1893,7 @@ namespace {
           return this->parseValueExpressionArray(tokidx);
         }
         if (next.isOperator(EggTokenizerOperator::CurlyLeft)) {
-          return this->parseValueExpressionObject(tokidx);
+          return this->parseValueExpressionEon(tokidx);
         }
         break;
       case EggTokenizerKind::Attribute:
@@ -2077,20 +2091,20 @@ namespace {
       partial.tokensAfter = expr.tokensAfter;
       return true;
     }
-    Partial parseValueExpressionObject(size_t tokidx) {
-      // Object literal: {a:x, ...b, c:y}
+    Partial parseValueExpressionEon(size_t tokidx) {
+      // Eon literal: {a:x, ...b, c:y}
       Context context(*this, tokidx);
       auto& curly = context[0];
       assert(curly.isOperator(EggTokenizerOperator::CurlyLeft));
-      auto array = this->makeNode(Node::Kind::ExprObject, curly);
+      auto array = this->makeNode(Node::Kind::ExprEon, curly);
       auto partial = context.success(std::move(array), tokidx + 1);
       size_t index = 0;
-      while (this->parseValueExpressionObjectElement(partial, index)) {
+      while (this->parseValueExpressionEonElement(partial, index)) {
         ++index;
       }
       return partial;
     }
-    bool parseValueExpressionObjectElement(Partial& partial, size_t index) {
+    bool parseValueExpressionEonElement(Partial& partial, size_t index) {
       assert(partial.succeeded());
       auto* next = &partial.after(0);
       if (next->isOperator(EggTokenizerOperator::CurlyRight)) {
