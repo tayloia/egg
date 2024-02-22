@@ -32,6 +32,8 @@
 
 #define EGG_TOKENIZER_OPERATORS(macro) \
   macro(Bang, "!") \
+  macro(BangBang, "!!") \
+  macro(BangBangEqual, "!!=") \
   macro(BangEqual, "!=") \
   macro(Percent, "%") \
   macro(PercentEqual, "%=") \
@@ -61,6 +63,8 @@
   macro(ShiftLeft, "<<") \
   macro(ShiftLeftEqual, "<<=") \
   macro(LessEqual, "<=") \
+  macro(LessBar, "<|") \
+  macro(LessBarEqual, "<|=") \
   macro(Equal, "=") \
   macro(EqualEqual, "==") \
   macro(Greater, ">") \
@@ -69,6 +73,8 @@
   macro(ShiftRightEqual, ">>=") \
   macro(ShiftRightUnsigned, ">>>") \
   macro(ShiftRightUnsignedEqual, ">>>=") \
+  macro(GreaterBar, ">|") \
+  macro(GreaterBarEqual, ">|=") \
   macro(Query, "?") \
   macro(QueryQuery, "??") \
   macro(QueryQueryEqual, "??=") \

@@ -752,6 +752,33 @@ namespace {
           return this->raise("Expected right-hand side of unsigned-shift operator '>>>' to be an 'int', but instead got ", describe(rhs));
         }
         break;
+      case ValueBinaryOp::Minimum:
+        switch (binaryValues.promote(lhs, rhs)) {
+        case Operation::BinaryValues::PromotionResult::Ints:
+          return binaryValues.compareInts(Arithmetic::Compare::LessThan) ? lhs : rhs;
+        case Operation::BinaryValues::PromotionResult::Floats:
+          return binaryValues.compareFloats(Arithmetic::Compare::LessThan, false) ? lhs : rhs;
+        case Operation::BinaryValues::PromotionResult::BadLeft:
+          return this->raise("Expected left-hand side of minimum operator '<|' to be an 'int' or 'float', but instead got ", describe(lhs));
+        case Operation::BinaryValues::PromotionResult::BadRight:
+          return this->raise("Expected right-hand side of minimum operator '<|' to be an 'int' or 'float', but instead got ", describe(rhs));
+        }
+        break;
+      case ValueBinaryOp::Maximum:
+        switch (binaryValues.promote(lhs, rhs)) {
+        case Operation::BinaryValues::PromotionResult::Ints:
+          return binaryValues.compareInts(Arithmetic::Compare::GreaterThan) ? lhs : rhs;
+        case Operation::BinaryValues::PromotionResult::Floats:
+          return binaryValues.compareFloats(Arithmetic::Compare::GreaterThan, false) ? lhs : rhs;
+        case Operation::BinaryValues::PromotionResult::BadLeft:
+          return this->raise("Expected left-hand side of maximum operator '>|' to be an 'int' or 'float', but instead got ", describe(lhs));
+        case Operation::BinaryValues::PromotionResult::BadRight:
+          return this->raise("Expected right-hand side of maximum operator '>|' to be an 'int' or 'float', but instead got ", describe(rhs));
+        }
+        break;
+      case ValueBinaryOp::IfVoid:
+        // Too late to truly short-circuit here
+        return lhs->getVoid() ? rhs : lhs;
       case ValueBinaryOp::IfNull:
         // Too late to truly short-circuit here
         return lhs->getNull() ? rhs : lhs;
@@ -796,6 +823,14 @@ namespace {
       Bool bvalue;
       EGG_WARNING_SUPPRESS_SWITCH_BEGIN
         switch (op) {
+        case ValueMutationOp::IfVoid:
+          // a !!= b
+          // If lhs is void, we need to evaluation the rhs
+          if (lhs->getPrimitiveFlag() == ValueFlags::Void) {
+            // TODO: thread safety by setting lhs to some mutex
+            return HardValue::Continue;
+          }
+          return lhs;
         case ValueMutationOp::IfNull:
           // a ??= b
           // If lhs is null, we need to evaluation the rhs
@@ -850,10 +885,11 @@ namespace {
       case ValueMutationOp::Noop:
         assert(rhs->getPrimitiveFlag() == ValueFlags::Void);
         return lhs->mutate(op, rhs.get());
+      case ValueMutationOp::IfVoid:
       case ValueMutationOp::IfNull:
       case ValueMutationOp::IfFalse:
       case ValueMutationOp::IfTrue:
-        // The condition was already tested in 'precheckMutationOp()'
+        // The condition was already tested in 'precheckValueMutationOp()'
         return lhs->mutate(ValueMutationOp::Assign, rhs.get());
       case ValueMutationOp::Assign:
       case ValueMutationOp::Add:
@@ -867,6 +903,8 @@ namespace {
       case ValueMutationOp::ShiftLeft:
       case ValueMutationOp::ShiftRight:
       case ValueMutationOp::ShiftRightUnsigned:
+      case ValueMutationOp::Minimum:
+      case ValueMutationOp::Maximum:
         return lhs->mutate(op, rhs.get());
       }
       return lhs;
@@ -1232,6 +1270,8 @@ namespace {
       case ValueBinaryOp::Multiply: // a * b
       case ValueBinaryOp::Divide: // a / b
       case ValueBinaryOp::Remainder: // a % b
+      case ValueBinaryOp::Minimum: // a <| b
+      case ValueBinaryOp::Maximum: // a >| b
         if (this->isDeducedAsFloat(lhs) || this->isDeducedAsFloat(rhs)) {
           return Type::Float;
         }
@@ -1254,6 +1294,8 @@ namespace {
       case ValueBinaryOp::ShiftRight: // a >> b
         break;
       case ValueBinaryOp::ShiftRightUnsigned: // a >>> b
+        break;
+      case ValueBinaryOp::IfVoid: // a !! b
         break;
       case ValueBinaryOp::IfNull: // a ?? b
         break;

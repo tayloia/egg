@@ -281,6 +281,20 @@ namespace egg::internal {
           return this->createAtomic([rvalue](Int lvalue) { return Arithmetic::shift(Arithmetic::Shift::ShiftRightUnsigned, lvalue, rvalue); });
         }
         return this->createRuntimeError("TODO: Invalid right-hand value for mutation unsigned shift right of integer");
+      case ValueMutationOp::Minimum:
+        if (rhs.getInt(rvalue)) {
+          // TODO use processor intrinsic if supported
+          return this->createAtomic([rvalue](Int lvalue) { return Arithmetic::minimum(lvalue, rvalue); });
+        }
+        return this->createRuntimeError("TODO: Invalid right-hand value for mutation minimum of integer");
+      case ValueMutationOp::Maximum:
+        if (rhs.getInt(rvalue)) {
+          // TODO use processor intrinsic if supported
+          return this->createAtomic([rvalue](Int lvalue) { return Arithmetic::maximum(lvalue, rvalue); });
+        }
+        return this->createRuntimeError("TODO: Invalid right-hand value for mutation minimum of integer");
+      case ValueMutationOp::IfVoid:
+        return this->createBefore(this->value.get());
       case ValueMutationOp::IfNull:
         return this->createBefore(this->value.get());
       case ValueMutationOp::IfFalse:
@@ -376,7 +390,6 @@ namespace egg::internal {
           return this->createAtomic([fvalue](Float lvalue) { return lvalue * fvalue; });
         }
         if (rhs.getInt(ivalue)) {
-          fvalue = Float(ivalue);
           return this->createAtomic([ivalue](Float lvalue) { return lvalue * Float(ivalue); });
         }
         return this->createRuntimeError("TODO: Invalid right-hand value for mutation multiply by float");
@@ -410,6 +423,24 @@ namespace egg::internal {
         return this->createRuntimeError("TODO: Mutation shift right is unsupported for floats");
       case ValueMutationOp::ShiftRightUnsigned:
         return this->createRuntimeError("TODO: Mutation unsigned shift right is unsupported for floats");
+      case ValueMutationOp::Minimum:
+        if (rhs.getFloat(fvalue)) {
+          return this->createAtomic([fvalue](Float lvalue) { return Arithmetic::minimum(lvalue, fvalue, false); });
+        }
+        if (rhs.getInt(ivalue)) {
+          return this->createAtomic([ivalue](Float lvalue) { return Arithmetic::minimum(lvalue, Float(ivalue), false); });
+        }
+        return this->createRuntimeError("TODO: Invalid right-hand value for mutation minimum for float");
+      case ValueMutationOp::Maximum:
+        if (rhs.getFloat(fvalue)) {
+          return this->createAtomic([fvalue](Float lvalue) { return Arithmetic::maximum(lvalue, fvalue, false); });
+        }
+        if (rhs.getInt(ivalue)) {
+          return this->createAtomic([ivalue](Float lvalue) { return Arithmetic::maximum(lvalue, Float(ivalue), false); });
+        }
+        return this->createRuntimeError("TODO: Invalid right-hand value for mutation minimum for float");
+      case ValueMutationOp::IfVoid:
+        return this->createBefore(this->value.get());
       case ValueMutationOp::IfNull:
         return this->createBefore(this->value.get());
       case ValueMutationOp::IfFalse:
@@ -960,6 +991,19 @@ namespace egg::internal {
         return this->createShift(rhs,
                                  Arithmetic::Shift::ShiftRightUnsigned,
                                  "TODO: Mutation unsigned shift right is only supported for values of type 'int'");
+      case ValueMutationOp::Minimum:
+        return this->createArithmetic(rhs,
+                                      nullptr,
+                                      [](Int lvalue, Int rvalue) { return Arithmetic::minimum(lvalue, rvalue); },
+                                      [](Float lvalue, Float rvalue) { return Arithmetic::minimum(lvalue, rvalue, false); },
+                                      "TODO: Mutation minimum is only supported for values of type 'int' or 'float'");
+      case ValueMutationOp::Maximum:
+        return this->createArithmetic(rhs,
+          nullptr,
+          [](Int lvalue, Int rvalue) { return Arithmetic::maximum(lvalue, rvalue); },
+          [](Float lvalue, Float rvalue) { return Arithmetic::maximum(lvalue, rvalue, false); },
+          "TODO: Mutation maximum is only supported for values of type 'int' or 'float'");
+      case ValueMutationOp::IfVoid:
       case ValueMutationOp::IfNull:
       case ValueMutationOp::IfFalse:
       case ValueMutationOp::IfTrue:

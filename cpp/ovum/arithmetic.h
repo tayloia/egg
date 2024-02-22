@@ -103,6 +103,34 @@ namespace egg::ovum {
       return double(i);
     }
 
+    static int64_t minimum(int64_t a, int64_t b) {
+      return std::min(a, b);
+    }
+
+    static int64_t maximum(int64_t a, int64_t b) {
+      return std::max(a, b);
+    }
+
+    static double minimum(double a, double b, bool ieee) {
+      if (std::isnan(a)) {
+        return ieee ? a : b;
+      }
+      if (std::isnan(b)) {
+        return ieee ? b : a;
+      }
+      return (a < b) ? a : b;
+    }
+
+    static double maximum(double a, double b, bool ieee) {
+      if (std::isnan(a)) {
+        return ieee ? a : b;
+      }
+      if (std::isnan(b)) {
+        return ieee ? b : a;
+      }
+      return (a < b) ? b : a;
+    }
+
     static int64_t shift(Shift op, int64_t a, int64_t b) {
       switch (op) {
       case Shift::ShiftLeft:

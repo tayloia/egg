@@ -20,6 +20,7 @@ namespace {
     // See egg/www/v1/syntax/syntax.html#binary-operator
     // OPTIMIZE
     switch (op) {
+    case egg::ovum::ValueBinaryOp::IfVoid:
     case egg::ovum::ValueBinaryOp::IfNull:
       return 1;
     case egg::ovum::ValueBinaryOp::IfFalse:
@@ -40,17 +41,21 @@ namespace {
     case egg::ovum::ValueBinaryOp::GreaterThanOrEqual:
     case egg::ovum::ValueBinaryOp::GreaterThan:
       return 8;
+    case egg::ovum::ValueBinaryOp::Minimum:
+    case egg::ovum::ValueBinaryOp::Maximum:
+      // TODO add these (and '!!') to documentation
+      return 9;
     case egg::ovum::ValueBinaryOp::ShiftLeft:
     case egg::ovum::ValueBinaryOp::ShiftRight:
     case egg::ovum::ValueBinaryOp::ShiftRightUnsigned:
-      return 9;
+      return 10;
     case egg::ovum::ValueBinaryOp::Add:
     case egg::ovum::ValueBinaryOp::Subtract:
-      return 10;
+      return 11;
     case egg::ovum::ValueBinaryOp::Multiply:
     case egg::ovum::ValueBinaryOp::Divide:
     case egg::ovum::ValueBinaryOp::Remainder:
-      return 11;
+      return 12;
     }
     return 0;
   }
@@ -1045,6 +1050,8 @@ namespace {
             switch (next.value.o) {
             case EggTokenizerOperator::Equal: // '='
               return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::Assign);
+            case EggTokenizerOperator::BangBangEqual: // '!!='
+              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::IfVoid);
             case EggTokenizerOperator::PercentEqual: // '%='
               return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::Remainder);
             case EggTokenizerOperator::AmpersandAmpersandEqual: // '&&='
@@ -1061,10 +1068,14 @@ namespace {
               return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::Divide);
             case EggTokenizerOperator::ShiftLeftEqual: // '<<='
               return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::ShiftLeft);
+            case EggTokenizerOperator::LessBarEqual: // '<|='
+              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::Minimum);
             case EggTokenizerOperator::ShiftRightEqual: // '>>='
               return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::ShiftRight);
             case EggTokenizerOperator::ShiftRightUnsignedEqual: // '>>>='
               return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::ShiftRightUnsigned);
+            case EggTokenizerOperator::GreaterBarEqual: // '>|='
+              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::Maximum);
             case EggTokenizerOperator::QueryQueryEqual: // '??='
               return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::IfNull);
             case EggTokenizerOperator::CaretEqual: // '^='
@@ -1074,6 +1085,7 @@ namespace {
             case EggTokenizerOperator::BarBarEqual: // '||='
               return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::IfFalse);
             case EggTokenizerOperator::Bang: // '!'
+            case EggTokenizerOperator::BangBang: // '!!'
             case EggTokenizerOperator::BangEqual: // '!='
             case EggTokenizerOperator::Percent: // '%'
             case EggTokenizerOperator::Ampersand: // '&'
@@ -1095,11 +1107,13 @@ namespace {
             case EggTokenizerOperator::Less: // '<'
             case EggTokenizerOperator::ShiftLeft: // '<<'
             case EggTokenizerOperator::LessEqual: // '<='
+            case EggTokenizerOperator::LessBar: // '<='
             case EggTokenizerOperator::EqualEqual: // '=='
             case EggTokenizerOperator::Greater: // '>'
             case EggTokenizerOperator::GreaterEqual: // '>='
             case EggTokenizerOperator::ShiftRight: // '>>'
             case EggTokenizerOperator::ShiftRightUnsigned: // '>>>'
+            case EggTokenizerOperator::GreaterBar: // '<='
             case EggTokenizerOperator::Query: // '?'
             case EggTokenizerOperator::QueryQuery: // '??'
             case EggTokenizerOperator::BracketLeft: // '['
@@ -1168,8 +1182,17 @@ namespace {
         if (next.isOperator(EggTokenizerOperator::Query)) {
           // type?
           if ((partial.node->kind == Node::Kind::TypeUnary) && (partial.node->op.typeUnaryOp == egg::ovum::TypeUnaryOp::Nullable)) {
-            context.warning(partial.tokensAfter, partial.tokensAfter + 1, "Redundant repetition of type suffix '?'");
+            context.warning(partial.tokensAfter, partial.tokensAfter, "Redundant repetition of type suffix '?'");
           } else {
+            partial.wrap(Node::Kind::TypeUnary);
+            partial.node->range.end = { next.line, next.column + 1 };
+            partial.node->op.typeUnaryOp = egg::ovum::TypeUnaryOp::Nullable;
+          }
+          partial.tokensAfter++;
+        } else if (next.isOperator(EggTokenizerOperator::QueryQuery)) {
+          // type??
+          context.warning(partial.tokensAfter, partial.tokensAfter, "Redundant repetition of type suffix '?'");
+          if ((partial.node->kind != Node::Kind::TypeUnary) || (partial.node->op.typeUnaryOp != egg::ovum::TypeUnaryOp::Nullable)) {
             partial.wrap(Node::Kind::TypeUnary);
             partial.node->range.end = { next.line, next.column + 1 };
             partial.node->op.typeUnaryOp = egg::ovum::TypeUnaryOp::Nullable;
@@ -1188,6 +1211,15 @@ namespace {
           partial.node->op.typeUnaryOp = egg::ovum::TypeUnaryOp::Iterator;
           partial.tokensAfter++;
           partial.ambiguous = false;
+        } else if (next.isOperator(EggTokenizerOperator::BangBang)) {
+          // type!!
+          partial.wrap(Node::Kind::TypeUnary);
+          partial.node->range.end = { next.line, next.column + 1 };
+          partial.node->op.typeUnaryOp = egg::ovum::TypeUnaryOp::Iterator;
+          partial.wrap(Node::Kind::TypeUnary);
+          partial.node->range.end = { next.line, next.column + 2 };
+          partial.node->op.typeUnaryOp = egg::ovum::TypeUnaryOp::Iterator;
+          partial.tokensAfter++;
         } else if (next.isOperator(EggTokenizerOperator::BracketLeft)) {
           auto& last = partial.after(1);
           if (last.isOperator(EggTokenizerOperator::BracketRight)) {
@@ -1607,6 +1639,8 @@ namespace {
           return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::BitwiseAnd);
         case EggTokenizerOperator::AmpersandAmpersand: // "&&"
           return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::IfTrue);
+        case EggTokenizerOperator::BangBang: // "!!"
+          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::IfVoid);
         case EggTokenizerOperator::BangEqual: // "!="
           return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::NotEqual);
         case EggTokenizerOperator::Star: // "*"
@@ -1623,12 +1657,16 @@ namespace {
           return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::ShiftLeft);
         case EggTokenizerOperator::LessEqual: // "<="
           return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::LessThanOrEqual);
+        case EggTokenizerOperator::LessBar: // "<|"
+          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::Minimum);
         case EggTokenizerOperator::EqualEqual: // "=="
           return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::Equal);
         case EggTokenizerOperator::Greater: // ">"
           return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::GreaterThan);
         case EggTokenizerOperator::GreaterEqual: // ">="
           return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::GreaterThanOrEqual);
+        case EggTokenizerOperator::GreaterBar: // ">|"
+          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::Maximum);
         case EggTokenizerOperator::ShiftRight: // ">>"
           return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::ShiftRight);
         case EggTokenizerOperator::ShiftRightUnsigned: // ">>>"
@@ -1642,6 +1680,7 @@ namespace {
         case EggTokenizerOperator::BarBar: // "||"
           return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::IfFalse);
         case EggTokenizerOperator::Bang: // "!"
+        case EggTokenizerOperator::BangBangEqual: // "!!="
         case EggTokenizerOperator::PercentEqual: // "%="
         case EggTokenizerOperator::AmpersandAmpersandEqual: // "&&="
         case EggTokenizerOperator::AmpersandEqual: // "&="
@@ -1660,9 +1699,11 @@ namespace {
         case EggTokenizerOperator::Colon: // ":"
         case EggTokenizerOperator::Semicolon: // ";"
         case EggTokenizerOperator::ShiftLeftEqual: // "<<="
+        case EggTokenizerOperator::LessBarEqual: // "<|="
         case EggTokenizerOperator::Equal: // "="
         case EggTokenizerOperator::ShiftRightEqual: // ">>="
         case EggTokenizerOperator::ShiftRightUnsignedEqual: // ">>>="
+        case EggTokenizerOperator::GreaterBarEqual: // ">|="
         case EggTokenizerOperator::Query: // "?"
         case EggTokenizerOperator::QueryQueryEqual: // "??="
         case EggTokenizerOperator::BracketLeft: // "["
@@ -1733,6 +1774,8 @@ namespace {
         case EggTokenizerOperator::BracketLeft: // "["
         case EggTokenizerOperator::CurlyLeft: // "{"
           break;
+        case EggTokenizerOperator::BangBang: // "!!"
+        case EggTokenizerOperator::BangBangEqual: // "!!="
         case EggTokenizerOperator::BangEqual: // "!="
         case EggTokenizerOperator::Percent: // "%"
         case EggTokenizerOperator::PercentEqual: // "%="
@@ -1756,6 +1799,8 @@ namespace {
         case EggTokenizerOperator::ShiftLeft: // "<<"
         case EggTokenizerOperator::ShiftLeftEqual: // "<<="
         case EggTokenizerOperator::LessEqual: // "<="
+        case EggTokenizerOperator::LessBar: // "<|"
+        case EggTokenizerOperator::LessBarEqual: // "<|="
         case EggTokenizerOperator::Equal: // "="
         case EggTokenizerOperator::EqualEqual: // "=="
         case EggTokenizerOperator::Greater: // ">"
@@ -1764,6 +1809,8 @@ namespace {
         case EggTokenizerOperator::ShiftRightEqual: // ">>="
         case EggTokenizerOperator::ShiftRightUnsigned: // ">>>"
         case EggTokenizerOperator::ShiftRightUnsignedEqual: // ">>>="
+        case EggTokenizerOperator::GreaterBar: // ">|"
+        case EggTokenizerOperator::GreaterBarEqual: // ">|="
         case EggTokenizerOperator::Query: // "?"
         case EggTokenizerOperator::QueryQuery: // "??"
         case EggTokenizerOperator::QueryQueryEqual: // "??="

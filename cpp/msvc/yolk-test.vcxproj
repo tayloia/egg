@@ -65,9 +65,11 @@
     <ClInclude Include="..\ovum\test\gtest.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\yolk\test\data\coverage.egg" />
     <None Include="..\yolk\test\data\example.eon" />
     <None Include="..\yolk\test\data\example.egg" />
     <None Include="..\yolk\test\data\example.json" />
+    <None Include="..\yolk\test\data\working.egg" />
     <None Include="..\yolk\test\scripts\test-0001.egg" />
     <None Include="..\yolk\test\scripts\test-0002.egg" />
     <None Include="..\yolk\test\scripts\test-0003.egg" />

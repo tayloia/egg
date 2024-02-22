@@ -72,6 +72,9 @@ namespace egg::ovum {
     ShiftLeft,          // a << b
     ShiftRight,         // a >> b
     ShiftRightUnsigned, // a >>> b
+    Minimum,            // a <| b
+    Maximum,            // a >| b
+    IfVoid,             // a !! b
     IfNull,             // a ?? b
     IfFalse,            // a || b
     IfTrue              // a && b
@@ -94,6 +97,9 @@ namespace egg::ovum {
     ShiftLeft,          // a <<= b
     ShiftRight,         // a >>= b
     ShiftRightUnsigned, // a >>>= b
+    Minimum,            // a <|= b
+    Maximum,            // a >|= b
+    IfVoid,             // a !!= b
     IfNull,             // a ??= b
     IfFalse,            // a ||= b
     IfTrue,             // a &&= b

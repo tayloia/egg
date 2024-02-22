@@ -50,6 +50,9 @@ TEST(TestEggTokenizer, TryParseOperator) {
   ASSERT_TRUE(EggTokenizerValue::tryParseOperator("??", op, length));
   ASSERT_EQ(op, EggTokenizerOperator::QueryQuery);
   ASSERT_EQ(length, 2u);
+  ASSERT_TRUE(EggTokenizerValue::tryParseOperator("!!=", op, length));
+  ASSERT_EQ(op, EggTokenizerOperator::BangBangEqual);
+  ASSERT_EQ(length, 3u);
   ASSERT_FALSE(EggTokenizerValue::tryParseOperator("", op, length));
   ASSERT_FALSE(EggTokenizerValue::tryParseOperator("@", op, length));
 }

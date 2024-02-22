@@ -553,3 +553,147 @@ TEST(TestArithmetic, CompareGT) {
   ASSERT_COMPARE(GreaterThan, zero, qnan, true, false);
   ASSERT_COMPARE(GreaterThan, pinf, qnan, true, false);
 }
+
+TEST(TestArithmetic, MinimumInt) {
+  ASSERT_EQ(-123, egg::ovum::Arithmetic::minimum(-123, -123));
+  ASSERT_EQ(-123, egg::ovum::Arithmetic::minimum(-123, 0));
+  ASSERT_EQ(-123, egg::ovum::Arithmetic::minimum(-123, 123));
+  ASSERT_EQ(-123, egg::ovum::Arithmetic::minimum(0, -123));
+  ASSERT_EQ(0, egg::ovum::Arithmetic::minimum(0, 0));
+  ASSERT_EQ(0, egg::ovum::Arithmetic::minimum(0, 123));
+  ASSERT_EQ(-123, egg::ovum::Arithmetic::minimum(123, -123));
+  ASSERT_EQ(0, egg::ovum::Arithmetic::minimum(123, 0));
+  ASSERT_EQ(123, egg::ovum::Arithmetic::minimum(123, 123));
+}
+
+TEST(TestArithmetic, MaximumInt) {
+  ASSERT_EQ(-123, egg::ovum::Arithmetic::maximum(-123, -123));
+  ASSERT_EQ(0, egg::ovum::Arithmetic::maximum(-123, 0));
+  ASSERT_EQ(123, egg::ovum::Arithmetic::maximum(-123, 123));
+  ASSERT_EQ(0, egg::ovum::Arithmetic::maximum(0, -123));
+  ASSERT_EQ(0, egg::ovum::Arithmetic::maximum(0, 0));
+  ASSERT_EQ(123, egg::ovum::Arithmetic::maximum(0, 123));
+  ASSERT_EQ(123, egg::ovum::Arithmetic::maximum(123, -123));
+  ASSERT_EQ(123, egg::ovum::Arithmetic::maximum(123, 0));
+  ASSERT_EQ(123, egg::ovum::Arithmetic::maximum(123, 123));
+}
+
+TEST(TestArithmetic, MinimumFloat) {
+  // Finites
+  ASSERT_EQ(-123.0, egg::ovum::Arithmetic::minimum(-123.0, -123.0, false));
+  ASSERT_EQ(-123.0, egg::ovum::Arithmetic::minimum(-123.0, 0.0, false));
+  ASSERT_EQ(-123.0, egg::ovum::Arithmetic::minimum(-123.0, 123.0, false));
+  ASSERT_EQ(-123.0, egg::ovum::Arithmetic::minimum(0.0, -123.0, false));
+  ASSERT_EQ(0.0, egg::ovum::Arithmetic::minimum(0.0, 0.0, false));
+  ASSERT_EQ(0.0, egg::ovum::Arithmetic::minimum(0.0, 123.0, false));
+  ASSERT_EQ(-123.0, egg::ovum::Arithmetic::minimum(123.0, -123.0, false));
+  ASSERT_EQ(0.0, egg::ovum::Arithmetic::minimum(123.0, 0.0, false));
+  ASSERT_EQ(123.0, egg::ovum::Arithmetic::minimum(123.0, 123.0, false));
+  // Infinites
+  ASSERT_EQ(ninf, egg::ovum::Arithmetic::minimum(ninf, ninf, false));
+  ASSERT_EQ(ninf, egg::ovum::Arithmetic::minimum(ninf, zero, false));
+  ASSERT_EQ(ninf, egg::ovum::Arithmetic::minimum(ninf, pinf, false));
+  ASSERT_EQ(ninf, egg::ovum::Arithmetic::minimum(zero, ninf, false));
+  ASSERT_EQ(zero, egg::ovum::Arithmetic::minimum(zero, pinf, false));
+  ASSERT_EQ(ninf, egg::ovum::Arithmetic::minimum(pinf, ninf, false));
+  ASSERT_EQ(zero, egg::ovum::Arithmetic::minimum(pinf, zero, false));
+  ASSERT_EQ(pinf, egg::ovum::Arithmetic::minimum(pinf, pinf, false));
+  // NaNs
+  ASSERT_TRUE(std::isnan(egg::ovum::Arithmetic::minimum(qnan, qnan, false)));
+  ASSERT_EQ(ninf, egg::ovum::Arithmetic::minimum(qnan, ninf, false));
+  ASSERT_EQ(zero, egg::ovum::Arithmetic::minimum(qnan, zero, false));
+  ASSERT_EQ(pinf, egg::ovum::Arithmetic::minimum(qnan, pinf, false));
+  ASSERT_EQ(ninf, egg::ovum::Arithmetic::minimum(ninf, qnan, false));
+  ASSERT_EQ(zero, egg::ovum::Arithmetic::minimum(zero, qnan, false));
+  ASSERT_EQ(pinf, egg::ovum::Arithmetic::minimum(pinf, qnan, false));
+}
+
+TEST(TestArithmetic, MinimumFloatIEEE) {
+  // Finites
+  ASSERT_EQ(-123.0, egg::ovum::Arithmetic::minimum(-123.0, -123.0, true));
+  ASSERT_EQ(-123.0, egg::ovum::Arithmetic::minimum(-123.0, 0.0, true));
+  ASSERT_EQ(-123.0, egg::ovum::Arithmetic::minimum(-123.0, 123.0, true));
+  ASSERT_EQ(-123.0, egg::ovum::Arithmetic::minimum(0.0, -123.0, true));
+  ASSERT_EQ(0.0, egg::ovum::Arithmetic::minimum(0.0, 0.0, true));
+  ASSERT_EQ(0.0, egg::ovum::Arithmetic::minimum(0.0, 123.0, true));
+  ASSERT_EQ(-123.0, egg::ovum::Arithmetic::minimum(123.0, -123.0, true));
+  ASSERT_EQ(0.0, egg::ovum::Arithmetic::minimum(123.0, 0.0, true));
+  ASSERT_EQ(123.0, egg::ovum::Arithmetic::minimum(123.0, 123.0, true));
+  // Infinites
+  ASSERT_EQ(ninf, egg::ovum::Arithmetic::minimum(ninf, ninf, true));
+  ASSERT_EQ(ninf, egg::ovum::Arithmetic::minimum(ninf, zero, true));
+  ASSERT_EQ(ninf, egg::ovum::Arithmetic::minimum(ninf, pinf, true));
+  ASSERT_EQ(ninf, egg::ovum::Arithmetic::minimum(zero, ninf, true));
+  ASSERT_EQ(zero, egg::ovum::Arithmetic::minimum(zero, pinf, true));
+  ASSERT_EQ(ninf, egg::ovum::Arithmetic::minimum(pinf, ninf, true));
+  ASSERT_EQ(zero, egg::ovum::Arithmetic::minimum(pinf, zero, true));
+  ASSERT_EQ(pinf, egg::ovum::Arithmetic::minimum(pinf, pinf, true));
+  // NaNs
+  ASSERT_TRUE(std::isnan(egg::ovum::Arithmetic::minimum(qnan, qnan, true)));
+  ASSERT_TRUE(std::isnan(egg::ovum::Arithmetic::minimum(qnan, ninf, true)));
+  ASSERT_TRUE(std::isnan(egg::ovum::Arithmetic::minimum(qnan, zero, true)));
+  ASSERT_TRUE(std::isnan(egg::ovum::Arithmetic::minimum(qnan, pinf, true)));
+  ASSERT_TRUE(std::isnan(egg::ovum::Arithmetic::minimum(ninf, qnan, true)));
+  ASSERT_TRUE(std::isnan(egg::ovum::Arithmetic::minimum(zero, qnan, true)));
+  ASSERT_TRUE(std::isnan(egg::ovum::Arithmetic::minimum(pinf, qnan, true)));
+}
+
+TEST(TestArithmetic, MaximumFloat) {
+  // Finites
+  ASSERT_EQ(-123.0, egg::ovum::Arithmetic::maximum(-123.0, -123.0, false));
+  ASSERT_EQ(0.0, egg::ovum::Arithmetic::maximum(-123.0, 0.0, false));
+  ASSERT_EQ(123.0, egg::ovum::Arithmetic::maximum(-123.0, 123.0, false));
+  ASSERT_EQ(0.0, egg::ovum::Arithmetic::maximum(0.0, -123.0, false));
+  ASSERT_EQ(0.0, egg::ovum::Arithmetic::maximum(0.0, 0.0, false));
+  ASSERT_EQ(123.0, egg::ovum::Arithmetic::maximum(0.0, 123.0, false));
+  ASSERT_EQ(123.0, egg::ovum::Arithmetic::maximum(123.0, -123.0, false));
+  ASSERT_EQ(123.0, egg::ovum::Arithmetic::maximum(123.0, 0.0, false));
+  ASSERT_EQ(123.0, egg::ovum::Arithmetic::maximum(123.0, 123.0, false));
+  // Infinites
+  ASSERT_EQ(ninf, egg::ovum::Arithmetic::maximum(ninf, ninf, false));
+  ASSERT_EQ(zero, egg::ovum::Arithmetic::maximum(ninf, zero, false));
+  ASSERT_EQ(pinf, egg::ovum::Arithmetic::maximum(ninf, pinf, false));
+  ASSERT_EQ(zero, egg::ovum::Arithmetic::maximum(zero, ninf, false));
+  ASSERT_EQ(pinf, egg::ovum::Arithmetic::maximum(zero, pinf, false));
+  ASSERT_EQ(pinf, egg::ovum::Arithmetic::maximum(pinf, ninf, false));
+  ASSERT_EQ(pinf, egg::ovum::Arithmetic::maximum(pinf, zero, false));
+  ASSERT_EQ(pinf, egg::ovum::Arithmetic::maximum(pinf, pinf, false));
+  // NaNs
+  ASSERT_TRUE(std::isnan(egg::ovum::Arithmetic::maximum(qnan, qnan, false)));
+  ASSERT_EQ(ninf, egg::ovum::Arithmetic::maximum(qnan, ninf, false));
+  ASSERT_EQ(zero, egg::ovum::Arithmetic::maximum(qnan, zero, false));
+  ASSERT_EQ(pinf, egg::ovum::Arithmetic::maximum(qnan, pinf, false));
+  ASSERT_EQ(ninf, egg::ovum::Arithmetic::maximum(ninf, qnan, false));
+  ASSERT_EQ(zero, egg::ovum::Arithmetic::maximum(zero, qnan, false));
+  ASSERT_EQ(pinf, egg::ovum::Arithmetic::maximum(pinf, qnan, false));
+}
+
+TEST(TestArithmetic, MaximumFloatIEEE) {
+  // Finites
+  ASSERT_EQ(-123.0, egg::ovum::Arithmetic::maximum(-123.0, -123.0, true));
+  ASSERT_EQ(0.0, egg::ovum::Arithmetic::maximum(-123.0, 0.0, true));
+  ASSERT_EQ(123.0, egg::ovum::Arithmetic::maximum(-123.0, 123.0, true));
+  ASSERT_EQ(0.0, egg::ovum::Arithmetic::maximum(0.0, -123.0, true));
+  ASSERT_EQ(0.0, egg::ovum::Arithmetic::maximum(0.0, 0.0, true));
+  ASSERT_EQ(123.0, egg::ovum::Arithmetic::maximum(0.0, 123.0, true));
+  ASSERT_EQ(123.0, egg::ovum::Arithmetic::maximum(123.0, -123.0, true));
+  ASSERT_EQ(123.0, egg::ovum::Arithmetic::maximum(123.0, 0.0, true));
+  ASSERT_EQ(123.0, egg::ovum::Arithmetic::maximum(123.0, 123.0, true));
+  // Infinites
+  ASSERT_EQ(ninf, egg::ovum::Arithmetic::maximum(ninf, ninf, true));
+  ASSERT_EQ(zero, egg::ovum::Arithmetic::maximum(ninf, zero, true));
+  ASSERT_EQ(pinf, egg::ovum::Arithmetic::maximum(ninf, pinf, true));
+  ASSERT_EQ(zero, egg::ovum::Arithmetic::maximum(zero, ninf, true));
+  ASSERT_EQ(pinf, egg::ovum::Arithmetic::maximum(zero, pinf, true));
+  ASSERT_EQ(pinf, egg::ovum::Arithmetic::maximum(pinf, ninf, true));
+  ASSERT_EQ(pinf, egg::ovum::Arithmetic::maximum(pinf, zero, true));
+  ASSERT_EQ(pinf, egg::ovum::Arithmetic::maximum(pinf, pinf, true));
+  // NaNs
+  ASSERT_TRUE(std::isnan(egg::ovum::Arithmetic::maximum(qnan, qnan, true)));
+  ASSERT_TRUE(std::isnan(egg::ovum::Arithmetic::maximum(qnan, ninf, true)));
+  ASSERT_TRUE(std::isnan(egg::ovum::Arithmetic::maximum(qnan, zero, true)));
+  ASSERT_TRUE(std::isnan(egg::ovum::Arithmetic::maximum(qnan, pinf, true)));
+  ASSERT_TRUE(std::isnan(egg::ovum::Arithmetic::maximum(ninf, qnan, true)));
+  ASSERT_TRUE(std::isnan(egg::ovum::Arithmetic::maximum(zero, qnan, true)));
+  ASSERT_TRUE(std::isnan(egg::ovum::Arithmetic::maximum(pinf, qnan, true)));
+}

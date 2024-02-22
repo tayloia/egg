@@ -210,6 +210,15 @@ void egg::ovum::Print::write(std::ostream& stream, ValueBinaryOp value, const Op
   case ValueBinaryOp::ShiftRightUnsigned:
     stream << ">>>";
     break;
+  case ValueBinaryOp::Minimum:
+    stream << "<|";
+    break;
+  case ValueBinaryOp::Maximum:
+    stream << ">|";
+    break;
+  case ValueBinaryOp::IfVoid:
+    stream << "!!";
+    break;
   case ValueBinaryOp::IfNull:
     stream << "??";
     break;
@@ -279,6 +288,15 @@ void egg::ovum::Print::write(std::ostream& stream, ValueMutationOp value, const 
     break;
   case ValueMutationOp::ShiftRightUnsigned:
     stream << ">>>=";
+    break;
+  case ValueMutationOp::Minimum:
+    stream << "<|=";
+    break;
+  case ValueMutationOp::Maximum:
+    stream << ">|=";
+    break;
+  case ValueMutationOp::IfVoid:
+    stream << "!!=";
     break;
   case ValueMutationOp::IfNull:
     stream << "??=";

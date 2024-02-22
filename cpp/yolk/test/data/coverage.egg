@@ -50,6 +50,8 @@
   assert(i << 1 == 480);
   assert(i >> 1 == 120);
   assert(i >>> 1 == 120);
+  assert(i <| 100 == 100);
+  assert(i >| 100 == 240);
   i = -1;
   assert(-i == 1);
   assert(~i == 0);
@@ -68,6 +70,8 @@
   assert(f != 239);
   assert(f >= 240);
   assert(f > 239);
+  assert(f <| 100 == 100);
+  assert(f >| 100 == 240);
 }
 {
   // Boolean modification
@@ -108,12 +112,24 @@
   assert(i == 17);
   i ^= 7;
   assert(i == 22);
+  i <|= 20;
+  assert(i == 20);
+  i >|= 10;
+  assert(i == 20);
 }
 {
   // Ternary operator
   var i = 42;
   var j = (i > 0) ? "positive" : -1;
   assert(j == "positive");
+}
+{
+  // Void coalescing
+  int i;
+  i !!= 123;
+  assert(i == 123);
+  i !!= 456;
+  assert(i == 123);
 }
 {
   // Null coalescing

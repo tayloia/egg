@@ -1535,6 +1535,9 @@ ModuleNode* ModuleCompiler::compileValueExprPredicate(ParserNode& pnode, const E
     case egg::ovum::ValueBinaryOp::ShiftLeft:
     case egg::ovum::ValueBinaryOp::ShiftRight:
     case egg::ovum::ValueBinaryOp::ShiftRightUnsigned:
+    case egg::ovum::ValueBinaryOp::Minimum:
+    case egg::ovum::ValueBinaryOp::Maximum:
+    case egg::ovum::ValueBinaryOp::IfVoid:
     case egg::ovum::ValueBinaryOp::IfNull:
     case egg::ovum::ValueBinaryOp::IfFalse:
     case egg::ovum::ValueBinaryOp::IfTrue:
@@ -2384,6 +2387,13 @@ bool ModuleCompiler::checkValueExprBinary(egg::ovum::ValueBinaryOp op, ModuleNod
       return this->checkValueExprOperand2("right-shift operator '>>' to be an 'int'", lhs, rhs, pnode, integer, context);
     case egg::ovum::ValueBinaryOp::ShiftRightUnsigned: // a >>> b
       return this->checkValueExprOperand2("unsigned-shift operator '>>>' to be an 'int'", lhs, rhs, pnode, integer, context);
+    case egg::ovum::ValueBinaryOp::Minimum: // a <| b
+      return this->checkValueExprOperand2("minimum operator '<|' to be an 'int' or 'float'", lhs, rhs, pnode, arithmetic, context);
+    case egg::ovum::ValueBinaryOp::Maximum: // a >| b
+      return this->checkValueExprOperand2("maximum operator '>|' to be an 'int' or 'float'", lhs, rhs, pnode, arithmetic, context);
+    case egg::ovum::ValueBinaryOp::IfVoid: // a !! b
+      // TODO
+      break;
     case egg::ovum::ValueBinaryOp::IfNull: // a ?? b
       // TODO
       break;

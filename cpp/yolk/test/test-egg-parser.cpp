@@ -401,9 +401,18 @@ TEST(TestEggParser, TypeUnaryNullable) {
 
 TEST(TestEggParser, TypeUnaryNullableRepeated) {
   std::string actual = outputFromLines({
+    "int?? a;"
+    });
+  std::string expected = "<WARNING>: (1,4-5): Redundant repetition of type suffix '?'\n"
+                         "(stmt-declare-variable 'a' (type-unary '?' (type-int)))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, TypeUnaryNullableRepeatedWhitespace) {
+  std::string actual = outputFromLines({
     "int? ? a;"
     });
-  std::string expected = "<WARNING>: (1,6-8): Redundant repetition of type suffix '?'\n"
+  std::string expected = "<WARNING>: (1,6): Redundant repetition of type suffix '?'\n"
                          "(stmt-declare-variable 'a' (type-unary '?' (type-int)))\n";
   ASSERT_EQ(expected, actual);
 }
@@ -424,6 +433,14 @@ TEST(TestEggParser, TypeUnaryPointerRepeated) {
   ASSERT_EQ(expected, actual);
 }
 
+TEST(TestEggParser, TypeUnaryPointerRepeatedWhitespace) {
+  std::string actual = outputFromLines({
+    "int* * a;"
+    });
+  std::string expected = "(stmt-declare-variable 'a' (type-unary '*' (type-unary '*' (type-int))))\n";
+  ASSERT_EQ(expected, actual);
+}
+
 TEST(TestEggParser, TypeUnaryIterator) {
   std::string actual = outputFromLines({
     "int! a;"
@@ -435,6 +452,14 @@ TEST(TestEggParser, TypeUnaryIterator) {
 TEST(TestEggParser, TypeUnaryIteratorRepeated) {
   std::string actual = outputFromLines({
     "int!! a;"
+    });
+  std::string expected = "(stmt-declare-variable 'a' (type-unary '!' (type-unary '!' (type-int))))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, TypeUnaryIteratorRepeatedWhitespace) {
+  std::string actual = outputFromLines({
+    "int! ! a;"
     });
   std::string expected = "(stmt-declare-variable 'a' (type-unary '!' (type-unary '!' (type-int))))\n";
   ASSERT_EQ(expected, actual);
