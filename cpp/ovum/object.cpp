@@ -419,6 +419,7 @@ namespace {
       uint64_t modifications;
     };
   private:
+    Type runtimeType;
     std::map<SoftKey, SoftValue, SoftComparator> properties;
     std::map<SoftKey, Accessability, SoftComparator> accessabilities;
     std::vector<SoftKey> keys;
@@ -427,8 +428,10 @@ namespace {
       printer << "Vanilla object";
     }
   public:
-    VMObjectVanillaObject(IVM& vm, Accessability accessability)
-      : VMObjectVanillaContainer(vm, accessability) {
+    VMObjectVanillaObject(IVM& vm, const Type& runtimeType, Accessability accessability)
+      : VMObjectVanillaContainer(vm, accessability),
+        runtimeType(runtimeType) {
+      assert(this->runtimeType.validate());
     }
     HardValue iteratorNext(IVMExecution& execution, IteratorState& state) {
       VMObjectVanillaMutex::ReadLock lock{ this->mutex };
@@ -476,7 +479,7 @@ namespace {
       return 0;
     }
     virtual Type vmRuntimeType() override {
-      return Type::Object;
+      return this->runtimeType;
     }
     virtual HardValue vmIterate(IVMExecution& execution) override;
     virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue& index) override {
@@ -644,7 +647,7 @@ namespace {
     }
   public:
     VMObjectVanillaKeyValue(IVM& vm, const HardValue& key, const HardValue& value, Accessability accessability)
-      : VMObjectVanillaObject(vm, accessability) {
+      : VMObjectVanillaObject(vm, Type::Object, accessability) {
       this->propertyAdd("key", key, Accessability::Get);
       this->propertyAdd("value", value, Accessability::Get);
     }
@@ -965,7 +968,7 @@ namespace {
       if (arguments.getArgumentCount() != 0) {
         return this->raisePrefixError(execution, " expects no arguments");
       }
-      auto instance = makeHardObject<VMObjectVanillaObject>(this->vm, Accessability::All);
+      auto instance = makeHardObject<VMObjectVanillaObject>(this->vm, Type::Object, Accessability::All);
       return execution.createHardValueObject(instance);
     }
   };
@@ -1840,7 +1843,7 @@ namespace {
     ObjectBuilderInstance& operator=(const ObjectBuilderInstance&) = delete;
   public:
     ObjectBuilderInstance(IVM& vm, Accessability accessability)
-      : VMObjectVanillaObject(vm, accessability) {
+      : VMObjectVanillaObject(vm, Type::Object, accessability) {
     }
     void withProperty(const HardValue& pkey, const HardValue& pvalue, Accessability paccessability) {
       // TODO
@@ -1963,8 +1966,8 @@ egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaArray(IVM& vm, cons
   return makeHardObject<VMObjectVanillaArray>(vm, containerType, elementType, accessability);
 }
 
-egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaObject(IVM& vm, Accessability accessability) {
-  return makeHardObject<VMObjectVanillaObject>(vm, accessability);
+egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaObject(IVM& vm, const Type& runtimeType, Accessability accessability) {
+  return makeHardObject<VMObjectVanillaObject>(vm, runtimeType, accessability);
 }
 
 egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaKeyValue(IVM& vm, const HardValue& key, const HardValue& value, Accessability accessability) {

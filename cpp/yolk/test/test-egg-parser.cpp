@@ -212,6 +212,12 @@ namespace {
       return printNodeExtra(os, "type-specification-instance-function", node.value, node, ranges);
     case Node::Kind::TypeSpecificationAccess:
       return printNodeExtra(os, "type-specification-access", node.value, node, ranges);
+    case Node::Kind::ObjectSpecification:
+      return printNodeExtra(os, "object-specification", node.value, node, ranges);
+    case Node::Kind::ObjectSpecificationData:
+      return printNodeExtra(os, "object-specification-data", node.value, node, ranges);
+    case Node::Kind::ObjectSpecificationFunction:
+      return printNodeExtra(os, "object-specification-function", node.value, node, ranges);
     case Node::Kind::Literal:
       assert(node.children.empty());
       return printValue(os, node.value, '"');
@@ -565,17 +571,29 @@ TEST(TestEggParser, ValueEon) {
 
 TEST(TestEggParser, ValueObject) {
   std::string actual = outputFromLines({
-    "var x = object {};"
+    "var x = object {"
+    " int a = 1;"
+    " int b(string s) {}"
+    "};"
     });
-  std::string expected = "(stmt-define-variable 'x' (type-infer) (expr-object (type-object)))\n";
+  std::string expected = "(stmt-define-variable 'x' (type-infer) (expr-object (type-object)"
+                         " (object-specification-data 'a' (type-int) 1)"
+                         " (object-specification-function 'b' (type-signature 'b' (type-int) (type-parameter 'required' 's' (type-string))) (stmt-block))"
+                         "))\n";
   ASSERT_EQ(expected, actual);
 }
 
 TEST(TestEggParser, ValueClass) {
   std::string actual = outputFromLines({
-    "var x = Class {};"
+    "var x = Class {"
+    " int a = 1;"
+    " int b(string s) {}"
+    "};"
     });
-  std::string expected = "(stmt-define-variable 'x' (type-infer) (expr-object (variable 'Class')))\n";
+  std::string expected = "(stmt-define-variable 'x' (type-infer) (expr-object (variable 'Class')"
+                         " (object-specification-data 'a' (type-int) 1)"
+                         " (object-specification-function 'b' (type-signature 'b' (type-int) (type-parameter 'required' 's' (type-string))) (stmt-block))"
+                         "))\n";
   ASSERT_EQ(expected, actual);
 }
 

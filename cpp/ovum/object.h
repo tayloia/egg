@@ -64,7 +64,7 @@ namespace egg::ovum {
     static HardObject createManifestationAny(IVM& vm);
     // Vanilla factories
     static HardObject createVanillaArray(IVM& vm, const Type& elementType, Accessability accessability);
-    static HardObject createVanillaObject(IVM& vm, Accessability accessability);
+    static HardObject createVanillaObject(IVM& vm, const Type& runtimeType, Accessability accessability);
     static HardObject createVanillaKeyValue(IVM& vm, const HardValue& key, const HardValue& value, Accessability accessability);
     static HardObject createVanillaManifestation(IVM& vm, const Type& infratype, const Type& metatype);
     // Pointer factories

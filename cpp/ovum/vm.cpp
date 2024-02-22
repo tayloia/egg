@@ -1082,7 +1082,8 @@ namespace {
       case Node::Kind::ExprEonConstruct:
         return Type::Object;
       case Node::Kind::ExprObjectConstruct:
-        return Type::Object; // WIBBLE
+        assert(!node.children.empty());
+        return this->deduce(*node.children.front());
       case Node::Kind::TypeLiteral:
         return getHardTypeOrNone(node.literal);
       case Node::Kind::TypeVariableGet:
@@ -2383,7 +2384,7 @@ namespace {
     HardValue eonConstruct(const std::deque<HardValue>& elements) {
       // TODO: support '...' inclusion
       assert((elements.size() % 2) == 0);
-      auto object = ObjectFactory::createVanillaObject(this->vm, Accessability::All);
+      auto object = ObjectFactory::createVanillaObject(this->vm, Type::Object, Accessability::All);
       assert(object != nullptr);
       auto element = elements.begin();
       while (element != elements.end()) {
@@ -2396,9 +2397,9 @@ namespace {
       }
       return this->createHardValueObject(object);
     }
-    HardValue objectConstruct(const Type&, const std::deque<HardValue>& elements) {
+    HardValue objectConstruct(const Type& runtimeType, const std::deque<HardValue>& elements) {
       // WIBBLE
-      auto object = ObjectFactory::createVanillaObject(this->vm, Accessability::All);
+      auto object = ObjectFactory::createVanillaObject(this->vm, runtimeType, Accessability::All);
       if (elements.size() != 0) {
         return this->raiseRuntimeError("Non-empty objects not yet supported");
       }

@@ -514,6 +514,9 @@ ModuleNode* ModuleCompiler::compileStmt(ParserNode& pnode, StmtContext& context)
   case ParserNode::Kind::TypeSpecificationInstanceData:
   case ParserNode::Kind::TypeSpecificationInstanceFunction:
   case ParserNode::Kind::TypeSpecificationAccess:
+  case ParserNode::Kind::ObjectSpecification:
+  case ParserNode::Kind::ObjectSpecificationData:
+  case ParserNode::Kind::ObjectSpecificationFunction:
   case ParserNode::Kind::Literal:
   case ParserNode::Kind::Variable:
   case ParserNode::Kind::Named:
@@ -1405,6 +1408,9 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode, const ExprContex
   case ParserNode::Kind::TypeSpecificationInstanceData:
   case ParserNode::Kind::TypeSpecificationInstanceFunction:
   case ParserNode::Kind::TypeSpecificationAccess:
+  case ParserNode::Kind::ObjectSpecification:
+  case ParserNode::Kind::ObjectSpecificationData:
+  case ParserNode::Kind::ObjectSpecificationFunction:
   case ParserNode::Kind::StmtBlock:
   case ParserNode::Kind::StmtDeclareVariable:
   case ParserNode::Kind::StmtDefineVariable:
@@ -1882,6 +1888,9 @@ ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode, const ExprContext
   case ParserNode::Kind::TypeSpecificationInstanceData:
   case ParserNode::Kind::TypeSpecificationInstanceFunction:
   case ParserNode::Kind::TypeSpecificationAccess:
+  case ParserNode::Kind::ObjectSpecification:
+  case ParserNode::Kind::ObjectSpecificationData:
+  case ParserNode::Kind::ObjectSpecificationFunction:
     // Should not be compiled directly
     break;
   case ParserNode::Kind::ModuleRoot:
@@ -2572,6 +2581,12 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
     return "type specification instance function";
   case ParserNode::Kind::TypeSpecificationAccess:
     return "type specification access";
+  case ParserNode::Kind::ObjectSpecification:
+    return "object specification";
+  case ParserNode::Kind::ObjectSpecificationData:
+    return "object specification data";
+  case ParserNode::Kind::ObjectSpecificationFunction:
+    return "object specification function";
   case ParserNode::Kind::Literal:
     return "literal";
   case ParserNode::Kind::Variable:

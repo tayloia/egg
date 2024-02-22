@@ -960,7 +960,7 @@ namespace {
       }
       if (context[2].isOperator(EggTokenizerOperator::CurlyLeft)) {
         // type <identifier> { <definition> }
-        auto type = this->parseTypeDefinition(tokidx + 2, context[1].value.s);
+        auto type = this->parseTypeSpecification(tokidx + 2, context[1].value.s);
         assert(!type.skipped());
         if (type.succeeded()) {
           auto stmt = this->makeNodeString(Node::Kind::StmtDefineType, context[1]);
@@ -1331,7 +1331,7 @@ namespace {
       auto node = this->makeNode(kind, context[0]);
       return context.success(std::move(node), context.tokensBefore + 1);
     }
-    Partial parseTypeDefinition(size_t tokidx, const egg::ovum::String& tname) {
+    Partial parseTypeSpecification(size_t tokidx, const egg::ovum::String& tname) {
       // Type definition: { <clause> ... }
       Context context(*this, tokidx);
       auto& curly = context[0];
@@ -1340,7 +1340,7 @@ namespace {
       auto definition = this->makeNodeValue(Node::Kind::TypeSpecification, curly, description);
       auto nxtidx = tokidx + 1;
       while (!this->getAbsolute(nxtidx).isOperator(EggTokenizerOperator::CurlyRight)) {
-        auto inner = this->parseTypeDefinitionClause(nxtidx, tname);
+        auto inner = this->parseTypeSpecificationClause(nxtidx, tname);
         assert(!inner.skipped());
         if (!inner.succeeded()) {
           return inner;
@@ -1352,7 +1352,7 @@ namespace {
       outer.tokensAfter = nxtidx + 1;
       return outer;
     }
-    Partial parseTypeDefinitionClause(size_t tokidx, const egg::ovum::String& tname) {
+    Partial parseTypeSpecificationClause(size_t tokidx, const egg::ovum::String& tname) {
       Context context(*this, tokidx);
       auto isstatic = context[0].isKeyword(EggTokenizerKeyword::Static);
       auto type = this->parseTypeExpression(tokidx + size_t(isstatic));
@@ -1373,11 +1373,11 @@ namespace {
         if (isstatic) {
           return context.failed(type.tokensAfter + 1, "Forward declaration of static member '", identifier.value.s, "' not yet supported");
         }
-        return this->parseTypeDefinitionAccess(type, identifier);
+        return this->parseTypeSpecificationAccess(type, identifier);
       }
       if (!isstatic && next.isOperator(EggTokenizerOperator::CurlyLeft)) {
         // <type> <identifier> {
-        return this->parseTypeDefinitionAccess(type, identifier);
+        return this->parseTypeSpecificationAccess(type, identifier);
       }
       if (next.isOperator(EggTokenizerOperator::ParenthesisLeft)) {
         // [static] <type> <identifier> (
@@ -1433,7 +1433,7 @@ namespace {
       }
       return context.expected(type.tokensAfter + 1, "'=' after identifier '", identifier.value.s, "' in definition of static member");
     }
-    Partial parseTypeDefinitionAccess(Partial& partial, const EggTokenizerItem& identifier) {
+    Partial parseTypeSpecificationAccess(Partial& partial, const EggTokenizerItem& identifier) {
       // 'partial' is the successful parsing of <type> before the <identifier>
       assert(partial.succeeded());
       auto stmt = this->makeNodeString(Node::Kind::TypeSpecificationInstanceData, identifier);
@@ -1680,7 +1680,7 @@ namespace {
         case EggTokenizerOperator::BarBar: // "||"
           return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::IfFalse);
         case EggTokenizerOperator::CurlyLeft: // "{"
-          return this->parseValueExpressionBinaryCurly(lhs);
+          return this->parseObjectSpecification(lhs);
         case EggTokenizerOperator::Bang: // "!"
         case EggTokenizerOperator::BangBangEqual: // "!!="
         case EggTokenizerOperator::PercentEqual: // "%="
@@ -1719,19 +1719,6 @@ namespace {
         }
       }
       return lhs;
-    }
-    Partial parseValueExpressionBinaryCurly(Partial& lhs) {
-      // object {
-      // <type-expression> {
-      assert(lhs.succeeded());
-      Context context(*this, lhs.tokensAfter);
-      assert(context[0].isOperator(EggTokenizerOperator::CurlyLeft));
-      if (!context[1].isOperator(EggTokenizerOperator::CurlyRight)) {
-        return context.expected(lhs.tokensAfter + 1, "'}' after '{' in object instantiation");
-      }
-      lhs.wrap(Node::Kind::ExprObject);
-      lhs.tokensAfter += 2;
-      return std::move(lhs);
     }
     Partial parseValueExpressionBinaryOperator(Partial& lhs, egg::ovum::ValueBinaryOp op) {
       assert(lhs.succeeded());
@@ -2156,6 +2143,75 @@ namespace {
       partial.node->children.emplace_back(std::move(named));
       partial.tokensAfter = expr.tokensAfter;
       return true;
+    }
+    Partial parseObjectSpecification(Partial& partial) {
+      // 'object {' or '<type-expression> {'
+      assert(partial.succeeded());
+      Context context(*this, partial.tokensAfter);
+      assert(context[0].isOperator(EggTokenizerOperator::CurlyLeft));
+      partial.wrap(Node::Kind::ExprObject);
+      auto nxtidx = partial.tokensAfter + 1;
+      while (!this->getAbsolute(nxtidx).isOperator(EggTokenizerOperator::CurlyRight)) {
+        auto inner = this->parseObjectSpecificationClause(nxtidx);
+        assert(!inner.skipped());
+        if (!inner.succeeded()) {
+          return inner;
+        }
+        partial.node->children.emplace_back(std::move(inner.node));
+        nxtidx = inner.tokensAfter;
+      }
+      partial.tokensAfter = nxtidx + 1;
+      return std::move(partial);
+    }
+    Partial parseObjectSpecificationClause(size_t tokidx) {
+      Context context(*this, tokidx);
+      auto type = this->parseTypeExpression(tokidx);
+      if (!type.succeeded()) {
+        if (type.skipped()) {
+          return context.expected(tokidx, "property definition");
+        }
+        return type;
+      }
+      // TODO handle generators
+      auto& identifier = type.after(0);
+      if (identifier.kind != EggTokenizerKind::Identifier) {
+        return context.expected(type.tokensAfter, "identifier after type in property definition");
+      }
+      auto& next = type.after(1);
+      if (next.isOperator(EggTokenizerOperator::ParenthesisLeft)) {
+        // <type> <identifier> (
+        auto signature = this->parseTypeFunctionSignature(type, identifier, type.tokensAfter + 1);
+        if (!signature.succeeded()) {
+          return signature;
+        }
+        if (!signature.after(0).isOperator(EggTokenizerOperator::CurlyLeft)) {
+          return context.expected(signature.tokensAfter, "'{' after ')' in definition of property function '", identifier.value.s, "'");
+        }
+        // <type> <identifier> ( ... ) {
+        auto block = this->parseStatementBlock(signature.tokensAfter);
+        if (!block.succeeded()) {
+          return block;
+        }
+        auto stmt = this->makeNodeString(Node::Kind::ObjectSpecificationFunction, identifier);
+        stmt->children.emplace_back(std::move(signature.node));
+        stmt->children.emplace_back(std::move(block.node));
+        return context.success(std::move(stmt), block.tokensAfter);
+      }
+      if (next.isOperator(EggTokenizerOperator::Equal)) {
+        // static <type> <identifier> =
+        auto expr = this->parseValueExpression(type.tokensAfter + 2);
+        if (!expr.succeeded()) {
+          return expr;
+        }
+        if (!expr.after(0).isOperator(EggTokenizerOperator::Semicolon)) {
+          return context.expected(expr.tokensAfter, "';' after value of static member '", identifier.value.s, "'");
+        }
+        auto stmt = this->makeNodeString(Node::Kind::ObjectSpecificationData, identifier);
+        stmt->children.emplace_back(std::move(type.node));
+        stmt->children.emplace_back(std::move(expr.node));
+        return context.success(std::move(stmt), expr.tokensAfter + 1);
+      }
+      return context.expected(type.tokensAfter + 1, "'=' after identifier '", identifier.value.s, "' in definition of property");
     }
     std::unique_ptr<Node> makeNode(Node::Kind kind, const egg::ovum::SourceRange& range) {
       auto node = std::make_unique<Node>(kind);
