@@ -1,4 +1,4 @@
-type Holder {
+type Class {
   static int i { get; set; mut; del; }
 };
 ///<COMPILER><ERROR><RESOURCE>(2,3-16): Expected '=' after identifier 'i' in definition of static member, but instead got operator '{'

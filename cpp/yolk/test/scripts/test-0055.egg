@@ -1,4 +1,4 @@
-type Holder {
+type Class {
   static int i = 123;
 };
-assert(Holder.i == 123);
+assert(Class.i == 123);

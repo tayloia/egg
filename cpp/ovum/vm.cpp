@@ -1167,7 +1167,7 @@ namespace {
     Type deduceExprPropertyGet(Node& instance, Node& property, const SourceRange& range) {
       // TODO
       if (instance.kind == Node::Kind::TypeManifestation) {
-        // e.g. 'string.from', 'int.max' or 'Holder.i'
+        // e.g. 'string.from', 'int.max' or 'Class.i'
         assert(instance.children.size() == 1);
         if (property.kind == Node::Kind::ExprLiteral) {
           String pname;

@@ -1,10 +1,10 @@
 int() f;
-type Holder {
+type Class {
   static int i = f();
 };
 int g() {
-  return Holder.i;
+  return Class.i;
 }
 f = g;
 print(g());
-///<RUNTIME><ERROR><RESOURCE>(6,10-15): Recursive type manifestation instantiation
+///<RUNTIME><ERROR><RESOURCE>(6,10-14): Recursive type manifestation instantiation

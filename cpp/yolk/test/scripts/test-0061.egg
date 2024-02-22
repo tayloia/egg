@@ -1,7 +1,7 @@
-type Holder {
+type Class {
   //int a { get; set; mul; del; }
   static int i = 1;
 };
-assert(Holder.i == 1);
-Holder.i = 2;
-///<RUNTIME><ERROR><RESOURCE>(6,1-12): Types such as 'Holder' do not support modification of properties such as 'i'
+assert(Class.i == 1);
+Class.i = 2;
+///<RUNTIME><ERROR><RESOURCE>(6,1-11): Types such as 'Class' do not support modification of properties such as 'i'

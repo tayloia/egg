@@ -1395,7 +1395,8 @@ namespace egg::internal {
     }
     void addMetashapeString() {
       MetashapeBuilder mb{ this };
-      mb.addPropertyData("WIBBLE", Type::String, Accessability::Mut);
+      // TODO
+      mb.addPropertyFunction("fromCodePoints", Type::String, Accessability::Get);
       mb.build(Type::String);
     }
   };

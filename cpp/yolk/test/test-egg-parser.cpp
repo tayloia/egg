@@ -874,11 +874,11 @@ TEST(TestEggParser, StatementTypeEmpty) {
 
 TEST(TestEggParser, StatementTypeStaticData) {
   std::string actual = outputFromLines({
-    "type Holder {",
+    "type Class {",
     " static int i = 123;",
     "};"
     });
-  std::string expected = "(stmt-define-type 'Holder' (type-specification"
+  std::string expected = "(stmt-define-type 'Class' (type-specification"
                          " (type-specification-static-data 'i' (type-int) 123)"
                          "))\n";
   ASSERT_EQ(expected, actual);
@@ -886,11 +886,11 @@ TEST(TestEggParser, StatementTypeStaticData) {
 
 TEST(TestEggParser, StatementTypeStaticFunction) {
   std::string actual = outputFromLines({
-    "type Holder {",
+    "type Class {",
     " static int f() { return 123; }",
     "};"
     });
-  std::string expected = "(stmt-define-type 'Holder' (type-specification"
+  std::string expected = "(stmt-define-type 'Class' (type-specification"
                          " (type-specification-static-function 'f' (type-signature 'f' (type-int)) (stmt-block (stmt-return 123)))"
                          "))\n";
   ASSERT_EQ(expected, actual);
@@ -898,11 +898,11 @@ TEST(TestEggParser, StatementTypeStaticFunction) {
 
 TEST(TestEggParser, StatementTypeInstanceData) {
   std::string actual = outputFromLines({
-    "type Holder {",
+    "type Class {",
     " int i;",
     "};"
     });
-  std::string expected = "(stmt-define-type 'Holder' (type-specification"
+  std::string expected = "(stmt-define-type 'Class' (type-specification"
     " (type-specification-instance-data 'i' (type-int))"
     "))\n";
   ASSERT_EQ(expected, actual);
@@ -910,11 +910,11 @@ TEST(TestEggParser, StatementTypeInstanceData) {
 
 TEST(TestEggParser, StatementTypeInstanceFunction) {
   std::string actual = outputFromLines({
-    "type Holder {",
+    "type Class {",
     " int f();",
     "};"
     });
-  std::string expected = "(stmt-define-type 'Holder' (type-specification"
+  std::string expected = "(stmt-define-type 'Class' (type-specification"
     " (type-specification-instance-function 'f' (type-signature 'f' (type-int)))"
     "))\n";
   ASSERT_EQ(expected, actual);
@@ -922,7 +922,7 @@ TEST(TestEggParser, StatementTypeInstanceFunction) {
 
 TEST(TestEggParser, StatementTypeStaticFunctionError) {
   std::string actual = outputFromLines({
-    "type Holder {",
+    "type Class {",
     " static int f();",
     "};"
     });
@@ -932,7 +932,7 @@ TEST(TestEggParser, StatementTypeStaticFunctionError) {
 
 TEST(TestEggParser, StatementTypeNonStaticDataError) {
   std::string actual = outputFromLines({
-    "type Holder {",
+    "type Class {",
     " int i = 123;",
     "};"
     });
@@ -942,7 +942,7 @@ TEST(TestEggParser, StatementTypeNonStaticDataError) {
 
 TEST(TestEggParser, StatementTypeStaticDataError) {
   std::string actual = outputFromLines({
-    "type Holder {",
+    "type Class {",
     " static int i;",
     "};"
     });
@@ -952,7 +952,7 @@ TEST(TestEggParser, StatementTypeStaticDataError) {
 
 TEST(TestEggParser, StatementTypeNonStaticFunctionError) {
   std::string actual = outputFromLines({
-    "type Holder {",
+    "type Class {",
     " int f() { return 123; }",
     "};"
     });
@@ -962,61 +962,61 @@ TEST(TestEggParser, StatementTypeNonStaticFunctionError) {
 
 TEST(TestEggParser, StatementTypeStaticGet) {
   std::string actual = outputFromLines({
-    "type Holder {",
+    "type Class {",
     " static int i = 123;",
     "};",
-    "print(Holder.i);"
+    "print(Class.i);"
     });
-  std::string expected = "(stmt-define-type 'Holder' (type-specification (type-specification-static-data 'i' (type-int) 123)))\n"
-                         "(expr-call (variable 'print') (expr-property (variable 'Holder') \"i\"))\n";
+  std::string expected = "(stmt-define-type 'Class' (type-specification (type-specification-static-data 'i' (type-int) 123)))\n"
+                         "(expr-call (variable 'print') (expr-property (variable 'Class') \"i\"))\n";
   ASSERT_EQ(expected, actual);
 }
 
 TEST(TestEggParser, StatementTypeStaticSet) {
   std::string actual = outputFromLines({
-    "type Holder {",
+    "type Class {",
     " static int i = 123;",
     "};",
-    "Holder.i = 321;"
+    "Class.i = 321;"
     });
-  std::string expected = "(stmt-define-type 'Holder' (type-specification (type-specification-static-data 'i' (type-int) 123)))\n"
-                         "(stmt-mutate '=' (expr-property (variable 'Holder') \"i\") 321)\n";
+  std::string expected = "(stmt-define-type 'Class' (type-specification (type-specification-static-data 'i' (type-int) 123)))\n"
+                         "(stmt-mutate '=' (expr-property (variable 'Class') \"i\") 321)\n";
   ASSERT_EQ(expected, actual);
 }
 
 TEST(TestEggParser, StatementTypeModifiabilityAll) {
   std::string actual = outputFromLines({
-    "type Holder {",
+    "type Class {",
     " int i { get; set; mut; del; }",
     "};"
     });
-  std::string expected = "(stmt-define-type 'Holder' (type-specification (type-specification-instance-data 'i' (type-int) (type-specification-access 'get') (type-specification-access 'set') (type-specification-access 'mut') (type-specification-access 'del'))))\n";
+  std::string expected = "(stmt-define-type 'Class' (type-specification (type-specification-instance-data 'i' (type-int) (type-specification-access 'get') (type-specification-access 'set') (type-specification-access 'mut') (type-specification-access 'del'))))\n";
   ASSERT_EQ(expected, actual);
 }
 
 TEST(TestEggParser, StatementTypeModifiabilityGet) {
   std::string actual = outputFromLines({
-    "type Holder {",
+    "type Class {",
     " int i { get; }",
     "};"
     });
-  std::string expected = "(stmt-define-type 'Holder' (type-specification (type-specification-instance-data 'i' (type-int) (type-specification-access 'get'))))\n";
+  std::string expected = "(stmt-define-type 'Class' (type-specification (type-specification-instance-data 'i' (type-int) (type-specification-access 'get'))))\n";
   ASSERT_EQ(expected, actual);
 }
 
 TEST(TestEggParser, StatementTypeModifiabilitySetGet) {
   std::string actual = outputFromLines({
-    "type Holder {",
+    "type Class {",
     " int i { set; get; }",
     "};"
     });
-  std::string expected = "(stmt-define-type 'Holder' (type-specification (type-specification-instance-data 'i' (type-int) (type-specification-access 'set') (type-specification-access 'get'))))\n";
+  std::string expected = "(stmt-define-type 'Class' (type-specification (type-specification-instance-data 'i' (type-int) (type-specification-access 'set') (type-specification-access 'get'))))\n";
   ASSERT_EQ(expected, actual);
 }
 
 TEST(TestEggParser, StatementTypeModifiabilityEmpty) {
   std::string actual = outputFromLines({
-    "type Holder {",
+    "type Class {",
     " int i {}",
     "};"
     });
@@ -1026,17 +1026,17 @@ TEST(TestEggParser, StatementTypeModifiabilityEmpty) {
 
 TEST(TestEggParser, StatementTypeModifiabilityDuplicate) {
   std::string actual = outputFromLines({
-    "type Holder {",
+    "type Class {",
     " int i { get; get; }",
     "};"
     });
-  std::string expected = "(stmt-define-type 'Holder' (type-specification (type-specification-instance-data 'i' (type-int) (type-specification-access 'get') (type-specification-access 'get'))))\n";
+  std::string expected = "(stmt-define-type 'Class' (type-specification (type-specification-instance-data 'i' (type-int) (type-specification-access 'get') (type-specification-access 'get'))))\n";
   ASSERT_EQ(expected, actual);
 }
 
 TEST(TestEggParser, StatementTypeModifiabilityUnknown) {
   std::string actual = outputFromLines({
-    "type Holder {",
+    "type Class {",
     " int i { foo; }",
     "};"
     });

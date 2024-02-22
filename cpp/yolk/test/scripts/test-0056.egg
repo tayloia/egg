@@ -1,9 +1,9 @@
 string value = "one";
-type Holder {
+type Class {
   static int i = value;
 };
 value = "two";
-// type 'Holder' is instantiated on the following line
-assert(Holder.i == "two");
+// type 'Class' is instantiated on the following line
+assert(Class.i == "two");
 value = "three";
-assert(Holder.i == "two");
+assert(Class.i == "two");

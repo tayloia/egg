@@ -1,10 +1,10 @@
 int counter = 0;
-type Holder {
+type Class {
   static int f() {
     ++counter;
     return counter;
   }
 };
-assert(Holder.f() == 1);
-assert(Holder.f() == 2);
-assert(Holder.f() == 3);
+assert(Class.f() == 1);
+assert(Class.f() == 2);
+assert(Class.f() == 3);
