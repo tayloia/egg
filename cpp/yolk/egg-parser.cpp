@@ -2138,6 +2138,7 @@ namespace {
         return false;
       }
       partial.node->range.end = expr.node->range.end;
+      assert(name != nullptr);
       auto named = this->makeNodeString(Node::Kind::Named, *name);
       named->children.emplace_back(std::move(expr.node));
       partial.node->children.emplace_back(std::move(named));

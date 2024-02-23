@@ -172,7 +172,7 @@ debug:
 coverage:
 	$(SUBMAKE) CONFIGURATION=coverage test-coverage
 
-# Pseudo-target to build and run coverage
+# Pseudo-target to clean and build tests
 fresh: clean
 	$(SUBMAKE) test
 
