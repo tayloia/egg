@@ -177,10 +177,22 @@ namespace {
     VMObjectVanillaContainer& operator=(const VMObjectVanillaContainer&) = delete;
   protected:
     mutable VMObjectVanillaMutex mutex;
+    Type containerType;
     Accessability accessability;
-    VMObjectVanillaContainer(IVM& vm, Accessability accessability)
+    VMObjectVanillaContainer(IVM& vm, const Type& containerType, Accessability accessability)
       : VMObjectBase(vm),
+        containerType(containerType),
         accessability(accessability) {
+      assert(this->containerType.validate());
+    }
+    virtual void printPrefix(Printer& printer) const override {
+      printer << "Instance of '";
+      printer.describe(*this->containerType);
+      printer << "'";
+    }
+  public:
+    virtual Type vmRuntimeType() override {
+      return this->containerType;
     }
   };
 
@@ -224,17 +236,11 @@ namespace {
     };
   private:
     std::deque<SoftValue> elements;
-    Type containerType;
     Type elementType;
-  protected:
-    virtual void printPrefix(Printer& printer) const override {
-      printer << "Vanilla array";
-    }
   public:
     VMObjectVanillaArray(IVM& vm, const Type& containerType, const Type& elementType, Accessability accessability)
-      : VMObjectVanillaContainer(vm, accessability),
+      : VMObjectVanillaContainer(vm, containerType, accessability),
         elements(),
-        containerType(containerType),
         elementType(elementType) {
     }
     HardValue iteratorNext(IVMExecution& execution, IteratorState& state) {
@@ -268,9 +274,6 @@ namespace {
       }
       inner << ']';
       return 0;
-    }
-    virtual Type vmRuntimeType() override {
-      return this->containerType;
     }
     virtual HardValue vmIterate(IVMExecution& execution) override;
     virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue& index) override {
@@ -394,7 +397,7 @@ namespace {
     VMObjectVanillaArrayIterator& operator=(const VMObjectVanillaArrayIterator&) = delete;
   protected:
     virtual void printPrefix(Printer& printer) const override {
-      printer << "Vanilla array iterator";
+      printer << "Array iterator";
     }
   public:
     VMObjectVanillaArrayIterator(IVM& vm, Container& array, VMObjectVanillaMutex::ReadLock& lock)
@@ -419,19 +422,16 @@ namespace {
       uint64_t modifications;
     };
   private:
-    Type runtimeType;
+    Type unknownType;
     std::map<SoftKey, SoftValue, SoftComparator> properties;
     std::map<SoftKey, Accessability, SoftComparator> accessabilities;
+    std::map<SoftKey, Type, SoftComparator> types;
     std::vector<SoftKey> keys;
-  protected:
-    virtual void printPrefix(Printer& printer) const override {
-      printer << "Vanilla object";
-    }
   public:
-    VMObjectVanillaObject(IVM& vm, const Type& runtimeType, Accessability accessability)
-      : VMObjectVanillaContainer(vm, accessability),
-        runtimeType(runtimeType) {
-      assert(this->runtimeType.validate());
+    VMObjectVanillaObject(IVM& vm, const Type& containerType, Accessability accessability)
+      : VMObjectVanillaContainer(vm, containerType, accessability),
+        unknownType(VMObjectVanillaObject::determineUnknownType(containerType)) {
+      assert(this->unknownType.validate());
     }
     HardValue iteratorNext(IVMExecution& execution, IteratorState& state) {
       VMObjectVanillaMutex::ReadLock lock{ this->mutex };
@@ -477,9 +477,6 @@ namespace {
       }
       unquoted << '}';
       return 0;
-    }
-    virtual Type vmRuntimeType() override {
-      return this->runtimeType;
     }
     virtual HardValue vmIterate(IVMExecution& execution) override;
     virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue& index) override {
@@ -531,10 +528,22 @@ namespace {
       VMObjectVanillaMutex::WriteLock lock{ this->mutex };
       auto pfound = this->properties.find(property);
       if (pfound == this->properties.end()) {
+        if (this->unknownType == Type::Void) {
+          return this->raisePrefixError(execution, " does not permit creation of property '", property, "'");
+        }
         pfound = this->propertyCreate(property);
       }
-      if (!execution.setSoftValue(pfound->second, value)) {
-        return this->raisePrefixError(execution, " cannot set property '", property, "'");
+      auto ptype = this->propertyType(property);
+      if (ptype == nullptr) {
+        // No need to type-check
+        if (!execution.setSoftValue(pfound->second, value)) {
+          return this->raiseRuntimeError(execution, "Type mismatch setting '", describe(*this->containerType), "' property '", property, "' to ", describe(value.get()));
+        }
+      } else {
+        // Type-check the assignment
+        if (!execution.assignValue(pfound->second.get(), ptype, value.get())) {
+          return this->raiseRuntimeError(execution, "Type mismatch setting '", describe(*this->containerType), "' property '", property, "' (declared as '", describe(*ptype), "') to ", describe(value.get()));
+        }
       }
       return HardValue::Void;
     }
@@ -548,8 +557,12 @@ namespace {
         if (mutation != ValueMutationOp::Assign) {
           return this->raisePrefixError(execution, " does not contain property '", property, "'");
         }
+        if (this->unknownType == Type::Void) {
+          return this->raisePrefixError(execution, " does not permit creation of property '", property, "'");
+        }
         pfound = this->propertyCreate(property);
       }
+      // WIBBLE type check
       return execution.mutateSoftValue(pfound->second, mutation, value);
     }
     HardValue propertyRef(IVMExecution& execution, const HardValue& property) {
@@ -574,13 +587,6 @@ namespace {
       this->keys.emplace_back(pair.first->first);
       return pair.first;
     }
-    HardValue propertyFind(IVMExecution& execution, const HardValue& property) const {
-      auto pfound = this->properties.find(property);
-      if (pfound == this->properties.end()) {
-        return HardValue::Void;
-      }
-      return execution.getSoftValue(pfound->second);
-    }
     Accessability propertyAccessibility(const HardValue& pkey) const {
       auto afound = this->accessabilities.find(pkey);
       if (afound == this->accessabilities.end()) {
@@ -588,32 +594,54 @@ namespace {
       }
       return afound->second;
     }
+    Type propertyType(const HardValue& pkey) const {
+      auto tfound = this->types.find(pkey);
+      if (tfound == this->types.end()) {
+        return this->unknownType;
+      }
+      return tfound->second;
+    }
     bool hasAccessability(const HardValue& pkey, Accessability bits) const {
       return Bits::hasAllSet(this->propertyAccessibility(pkey), bits);
     }
-    void propertyAdd(const HardValue& pkey, const HardValue& pvalue, Accessability paccessability) {
+    void propertyEmplace(const HardValue& pkey, const Type& ptype, const HardValue* pvalue, Accessability paccessability) {
       // Only used during construction, so implicitly thread-safe
-      auto pair = this->properties.emplace(std::piecewise_construct, std::forward_as_tuple(this->vm, pkey), std::forward_as_tuple(this->vm));
-      assert(pair.first != this->properties.end());
-      assert(pair.second);
-      auto success = this->vm.setSoftValue(pair.first->second, pvalue);
+      auto emplaced = this->properties.emplace(std::piecewise_construct, std::forward_as_tuple(this->vm, pkey), std::forward_as_tuple(this->vm));
+      assert(emplaced.first != this->properties.end());
+      assert(emplaced.second);
+      auto success = (pvalue == nullptr) || this->vm.setSoftValue(emplaced.first->second, *pvalue);
       if (success) {
-        this->keys.emplace_back(pair.first->first);
+        this->keys.emplace_back(emplaced.first->first);
+        if (ptype != nullptr) {
+          this->types.emplace(std::piecewise_construct, std::forward_as_tuple(this->vm, pkey), std::forward_as_tuple(ptype));
+        }
         if (paccessability != this->accessability) {
           this->accessabilities.emplace(std::piecewise_construct, std::forward_as_tuple(this->vm, pkey), std::forward_as_tuple(paccessability));
         }
       } else {
-        this->properties.erase(pair.first);
+        this->properties.erase(emplaced.first);
       }
       assert(success);
     }
-    template<typename K>
-    void propertyAdd(K pkey, const HardValue& pvalue, Accessability paccessability) {
-      this->propertyAdd(this->vm.createHardValue(pkey), pvalue, paccessability);
-    }
-    template<typename K, typename V>
-    void propertyAdd(K pkey, V pvalue, Accessability paccessability) {
-      this->propertyAdd(this->vm.createHardValue(pkey), this->vm.createHardValue(pvalue), paccessability);
+  private:
+    static Type determineUnknownType(const Type& runtimeType) {
+      assert(runtimeType.validate());
+      if (Bits::hasAnySet(runtimeType->getPrimitiveFlags(), ValueFlags::Object)) {
+        // Allow anything
+        return Type::AnyQ;
+      }
+      auto count = runtimeType->getShapeCount();
+      for (size_t index = 0; index < count; ++index) {
+        auto shape = runtimeType->getShape(index);
+        if ((shape != nullptr) && (shape->dotable != nullptr) && !shape->dotable->isClosed()) {
+          // Type is open (can have arbitrary property keys)
+          auto ptype = shape->dotable->getType({});
+          if (ptype != nullptr) {
+            return ptype;
+          }
+        }
+      }
+      return Type::Void;
     }
   };
 
@@ -622,7 +650,7 @@ namespace {
     VMObjectVanillaObjectIterator& operator=(const VMObjectVanillaObjectIterator&) = delete;
   protected:
     virtual void printPrefix(Printer& printer) const override {
-      printer << "Vanilla object iterator";
+      printer << "Object iterator";
     }
   public:
     VMObjectVanillaObjectIterator(IVM& vm, Container& object, VMObjectVanillaMutex::ReadLock& lock)
@@ -643,13 +671,13 @@ namespace {
     VMObjectVanillaKeyValue& operator=(const VMObjectVanillaKeyValue&) = delete;
   protected:
     virtual void printPrefix(Printer& printer) const override {
-      printer << "Vanilla key-value pair";
+      printer << "Key-value pair";
     }
   public:
     VMObjectVanillaKeyValue(IVM& vm, const HardValue& key, const HardValue& value, Accessability accessability)
       : VMObjectVanillaObject(vm, Type::Object, accessability) {
-      this->propertyAdd("key", key, Accessability::Get);
-      this->propertyAdd("value", value, Accessability::Get);
+      this->propertyEmplace(this->vm.createHardValue("key"), key->getRuntimeType(), &key, Accessability::Get);
+      this->propertyEmplace(this->vm.createHardValue("value"), value->getRuntimeType(), &value, Accessability::Get);
     }
   };
 
@@ -658,18 +686,16 @@ namespace {
     VMObjectVanillaManifestation& operator=(const VMObjectVanillaManifestation&) = delete;
   private:
     Type infratype;
-    Type metatype;
     std::map<SoftKey, SoftValue, SoftComparator> properties;
   protected:
     virtual void printPrefix(Printer& printer) const override {
-      printer << "Vanilla manifestation";
+      printer << "Manifestation";
     }
   public:
     VMObjectVanillaManifestation(IVM& vm, const Type& infratype, const Type& metatype)
-      : VMObjectVanillaContainer(vm, Accessability::Get | Accessability::Set),
-        infratype(infratype),
-        metatype(metatype) {
-      assert(this->metatype.validate());
+      : VMObjectVanillaContainer(vm, metatype, Accessability::Get | Accessability::Set),
+        infratype(infratype) {
+      assert(this->infratype.validate());
     }
     virtual ~VMObjectVanillaManifestation() override {
       // If we go out of scope before freezing, the manifestation failed
@@ -686,9 +712,6 @@ namespace {
     virtual int print(Printer& printer) const override {
       printer << "[manifestation]";
       return 0;
-    }
-    virtual Type vmRuntimeType() override {
-      return this->metatype;
     }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue& property) override {
       auto pfound = this->properties.find(property);
@@ -1845,10 +1868,8 @@ namespace {
     ObjectBuilderInstance(IVM& vm, const Type& runtimeType, Accessability accessability)
       : VMObjectVanillaObject(vm, runtimeType, accessability) {
     }
-    void withProperty(const HardValue& pkey, const Type& type, const HardValue& pvalue, Accessability paccessability) {
-      // TODO
-      (void)type; // WIBBLE
-      this->propertyAdd(pkey, pvalue, paccessability);
+    void withProperty(const HardValue& pkey, const Type& ptype, const HardValue& pvalue, Accessability paccessability) {
+      this->propertyEmplace(pkey, ptype, &pvalue, paccessability);
     }
     template<typename T>
     void withProperty(const char* pname, T pvalue, Accessability paccessability = Accessability::Get) {
