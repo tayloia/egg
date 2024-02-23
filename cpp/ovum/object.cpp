@@ -698,7 +698,7 @@ namespace {
       return execution.getSoftValue(pfound->second);
     }
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue& property, const HardValue& value) override {
-      if (this->accessability == Accessability::Get) {
+      if (!Bits::hasAllSet(this->accessability, Accessability::Set)) {
         // We're frozen
         return this->raisePrefixError(execution, " does not support property modification");
       }

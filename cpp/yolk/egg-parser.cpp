@@ -1736,10 +1736,10 @@ namespace {
           // OPTIMIZE
           // e.g. 'a*b+c' needs to parse to '[[a*b]+c]' not '[a*[b+c]]'
           rhs.node->range.begin = lhs.node->range.begin;
-          auto b = std::move(rhs.node->children[0]);
-          auto mid = this->makeNode(Node::Kind::ExprBinary, { lhs.node->range.begin, b->range.end });
+          auto& head = rhs.node->children[0];
+          auto mid = this->makeNode(Node::Kind::ExprBinary, { lhs.node->range.begin, head->range.end });
           mid->children.emplace_back(std::move(lhs.node));
-          mid->children.emplace_back(std::move(b));
+          mid->children.emplace_back(std::move(head));
           mid->op.valueBinaryOp = op;
           rhs.node->children[0] = std::move(mid);
           return rhs;
@@ -2138,6 +2138,7 @@ namespace {
         return false;
       }
       partial.node->range.end = expr.node->range.end;
+      assert(name != nullptr);
       auto named = this->makeNodeString(Node::Kind::Named, *name);
       named->children.emplace_back(std::move(expr.node));
       partial.node->children.emplace_back(std::move(named));

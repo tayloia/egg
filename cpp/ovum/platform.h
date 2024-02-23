@@ -8,13 +8,15 @@
 // Keep windows.h inclusions to a minimum
 #define WIN32_LEAN_AND_MEAN
 // Disable overexuberant warnings:
-// warning C4514: '...': unreferenced function has been removed
-// warning C4571: Informational: catch(...) semantics changed since Visual C++ 7.1; structured exceptions (SEH) are no longer caught
-// warning C4710: '...': function not inlined
-// warning C4711: function '...' selected for automatic expansion
+// warning C4514 : '...': unreferenced function has been removed
+// warning C4571 : Informational: catch(...) semantics changed since Visual C++ 7.1; structured exceptions (SEH) are no longer caught
+// warning C4710 : '...': function not inlined
+// warning C4711 : function '...' selected for automatic expansion
 // warning C4820 : '...' : '...' bytes padding added after data member '...'
-// warning C5045: Compiler will insert Spectre mitigation for memory load if /Qspectre switch specified
+// warning C5045 : Compiler will insert Spectre mitigation for memory load if /Qspectre switch specified
 #pragma warning(disable: 4514 4571 4710 4711 4820 5045)
+// warning C26495 : PREfast uninitialized union member
+#pragma warning(disable: 26495)
 // Include some base headers with lower warning levels here
 #pragma warning(push)
 #pragma warning(disable: 4365)

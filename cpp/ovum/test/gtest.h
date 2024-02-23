@@ -12,6 +12,8 @@
 // warning C5026 : move constructor was implicitly defined as deleted
 // warning C5027 : move assignment operator was implicitly defined as deleted
 #pragma warning(disable: 4625 4626 5026 5027)
+// warning C26495 : This kind of function should not throw. Declare it 'noexcept' (PREfast)
+#pragma warning(disable: 26439)
 #endif
 
 namespace egg::test {
