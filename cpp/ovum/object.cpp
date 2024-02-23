@@ -1842,16 +1842,17 @@ namespace {
     ObjectBuilderInstance(const ObjectBuilderInstance&) = delete;
     ObjectBuilderInstance& operator=(const ObjectBuilderInstance&) = delete;
   public:
-    ObjectBuilderInstance(IVM& vm, Accessability accessability)
-      : VMObjectVanillaObject(vm, Type::Object, accessability) {
+    ObjectBuilderInstance(IVM& vm, const Type& runtimeType, Accessability accessability)
+      : VMObjectVanillaObject(vm, runtimeType, accessability) {
     }
-    void withProperty(const HardValue& pkey, const HardValue& pvalue, Accessability paccessability) {
+    void withProperty(const HardValue& pkey, const Type& type, const HardValue& pvalue, Accessability paccessability) {
       // TODO
+      (void)type; // WIBBLE
       this->propertyAdd(pkey, pvalue, paccessability);
     }
     template<typename T>
-    void withProperty(const char* pname, T pvalue, Accessability paccessability) {
-      this->withProperty(this->vm.createHardValue(pname), this->vm.createHardValue(pvalue), paccessability);
+    void withProperty(const char* pname, T pvalue, Accessability paccessability = Accessability::Get) {
+      this->withProperty(this->vm.createHardValue(pname), nullptr, this->vm.createHardValue(pvalue), paccessability);
     }
   };
 
@@ -1867,7 +1868,7 @@ namespace {
     }
   public:
     ObjectBuilderRuntimeError(IVM& vm, const String& message, const HardPtr<IVMCallStack>& callstack)
-      : ObjectBuilderInstance(vm, Accessability::Get),
+      : ObjectBuilderInstance(vm, Type::Object, Accessability::Get),
         message(message),
         callstack(callstack) {
     }
@@ -1891,9 +1892,9 @@ namespace {
       : vm(vm),
         instance(std::move(instance)) {
     }
-    virtual void addProperty(const HardValue& property, const HardValue& value, Accessability accessability) override {
+    virtual void addProperty(const HardValue& property, const Type& type, const HardValue& value, Accessability accessability) override {
       assert(this->instance != nullptr);
-      this->instance->withProperty(property, value, accessability);
+      this->instance->withProperty(property, type, value, accessability);
     }
     virtual HardObject build() override {
       assert(this->instance != nullptr);
@@ -2078,33 +2079,33 @@ egg::ovum::HardObject egg::ovum::ObjectFactory::createManifestationAny(IVM& vm) 
   return makeHardObject<VMManifestionAny>(vm);
 }
 
-egg::ovum::HardPtr<egg::ovum::IObjectBuilder> egg::ovum::ObjectFactory::createObjectBuilder(IVM& vm, Accessability accessability) {
+egg::ovum::HardPtr<egg::ovum::IObjectBuilder> egg::ovum::ObjectFactory::createObjectBuilder(IVM& vm, const Type& containerType, Accessability accessability) {
   auto& allocator = vm.getAllocator();
-  HardPtr instance{ allocator.makeRaw<ObjectBuilderInstance>(vm, accessability) };
+  HardPtr instance{ allocator.makeRaw<ObjectBuilderInstance>(vm, containerType, accessability) };
   return HardPtr{ allocator.makeRaw<ObjectBuilder>(vm, std::move(instance)) };
 }
 
 egg::ovum::HardPtr<egg::ovum::IObjectBuilder> egg::ovum::ObjectFactory::createRuntimeErrorBuilder(IVM& vm, const String& message, const HardPtr<IVMCallStack>& callstack) {
   auto& allocator = vm.getAllocator();
   HardPtr instance{ allocator.makeRaw<ObjectBuilderRuntimeError>(vm, message, callstack) };
-  instance->withProperty("message", message, Accessability::Get);
+  instance->withProperty("message", message);
   if (callstack != nullptr) {
     auto resource = callstack->getResource();
     if (!resource.empty()) {
-      instance->withProperty("resource", resource, Accessability::Get);
+      instance->withProperty("resource", resource);
     }
     auto* range = callstack->getSourceRange();
     if (range != nullptr) {
       if ((range->begin.line != 0) || (range->begin.column != 0)) {
-        instance->withProperty("line", int(range->begin.line), Accessability::Get);
+        instance->withProperty("line", int(range->begin.line));
         if (range->begin.column != 0) {
-          instance->withProperty("column", int(range->begin.column), Accessability::Get);
+          instance->withProperty("column", int(range->begin.column));
         }
       }
     }
     auto function = callstack->getFunction();
     if (!function.empty()) {
-      instance->withProperty("function", function, Accessability::Get);
+      instance->withProperty("function", function);
     }
   }
   return HardPtr{ allocator.makeRaw<ObjectBuilder>(vm, std::move(instance)) };

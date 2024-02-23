@@ -42,6 +42,7 @@ public:
     ExprArrayConstruct,
     ExprEonConstruct,
     ExprObjectConstruct,
+    ExprObjectConstructProperty,
     ExprFunctionConstruct,
     ExprFunctionCapture,
     ExprGuard,
@@ -968,11 +969,11 @@ namespace {
       auto ob = this->createRuntimeErrorBuilder(message);
       if (comparison != nullptr) {
         if (!lhs->getVoid()) {
-          ob->addProperty(this->createHardValue("left"), lhs, Accessability::Get);
+          ob->addProperty(this->createHardValue("left"), nullptr, lhs, Accessability::Get);
         }
-        ob->addProperty(this->createHardValue("operator"), this->createHardValue(comparison), Accessability::Get);
+        ob->addProperty(this->createHardValue("operator"), nullptr, this->createHardValue(comparison), Accessability::Get);
         if (!rhs->getVoid()) {
-          ob->addProperty(this->createHardValue("right"), rhs, Accessability::Get);
+          ob->addProperty(this->createHardValue("right"), nullptr, rhs, Accessability::Get);
         }
       }
       auto error = this->createHardValueObject(ob->build());
@@ -1083,6 +1084,9 @@ namespace {
         return Type::Object;
       case Node::Kind::ExprObjectConstruct:
         assert(!node.children.empty());
+        return this->deduce(*node.children.front());
+      case Node::Kind::ExprObjectConstructProperty:
+        assert(node.children.size() == 2);
         return this->deduce(*node.children.front());
       case Node::Kind::TypeLiteral:
         return getHardTypeOrNone(node.literal);
@@ -1588,6 +1592,14 @@ namespace {
     virtual Node& exprObjectConstruct(Node& objectType, const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::ExprObjectConstruct, range);
       node.addChild(objectType);
+      return node;
+    }
+    virtual Node& exprObjectConstructProperty(const String& property, Node& type, Node& value, Accessability accessability, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::ExprObjectConstructProperty, range);
+      node.literal = this->createHardValueString(property);
+      node.accessability = accessability;
+      node.addChild(type);
+      node.addChild(value);
       return node;
     }
     virtual Node& exprFunctionConstruct(Node& functionType, Node& invoke, const SourceRange& range) override {
@@ -2240,6 +2252,19 @@ namespace {
       this->stack.top().deque.emplace_back(std::move(value));
       return StepOutcome::Stepped;
     }
+    StepOutcome pop2(HardValue value1, HardValue value2) { // sic byval
+      assert(!this->stack.empty());
+      const auto& symbol = this->stack.top().scope;
+      if (!symbol.empty()) {
+        (void)this->symtable.remove(symbol);
+      }
+      this->stack.pop();
+      assert(!this->stack.empty());
+      auto& deque = this->stack.top().deque;
+      deque.emplace_back(std::move(value1));
+      deque.emplace_back(std::move(value2));
+      return StepOutcome::Stepped;
+    }
     template<typename... ARGS>
     StepOutcome raise(ARGS&&... args) {
       auto error = this->raiseRuntimeError(std::forward<ARGS>(args)...);
@@ -2397,13 +2422,26 @@ namespace {
       }
       return this->createHardValueObject(object);
     }
-    HardValue objectConstruct(const Type& runtimeType, const std::deque<HardValue>& elements) {
-      // WIBBLE
-      auto object = ObjectFactory::createVanillaObject(this->vm, runtimeType, Accessability::All);
-      if (elements.size() != 0) {
-        return this->raiseRuntimeError("Non-empty objects not yet supported");
+    HardValue objectConstruct(const Type& runtimeType, const std::deque<HardValue>& elements, IVMModule::Node** pnodes) {
+      assert(runtimeType.validate());
+      assert((elements.size() % 2 ) == 0);
+      auto builder = ObjectFactory::createObjectBuilder(this->vm, runtimeType, Accessability::All);
+      auto element = elements.begin();
+      while (element != elements.end()) {
+        auto& elementNode = **pnodes++;
+        assert(elementNode.kind == IVMModule::Node::Kind::ExprObjectConstructProperty);
+        auto& elementName = elementNode.literal;
+        Type elementType;
+        if (!(*element++)->getHardType(elementType) && (element != elements.end())) {
+          return this->raiseRuntimeError("Invalid runtime property construction for '", elementName, "'");
+        }
+        auto& elementValue = *element++;
+        assert(elementName->getPrimitiveFlag() == ValueFlags::String);
+        auto& elementAccessability = elementNode.accessability;
+        assert(elementAccessability != Accessability::None);
+        builder->addProperty(elementName, elementType, elementValue, elementAccessability);
       }
-      return this->createHardValueObject(object);
+      return this->createHardValueObject(builder->build());
     }
     HardValue functionConstruct(const Type& ftype, const IVMModule::Node& definition) {
       assert(ftype.validate());
@@ -4227,7 +4265,24 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
         return this->raise("Invalid type node for object construction");
       }
       top.deque.pop_front();
-      return this->pop(this->objectConstruct(type, top.deque));
+      return this->pop(this->objectConstruct(type, top.deque, top.node->children.data() + 1));
+    }
+    break;
+  case IVMModule::Node::Kind::ExprObjectConstructProperty:
+    assert(top.node->children.size() == 2);
+    if (!top.deque.empty()) {
+      // Check the last evaluation
+      auto& latest = top.deque.back();
+      if (latest.hasFlowControl()) {
+        return this->pop(latest);
+      }
+    }
+    if (top.index < top.node->children.size()) {
+      // Assemble the type and initial value
+      this->push(*top.node->children[top.index++]);
+    } else {
+      // Return BOTH type and initial value
+      return this->pop2(top.deque.front(), top.deque.back());
     }
     break;
   case IVMModule::Node::Kind::ExprFunctionConstruct:

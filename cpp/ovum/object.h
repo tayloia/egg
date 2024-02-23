@@ -41,7 +41,7 @@ namespace egg::ovum {
   class IObjectBuilder : public IHardAcquireRelease {
   public:
     // Interface
-    virtual void addProperty(const HardValue& property, const HardValue& value, Accessability accessability) = 0;
+    virtual void addProperty(const HardValue& property, const Type& type, const HardValue& value, Accessability accessability) = 0;
     virtual HardObject build() = 0;
   };
 
@@ -87,7 +87,7 @@ namespace egg::ovum {
     static HardObject createStringProxyStartsWith(IVM& vm, const String& instance);
     static HardObject createStringProxyToString(IVM& vm, const String& instance);
     // Builder factories
-    static HardPtr<IObjectBuilder> createObjectBuilder(IVM& vm, Accessability accessability);
+    static HardPtr<IObjectBuilder> createObjectBuilder(IVM& vm, const Type& containerType, Accessability accessability);
     static HardPtr<IObjectBuilder> createRuntimeErrorBuilder(IVM& vm, const String& message, const HardPtr<IVMCallStack>& callstack);
   };
 }

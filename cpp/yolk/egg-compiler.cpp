@@ -1812,14 +1812,71 @@ ModuleNode* ModuleCompiler::compileValueExprObject(ParserNode& pnode, const Expr
 }
 
 ModuleNode* ModuleCompiler::compileValueExprObjectElement(ParserNode& pnode, const ExprContext& context) {
-  // WIBBLE
-  if (pnode.kind == ParserNode::Kind::Named) {
-    EXPECT(pnode, pnode.children.size() == 1);
-    auto* value = this->compileValueExpr(*pnode.children.front(), context);
-    if (value == nullptr) {
+  if (pnode.kind == ParserNode::Kind::ObjectSpecificationData) {
+    EXPECT(pnode, pnode.children.size() == 2);
+    egg::ovum::String symbol;
+    EXPECT(pnode, pnode.value->getString(symbol));
+    auto mtype = this->compileTypeExpr(*pnode.children.front(), context);
+    if (mtype == nullptr) {
       return nullptr;
     }
-    return &this->mbuilder.exprNamed(pnode.value, *value, pnode.range);
+    auto mvalue = this->compileValueExpr(*pnode.children.back(), context);
+    if (mvalue == nullptr) {
+      return nullptr;
+    }
+    return &this->mbuilder.exprObjectConstructProperty(symbol, *mtype, *mvalue, egg::ovum::Accessability::All, pnode.range);
+  }
+  if (pnode.kind == ParserNode::Kind::ObjectSpecificationFunction) {
+    EXPECT(pnode, pnode.children.size() == 2);
+    egg::ovum::String symbol;
+    EXPECT(pnode, pnode.value->getString(symbol));
+    auto& phead = *pnode.children.front();
+    if (phead.kind != ParserNode::Kind::TypeFunctionSignature) {
+      return this->expected(phead, "function signature in static function definition");
+    }
+    auto mtype = this->compileTypeExprFunctionSignature(phead, context); // TODO add symbols directly here with better locations
+    if (mtype == nullptr) {
+      return nullptr;
+    }
+    auto type = this->deduceType(*mtype, context);
+    if (type == nullptr) {
+      // TODO double-reported?
+      return this->error(pnode, "Unable to deduce type of object function '", symbol, "' at compile time");
+    }
+    auto* signature = type.getOnlyFunctionSignature();
+    assert(signature != nullptr);
+    std::set<egg::ovum::String> captures;
+    StmtContextData::Count canReturn{};
+    canReturn.type = signature->getReturnType();
+    StmtContextData data{};
+    data.canReturn = &canReturn;
+    StmtContext inner{ context, &captures, std::move(data) };
+    assert(inner.canReturn != nullptr);
+    auto okay = this->addSymbol(inner, phead, StmtContext::Symbol::Kind::Function, symbol, type);
+    size_t pcount = signature->getParameterCount();
+    for (size_t pindex = 0; pindex < pcount; ++pindex) {
+      auto& parameter = signature->getParameter(pindex);
+      auto pname = parameter.getName();
+      if (!pname.empty()) {
+        okay &= this->addSymbol(inner, pnode, StmtContext::Symbol::Kind::Parameter, pname, parameter.getType());
+      }
+    }
+    if (!okay) {
+      return nullptr;
+    }
+    auto& ptail = *pnode.children.back();
+    assert(ptail.kind == ParserNode::Kind::StmtBlock);
+    auto& invoke = this->mbuilder.stmtFunctionInvoke(pnode.range);
+    auto block = this->compileStmtBlockInto(ptail.children, inner, invoke);
+    if (block == nullptr) {
+      return nullptr;
+    }
+    assert(block == &invoke);
+    auto& mvalue = this->mbuilder.exprFunctionConstruct(*mtype, invoke, pnode.range);
+    for (const auto& capture : captures) {
+      this->mbuilder.appendChild(mvalue, this->mbuilder.exprFunctionCapture(capture, pnode.range));
+    }
+    return &this->mbuilder.exprObjectConstructProperty(symbol, *mtype, mvalue, egg::ovum::Accessability::All, pnode.range);
   }
   return this->expected(pnode, "object expression element");
 }
@@ -1888,9 +1945,6 @@ ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode, const ExprContext
   case ParserNode::Kind::TypeSpecificationInstanceData:
   case ParserNode::Kind::TypeSpecificationInstanceFunction:
   case ParserNode::Kind::TypeSpecificationAccess:
-  case ParserNode::Kind::ObjectSpecification:
-  case ParserNode::Kind::ObjectSpecificationData:
-  case ParserNode::Kind::ObjectSpecificationFunction:
     // Should not be compiled directly
     break;
   case ParserNode::Kind::ModuleRoot:
@@ -1929,6 +1983,9 @@ ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode, const ExprContext
   case ParserNode::Kind::ExprObject:
   case ParserNode::Kind::ExprEllipsis:
   case ParserNode::Kind::ExprGuard:
+  case ParserNode::Kind::ObjectSpecification:
+  case ParserNode::Kind::ObjectSpecificationData:
+  case ParserNode::Kind::ObjectSpecificationFunction:
   case ParserNode::Kind::Literal:
   case ParserNode::Kind::Named:
   case ParserNode::Kind::Missing:

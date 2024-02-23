@@ -6,4 +6,9 @@ type Class {
 };
 assert(Class.a == 1);
 assert(Class.b() == 2);
-var instance = Class {};
+var instance = Class {
+  int c = 3;
+  int d() { return 4; }
+};
+assert(instance.c == 3);
+assert(instance.d() == 4);
