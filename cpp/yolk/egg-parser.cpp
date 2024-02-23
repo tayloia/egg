@@ -255,7 +255,7 @@ namespace {
       auto& item0 = this->getAbsolute(tokensBefore);
       egg::ovum::SourceLocation location0{ item0.line, item0.column };
       auto& item1 = this->getAbsolute(tokensAfter);
-      egg::ovum::SourceLocation location1{ item1.line, item1.column + item1.width() };
+      egg::ovum::SourceLocation location1{ item1.line, item1.column + item1.width };
       return { severity, message, { location0, location1 } };
     }
     bool parseModule(Node& root) {
@@ -1388,7 +1388,7 @@ namespace {
         if (signature.after(0).isOperator(EggTokenizerOperator::Semicolon)) {
           if (isstatic) {
             // static <type> <identifier> ( ... ) ;
-            return context.failed(signature.tokensAfter + 1, "Forward declaration of static member function '", identifier.value.s, "' not yet supported");
+            return context.failed(signature.tokensAfter, "Forward declaration of static member function '", identifier.value.s, "' not yet supported");
           }
           // <type> <identifier> ( ... ) ;
           auto stmt = this->makeNodeString(Node::Kind::TypeSpecificationInstanceFunction, identifier);
@@ -2002,7 +2002,7 @@ namespace {
         auto rhs = this->makeNodeString(Node::Kind::Literal, property);
         partial.wrap(Node::Kind::ExprProperty);
         partial.node->children.emplace_back(std::move(rhs)); 
-        partial.node->range.end = { property.line, property.column + property.width() };
+        partial.node->range.end = { property.line, property.column + property.width };
         partial.tokensAfter += 2;
         return true;
       }
@@ -2223,10 +2223,9 @@ namespace {
       auto node = std::make_unique<Node>(kind);
       node->range.begin.line = item.line;
       node->range.begin.column = item.column;
-      auto width = item.width();
-      if (width > 0) {
+      if (item.width > 0) {
         node->range.end.line = item.line;
-        node->range.end.column = item.column + width;
+        node->range.end.column = item.column + item.width;
       } else {
         node->range.end.line = 0;
         node->range.end.column = 0;

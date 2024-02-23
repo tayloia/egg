@@ -962,7 +962,7 @@ TEST(TestEggParser, StatementTypeStaticFunctionError) {
     " static int f();",
     "};"
     });
-  std::string expected = "<ERROR>: (2,2,3,2): Forward declaration of static member function 'f' not yet supported\n";
+  std::string expected = "<ERROR>: (2,2-16): Forward declaration of static member function 'f' not yet supported\n";
   ASSERT_EQ(expected, actual);
 }
 

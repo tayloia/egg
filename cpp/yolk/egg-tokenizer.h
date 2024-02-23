@@ -130,6 +130,7 @@ namespace egg::yolk {
     EggTokenizerValue value;
     size_t line;
     size_t column;
+    size_t width;
     bool contiguous;
 
     bool isKeyword(EggTokenizerKeyword keyword) const {
@@ -138,7 +139,6 @@ namespace egg::yolk {
     bool isOperator(EggTokenizerOperator op) const {
       return (this->kind == EggTokenizerKind::Operator) && (this->value.o == op);
     }
-    size_t width() const;
     std::string toString() const;
   };
 

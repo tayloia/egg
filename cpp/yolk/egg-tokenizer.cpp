@@ -64,25 +64,6 @@ bool egg::yolk::EggTokenizerValue::tryParseOperator(const std::string& text, Egg
   return false;
 }
 
-size_t egg::yolk::EggTokenizerItem::width() const {
-  switch (this->kind) {
-  case EggTokenizerKind::String:
-    return 1;
-  case EggTokenizerKind::Keyword:
-    return EggTokenizerValue::getKeywordString(this->value.k).size();
-  case EggTokenizerKind::Operator:
-    return EggTokenizerValue::getOperatorString(this->value.o).size();
-  case EggTokenizerKind::Integer:
-  case EggTokenizerKind::Float:
-  case EggTokenizerKind::Identifier:
-  case EggTokenizerKind::Attribute:
-    return this->value.s.length();
-  case EggTokenizerKind::EndOfFile:
-  default:
-    return 0;
-  }
-}
-
 std::string egg::yolk::EggTokenizerItem::toString() const {
   switch (this->kind) {
   case EggTokenizerKind::Keyword:
@@ -130,6 +111,7 @@ namespace {
         skip = false;
         item.line = this->upcoming.line;
         item.column = this->upcoming.column;
+        item.width = this->upcoming.verbatim.size();
         switch (this->upcoming.kind) {
         case LexerKind::Whitespace:
         case LexerKind::Comment:
@@ -171,6 +153,7 @@ namespace {
           break;
         case LexerKind::EndOfFile:
           item.kind = EggTokenizerKind::EndOfFile;
+          assert(item.width == 0);
           return EggTokenizerKind::EndOfFile;
         default:
           this->unexpected("Internal tokenizer error", this->upcoming.verbatim);
