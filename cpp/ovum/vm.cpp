@@ -7,15 +7,6 @@
 namespace {
   class VMModule;
   class VMRunner;
-
-  egg::ovum::Type getHardTypeOrNone(const egg::ovum::HardValue& value) {
-    egg::ovum::Type type;
-    if (value->getHardType(type)) {
-      return type;
-    }
-    assert(false);
-    return egg::ovum::Type::None;
-  }
 }
 
 class egg::ovum::IVMModule::Node : public HardReferenceCounted<IHardAcquireRelease> {
@@ -1024,16 +1015,27 @@ namespace {
     Resolver& resolver;
     Reporter* reporter;
   public:
+    struct Deduced {
+      IVMTypeResolver::Kind kind;
+      Type type;
+      Deduced(IVMTypeResolver::Kind kind, const Type& type)
+        : kind(kind),
+          type(type) {
+      }
+      bool failed() const {
+        return this->type == nullptr;
+      }
+    };
     VMTypeDeducer(IVMProgram& program, ITypeForge& forge, Resolver& resolver, Reporter* reporter)
       : program(program),
         forge(forge),
         resolver(resolver),
         reporter(reporter) {
     }
-    Type deduce(Node& node) {
+    Deduced deduceEither(Node& node) {
       switch (node.kind) {
       case Node::Kind::ExprLiteral:
-        return node.literal->getRuntimeType();
+        return { IVMTypeResolver::Kind::Value, node.literal->getRuntimeType() };
       case Node::Kind::ExprFunctionCall:
         assert(node.literal->getVoid());
         assert(node.children.size() >= 1);
@@ -1077,19 +1079,28 @@ namespace {
         assert(node.children.size() == 3);
         return this->deduceExprTernaryOp(node.valueTernaryOp, *node.children[0], *node.children[1], *node.children[2], node.range);
       case Node::Kind::ExprPredicateOp:
-        return Type::Bool;
+        return { IVMTypeResolver::Kind::Value, Type::Bool };
       case Node::Kind::ExprArrayConstruct:
         return this->deduceExprArray(node, Accessability::All);
       case Node::Kind::ExprEonConstruct:
-        return Type::Object;
+        return { IVMTypeResolver::Kind::Value, Type::Object };
       case Node::Kind::ExprObjectConstruct:
         assert(!node.children.empty());
-        return this->deduce(*node.children.front());
+        return { IVMTypeResolver::Kind::Value, this->deduceType(*node.children.front()) };
       case Node::Kind::ExprObjectConstructProperty:
         assert(node.children.size() == 2);
-        return this->deduce(*node.children.front());
+        return { IVMTypeResolver::Kind::Value, this->deduceValue(*node.children.front()) };
+      case Node::Kind::ExprNamed:
+        assert(node.children.size() == 1);
+        return { IVMTypeResolver::Kind::Value, this->deduceValue(*node.children.front()) };
       case Node::Kind::TypeLiteral:
-        return getHardTypeOrNone(node.literal);
+      {
+        egg::ovum::Type type;
+        if (node.literal->getHardType(type)) {
+          return { IVMTypeResolver::Kind::Type, type };
+        }
+        return this->fail(node.range, "TODO: Invalid type literal");
+      }
       case Node::Kind::TypeVariableGet:
         assert(node.children.empty());
         return this->deduceTypeVariableGet(node.literal, node.range);
@@ -1104,12 +1115,11 @@ namespace {
         return this->deduceTypeFunctionSignature(node, node.range);
       case Node::Kind::TypeFunctionSignatureParameter:
         assert(!node.children.empty());
-        return this->deduce(*node.children.front());
+        return this->deduceEither(*node.children.front());
       case Node::Kind::TypeSpecification:
         return this->deduceTypeSpecification(node, node.range);
-      case Node::Kind::TypeSpecificationDescription:
-        assert(node.children.empty());
-        return Type::String;
+      case Node::Kind::TypeManifestation:
+        return this->deduceTypeManifestation(node, node.range);
       case Node::Kind::StmtBlock:
       case Node::Kind::StmtFunctionInvoke:
       case Node::Kind::StmtGeneratorInvoke:
@@ -1141,14 +1151,13 @@ namespace {
       case Node::Kind::StmtYieldAll:
       case Node::Kind::StmtYieldBreak:
       case Node::Kind::StmtYieldContinue:
-        return Type::Void;
+        return { IVMTypeResolver::Kind::Value, Type::Void };
       case Node::Kind::Root:
       case Node::Kind::ExprFunctionConstruct:
       case Node::Kind::ExprFunctionCapture:
       case Node::Kind::ExprGuard:
-      case Node::Kind::ExprNamed:
       case Node::Kind::TypeInfer:
-      case Node::Kind::TypeManifestation:
+      case Node::Kind::TypeSpecificationDescription:
       case Node::Kind::TypeSpecificationStaticMember:
       case Node::Kind::TypeSpecificationInstanceMember:
         // Should not be deduced directly
@@ -1156,8 +1165,30 @@ namespace {
       }
       return this->fail(node.range, "TODO: Cannot deduce type for unexpected module node kind");
     }
+    Type deduceValue(Node& node) {
+      auto deduced = this->deduceEither(node);
+      if (deduced.failed()) {
+        return nullptr;
+      }
+      if (deduced.kind != IVMTypeResolver::Kind::Value) {
+        this->fail(node.range, "TODO: Expected deduced value type but got metatype instead");
+        return nullptr;
+      }
+      return deduced.type;
+    }
+    Type deduceType(Node& node) {
+      auto deduced = this->deduceEither(node);
+      if (deduced.failed()) {
+        return nullptr;
+      }
+      if (deduced.kind != IVMTypeResolver::Kind::Type) {
+        this->fail(node.range, "TODO: Expected deduced metatype but got value type instead");
+        return nullptr;
+      }
+      return deduced.type;
+    }
   private:
-    Type deduceExprVariableGet(const HardValue& literal, const SourceRange& range) {
+    Deduced deduceExprVariableGet(const HardValue& literal, const SourceRange& range) {
       String symbol;
       if (!literal->getString(symbol)) {
         return this->fail(range, "Invalid variable symbol literal: ", literal);
@@ -1170,9 +1201,9 @@ namespace {
       if (kind == Resolver::Kind::Type) {
         return this->fail(range, "Identifier '", symbol, "' is a type, not a variable");
       }
-      return type;
+      return { IVMTypeResolver::Kind::Value, type };
     }
-    Type deduceExprPropertyGet(Node& instance, Node& property, const SourceRange& range) {
+    Deduced deduceExprPropertyGet(Node& instance, Node& property, const SourceRange& range) {
       // TODO
       if (instance.kind == Node::Kind::TypeManifestation) {
         // e.g. 'string.from', 'int.max' or 'Class.i'
@@ -1180,7 +1211,7 @@ namespace {
         if (property.kind == Node::Kind::ExprLiteral) {
           String pname;
           if (property.literal->getString(pname)) {
-            auto infratype = this->deduce(*instance.children.front());
+            auto infratype = this->deduceType(*instance.children.front());
             if (infratype != nullptr) {
               auto metashape = this->forge.getMetashape(infratype);
               if ((metashape == nullptr) || (metashape->dotable == nullptr)) {
@@ -1198,7 +1229,7 @@ namespace {
                 }
                 return this->fail(range, "Type '", description, "' does not support the static member '", pname, "'");
               }
-              return ptype;
+              return { IVMTypeResolver::Kind::Value, ptype };
             }
             return this->fail(range, "Cannot deduce type of property '", pname, "' for type");
           }
@@ -1206,12 +1237,12 @@ namespace {
         return this->fail(range, "Cannot deduce type of property for type");
       }
       // TODO
-      return Type::AnyQ;
+      return { IVMTypeResolver::Kind::Value, Type::AnyQ };
     }
-    Type deduceExprIndexGet(Node& instance, const SourceRange& range) {
-      auto itype = this->deduce(instance);
+    Deduced deduceExprIndexGet(Node& instance, const SourceRange& range) {
+      auto itype = this->deduceValue(instance);
       if (itype == nullptr) {
-        return nullptr;
+        return { IVMTypeResolver::Kind::Value, nullptr };
       }
       Type etype = nullptr;
       auto count = itype->getShapeCount();
@@ -1229,12 +1260,12 @@ namespace {
       if (etype == nullptr) {
         return this->fail(range, "Values of type '", *itype, "' do not support index operator '[]'");
       }
-      return etype;
+      return { IVMTypeResolver::Kind::Value, etype };
     }
-    Type deduceExprPointeeGet(Node& instance, const SourceRange& range) {
-      auto itype = this->deduce(instance);
+    Deduced deduceExprPointeeGet(Node& instance, const SourceRange& range) {
+      auto itype = this->deduceValue(instance);
       if (itype == nullptr) {
-        return nullptr;
+        return { IVMTypeResolver::Kind::Value, itype };
       }
       Type ptype = nullptr;
       auto count = itype->getShapeCount();
@@ -1252,26 +1283,26 @@ namespace {
       if (ptype == nullptr) {
         return this->fail(range, "Values of type '", *itype, "' do not support pointer operator '*'");
       }
-      return ptype;
+      return { IVMTypeResolver::Kind::Value, ptype };
     }
-    Type deduceExprReference(Type pointee) {
-      if (pointee == nullptr) {
-        return nullptr;
+    Deduced deduceExprReference(Deduced pointee) {
+      if (pointee.failed()) {
+        return pointee;
       }
-      return this->forge.forgePointerType(pointee, Modifiability::All);
+      return { IVMTypeResolver::Kind::Value, this->forge.forgePointerType(pointee.type, Modifiability::All) };
     }
-    Type deduceExprUnaryOp(ValueUnaryOp op, Node& rhs, const SourceRange& range) {
+    Deduced deduceExprUnaryOp(ValueUnaryOp op, Node& rhs, const SourceRange& range) {
       switch (op) {
       case ValueUnaryOp::Negate:
-        return this->deduce(rhs);
+        return this->deduceEither(rhs);
       case ValueUnaryOp::BitwiseNot:
-        return Type::Int;
+        return { IVMTypeResolver::Kind::Value, Type::Int };
       case ValueUnaryOp::LogicalNot:
-        return Type::Bool;
+        return { IVMTypeResolver::Kind::Value, Type::Bool };
       }
       return this->fail(range, "TODO: Cannot deduce type for unary operator: ", op);
     }
-    Type deduceExprBinaryOp(ValueBinaryOp op, Node& lhs, Node& rhs, const SourceRange& range) {
+    Deduced deduceExprBinaryOp(ValueBinaryOp op, Node& lhs, Node& rhs, const SourceRange& range) {
       switch (op) {
       case ValueBinaryOp::Add: // a + b
       case ValueBinaryOp::Subtract: // a - b
@@ -1281,16 +1312,16 @@ namespace {
       case ValueBinaryOp::Minimum: // a <| b
       case ValueBinaryOp::Maximum: // a >| b
         if (this->isDeducedAsFloat(lhs) || this->isDeducedAsFloat(rhs)) {
-          return Type::Float;
+          return { IVMTypeResolver::Kind::Value, Type::Float };
         }
-        return Type::Int;
+        return { IVMTypeResolver::Kind::Value, Type::Int };
       case ValueBinaryOp::LessThan: // a < b
       case ValueBinaryOp::LessThanOrEqual: // a <= b
       case ValueBinaryOp::Equal: // a == b
       case ValueBinaryOp::NotEqual: // a != b
       case ValueBinaryOp::GreaterThanOrEqual: // a >= b
       case ValueBinaryOp::GreaterThan: // a > b
-        return Type::Bool;
+        return { IVMTypeResolver::Kind::Value, Type::Bool };
       case ValueBinaryOp::BitwiseAnd: // a & b
         break;
       case ValueBinaryOp::BitwiseOr: // a | b
@@ -1314,37 +1345,37 @@ namespace {
       }
       return this->fail(range, "TODO: Cannot deduce type for binary operator: ", op);
     }
-    Type deduceExprTernaryOp(ValueTernaryOp op, Node&, Node& lhs, Node& rhs, const SourceRange& range) {
+    Deduced deduceExprTernaryOp(ValueTernaryOp op, Node&, Node& lhs, Node& rhs, const SourceRange& range) {
       if (op != ValueTernaryOp::IfThenElse) {
         return this->fail(range, "TODO: Cannot deduce type for ternary operator: ", op);
       }
-      auto ltype = this->deduce(lhs);
+      auto ltype = this->deduceValue(lhs);
       if (ltype == nullptr) {
-        return nullptr;
+        return { IVMTypeResolver::Kind::Value, nullptr };
       }
-      auto rtype = this->deduce(rhs);
+      auto rtype = this->deduceValue(rhs);
       if (rtype == nullptr) {
-        return nullptr;
+        return { IVMTypeResolver::Kind::Value, nullptr };
       }
-      return this->forge.forgeUnionType(ltype, rtype);
+      return { IVMTypeResolver::Kind::Value, this->forge.forgeUnionType(ltype, rtype) };
     }
-    Type deduceExprArray(Node& array, Accessability accessability) {
+    Deduced deduceExprArray(Node& array, Accessability accessability) {
       assert(array.kind == Node::Kind::ExprArrayConstruct);
       Type atype;
       if (!array.literal->getHardType(atype)) {
         atype = Type::AnyQ;
       }
-      return this->forge.forgeArrayType(atype, accessability);
+      return { IVMTypeResolver::Kind::Value, this->forge.forgeArrayType(atype, accessability) };
     }
-    Type deduceExprFunctionCall(Node& function, const SourceRange& range) {
+    Deduced deduceExprFunctionCall(Node& function, const SourceRange& range) {
       if (function.kind == Node::Kind::TypeManifestation) {
         // e.g. 'string(...)' or 'int(...)'
         assert(function.children.size() == 1);
-        return this->deduce(*function.children.front());
+        return { IVMTypeResolver::Kind::Value, this->deduceType(*function.children.front()) };
       }
-      auto ftype = this->deduce(function);
+      auto ftype = this->deduceValue(function);
       if (ftype == nullptr) {
-        return nullptr;
+        return { IVMTypeResolver::Kind::Value, nullptr };
       }
       Type rtype = nullptr;
       auto count = ftype->getShapeCount();
@@ -1363,9 +1394,9 @@ namespace {
       if (rtype == nullptr) {
         return this->fail(range, "Values of type '", *ftype,"' do not support function call semantics");
       }
-      return rtype;
+      return { IVMTypeResolver::Kind::Value, rtype };
     }
-    Type deduceTypeVariableGet(const HardValue& literal, const SourceRange& range) {
+    Deduced deduceTypeVariableGet(const HardValue& literal, const SourceRange& range) {
       String symbol;
       if (!literal->getString(symbol)) {
         return this->fail(range, "Invalid type symbol literal: ", literal);
@@ -1378,51 +1409,51 @@ namespace {
       if (kind != Resolver::Kind::Type) {
         return this->fail(range, "Identifier '", symbol, "' is not a type");
       }
-      return type;
+      return { IVMTypeResolver::Kind::Type, type };
     }
-    Type deduceTypeUnaryOp(TypeUnaryOp op, Node& arg, const SourceRange& range) {
-      auto atype = this->deduce(arg);
+    Deduced deduceTypeUnaryOp(TypeUnaryOp op, Node& arg, const SourceRange& range) {
+      auto atype = this->deduceType(arg);
       if (atype == nullptr) {
-        return nullptr;
+        return { IVMTypeResolver::Kind::Type, nullptr };
       }
       switch (op) {
       case TypeUnaryOp::Array:
-        return this->forge.forgeArrayType(atype, Accessability::All);
+        return { IVMTypeResolver::Kind::Type, this->forge.forgeArrayType(atype, Accessability::All) };
       case TypeUnaryOp::Iterator:
-        return this->forge.forgeIteratorType(atype);
+        return { IVMTypeResolver::Kind::Type, this->forge.forgeIteratorType(atype) };
       case TypeUnaryOp::Nullable:
-        return this->forge.forgeNullableType(atype, true);
+        return { IVMTypeResolver::Kind::Type, this->forge.forgeNullableType(atype, true) };
       case TypeUnaryOp::Pointer:
-        return this->forge.forgePointerType(atype, Modifiability::All);
+        return { IVMTypeResolver::Kind::Type, this->forge.forgePointerType(atype, Modifiability::All) };
       }
       return this->fail(range, "TODO: Cannot deduce type for type unary operator: ", op);
     }
-    Type deduceTypeBinaryOp(TypeBinaryOp op, Node& lhs, Node& rhs, const SourceRange& range) {
-      auto ltype = this->deduce(lhs);
+    Deduced deduceTypeBinaryOp(TypeBinaryOp op, Node& lhs, Node& rhs, const SourceRange& range) {
+      auto ltype = this->deduceType(lhs);
       if (ltype == nullptr) {
-        return nullptr;
+        return { IVMTypeResolver::Kind::Type, nullptr };
       }
-      auto rtype = this->deduce(rhs);
+      auto rtype = this->deduceType(rhs);
       if (rtype == nullptr) {
-        return nullptr;
+        return { IVMTypeResolver::Kind::Type, nullptr };
       }
       switch (op) {
       case TypeBinaryOp::Map:
         return this->fail(range, "TODO: Map types not yet supported: ", op);
       case TypeBinaryOp::Union:
-        return this->forge.forgeUnionType(ltype, rtype);
+        return { IVMTypeResolver::Kind::Type, this->forge.forgeUnionType(ltype, rtype) };
       }
       return this->fail(range, "TODO: Cannot deduce type for type binary operator: ", op);
     }
-    Type deduceTypeFunctionSignature(Node& function, const SourceRange& range) {
+    Deduced deduceTypeFunctionSignature(Node& function, const SourceRange& range) {
       assert(function.kind == Node::Kind::TypeFunctionSignature);
       auto count = function.children.size();
       assert(count > 0);
       auto* rnode = function.children.front();
       assert(rnode != nullptr);
-      auto rtype = this->deduce(*rnode);
+      auto rtype = this->deduceType(*rnode);
       if (rtype == nullptr) {
-        return nullptr;
+        return { IVMTypeResolver::Kind::Type, nullptr };
       }
       auto fb = this->forge.createFunctionBuilder();
       fb->setReturnType(rtype);
@@ -1435,7 +1466,7 @@ namespace {
         if (!parameter->literal->getString(pname) || pname.empty()) {
           return this->fail(parameter->range, "Invalid function signature parameter name");
         }
-        auto ptype = this->deduce(*parameter);
+        auto ptype = this->deduceType(*parameter);
         if (ptype == nullptr) {
           return this->fail(parameter->range, "Invalid function signature parameter type for '", pname, "'");
         }
@@ -1453,29 +1484,39 @@ namespace {
         }
       }
       auto& signature = fb->build();
-      return this->forge.forgeFunctionType(signature);
+      return { IVMTypeResolver::Kind::Type, this->forge.forgeFunctionType(signature) };
     }
-    Type deduceTypeSpecification(Node& specification, const SourceRange&) {
+    Deduced deduceTypeSpecification(Node& specification, const SourceRange&) {
       // TODO separate concepts of 'Type' and 'TypeSpecification'
       assert(specification.kind == Node::Kind::TypeSpecification);
       auto* known = this->resolver.resolveTypeSpecification(specification);
       if (known == nullptr) {
-        return nullptr;
+        return { IVMTypeResolver::Kind::Type, nullptr };
       }
       IVMTypeSpecification::Parameters parameters{}; // TODO template parameters
-      return known->instantiateType(parameters);
+      return { IVMTypeResolver::Kind::Type, known->instantiateType(parameters) };
+    }
+    Deduced deduceTypeManifestation(Node& manifestation, const SourceRange&) {
+      assert(manifestation.kind == Node::Kind::TypeManifestation);
+      assert(manifestation.children.size() == 1);
+      auto infratype = this->deduceType(*manifestation.children.front());
+      if (infratype == nullptr) {
+        return { IVMTypeResolver::Kind::Type, nullptr };
+      }
+      // TODO
+      return { IVMTypeResolver::Kind::Type, Type::Object };
     }
     bool isDeducedAsFloat(Node& node) {
-      auto type = this->deduce(node);
-      return (type != nullptr) && Bits::hasAnySet(type->getPrimitiveFlags(), ValueFlags::Float);
+      auto type = this->deduceEither(node);
+      return !type.failed() && Bits::hasAnySet(type.type->getPrimitiveFlags(), ValueFlags::Float);
     }
     template<typename... ARGS>
-    Type fail(const SourceRange& range, ARGS&&... args) {
+    Deduced fail(const SourceRange& range, ARGS&&... args) {
       if (this->reporter != nullptr) {
         auto problem = StringBuilder::concat(this->program.getAllocator(), std::forward<ARGS>(args)...);
         this->reporter->report(range, problem);
       }
-      return nullptr;
+      return { IVMTypeResolver::Kind::Type, nullptr };
     }
   };
 
@@ -1890,7 +1931,9 @@ namespace {
             return nullptr;
           } else {
             assert(!clause->children.empty());
-            auto type = this->deduce(*clause->children.front(), resolver, &reporter);
+            IVMTypeResolver::Kind kind;
+            auto type = this->deduceType(*clause->children.front(), resolver, &reporter, kind);
+            assert(kind == IVMTypeResolver::Kind::Type);
             if (type == nullptr) {
               return nullptr;
             }
@@ -1903,7 +1946,9 @@ namespace {
             return nullptr;
           } else {
             assert(!clause->children.empty());
-            auto type = this->deduce(*clause->children.front(), resolver, &reporter);
+            IVMTypeResolver::Kind kind;
+            auto type = this->deduceType(*clause->children.front(), resolver, &reporter, kind);
+            assert(kind == IVMTypeResolver::Kind::Type);
             if (type == nullptr) {
               return nullptr;
             }
@@ -1922,9 +1967,18 @@ namespace {
       // The build call will also register the specification with the registry in the VM
       return &sb->build();
     }
-    virtual Type deduce(Node& node, Resolver& resolver, Reporter* reporter) override {
+    virtual Type deduceType(Node& node, Resolver& resolver, Reporter* reporter, egg::ovum::IVMTypeResolver::Kind& deduced) override {
       VMTypeDeducer deducer{ *this->program, this->getTypeForge(), resolver, reporter };
-      return deducer.deduce(node);
+      auto result = deducer.deduceEither(node);
+      deduced = result.kind;
+      return result.type;
+    }
+    virtual HardValue deduceConstant(Node& node) override {
+      // TODO more compile-time evaluation?
+      if (node.kind == Node::Kind::ExprLiteral) {
+        return node.literal;
+      }
+      return HardValue::Void;
     }
     virtual void appendChild(Node& parent, Node& child) override {
       parent.addChild(child);
@@ -4455,7 +4509,7 @@ VMRunner::StepOutcome VMRunner::stepType() {
   };
   Reporter reporter;
   VMTypeDeducer deducer{ *this->program, this->vm.getTypeForge(), *this, &reporter };
-  type = deducer.deduce(*node);
+  type = deducer.deduceType(*node);
   if (type == nullptr) {
     return this->pop(this->execution.raiseRuntimeError(reporter.latestProblem, &reporter.latestRange));
   }

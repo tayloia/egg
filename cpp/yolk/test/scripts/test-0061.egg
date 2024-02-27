@@ -4,4 +4,4 @@ type Class {
 };
 assert(Class.i == 1);
 Class.i = 2;
-///<RUNTIME><ERROR><RESOURCE>(6,1-11): Types such as 'Class' do not support modification of properties such as 'i'
+///<COMPILER><ERROR><RESOURCE>(6,1-11): Type 'Class' does not support modification of property 'i'

@@ -265,7 +265,9 @@ namespace egg::ovum {
     // Type operations
     virtual ITypeForge& getTypeForge() const = 0;
     virtual IVMTypeSpecification* registerTypeSpecification(const Node& spec, Resolver& resolver, Reporter& reporter) = 0;
-    virtual Type deduce(Node& node, Resolver& resolver, Reporter* reporter) = 0;
+    virtual Type deduceType(Node& node, Resolver& resolver, Reporter* reporter, egg::ovum::IVMTypeResolver::Kind& deduced) = 0;
+    // Constant operations
+    virtual HardValue deduceConstant(Node& node) = 0;
     // Modifiers
     virtual void appendChild(Node& parent, Node& child) = 0;
     // Helpers

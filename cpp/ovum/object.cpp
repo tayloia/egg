@@ -517,19 +517,19 @@ namespace {
         return this->raisePrefixError(execution, " does not contain property '", property, "'");
       }
       if (!this->hasAccessability(property, Accessability::Get)) {
-        return this->raisePrefixError(execution, " does not permit getting of property '", property, "'");
+        return this->raisePrefixError(execution, " does not permit getting property '", property, "'");
       }
       return execution.getSoftValue(pfound->second);
     }
     HardValue propertySet(IVMExecution& execution, const HardValue& property, const HardValue& value) {
       if (!this->hasAccessability(property, Accessability::Set)) {
-        return this->raisePrefixError(execution, " does not permit setting of property '", property, "'");
+        return this->raisePrefixError(execution, " does not permit setting property '", property, "'");
       }
       VMObjectVanillaMutex::WriteLock lock{ this->mutex };
       auto pfound = this->properties.find(property);
       if (pfound == this->properties.end()) {
         if (this->unknownType == Type::Void) {
-          return this->raisePrefixError(execution, " does not permit creation of property '", property, "'");
+          return this->raisePrefixError(execution, " does not permit creating property '", property, "'");
         }
         pfound = this->propertyCreate(property);
       }
@@ -558,7 +558,7 @@ namespace {
           return this->raisePrefixError(execution, " does not contain property '", property, "'");
         }
         if (this->unknownType == Type::Void) {
-          return this->raisePrefixError(execution, " does not permit creation of property '", property, "'");
+          return this->raisePrefixError(execution, " does not permit creating property '", property, "'");
         }
         pfound = this->propertyCreate(property);
       }

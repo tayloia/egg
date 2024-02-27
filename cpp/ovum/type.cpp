@@ -752,6 +752,9 @@ namespace egg::internal {
     virtual void setDescription(const String& description, int precedence) override {
       this->getTaggableBuilder().setDescription(description, precedence);
     }
+    virtual void setUnknownProperty(const Type& type, Accessability accessability) override {
+      this->getPropertyBuilder().setUnknownProperty(type, accessability);
+    }
     virtual void addProperty(const String& name, const Type& type, Accessability accessability) override {
       this->getPropertyBuilder().addProperty(name, type, accessability);
     }
@@ -775,12 +778,21 @@ namespace egg::internal {
     TypeForgeCacheSet<TypeForgeTaggableSignature> cacheTaggableSignature;
     TypeForgeCacheMap<TypeForgeComplex::Detail, TypeForgeComplex> cacheComplex;
     TypeForgeCacheMap<IType, const IType::Shape> cacheMetashape;
+    TypeShape infrashapeObject;
+    TypeShape infrashapeString;
+    TypeShape metashapeType;
+    TypeShape metashapeObject;
+    TypeShape metashapeString;
     std::set<const ICollectable*> owned;
   public:
     TypeForgeDefault(IAllocator& allocator, IBasket& basket)
       : HardReferenceCountedAllocator(allocator),
-        basket(&basket) {
-      this->addMetashapes();
+        basket(&basket),
+        infrashapeObject(addInfrashapeObject()),
+        infrashapeString(addInfrashapeString()),
+        metashapeType(addMetashapeType()),
+        metashapeObject(addMetashapeObject()),
+        metashapeString(addMetashapeString()) {
     }
     IAllocator& getAllocator() const {
       return this->allocator;
@@ -973,6 +985,28 @@ namespace egg::internal {
     }
     virtual Assignability isFunctionSignatureAssignable(const IFunctionSignature& dst, const IFunctionSignature& src) override {
       return this->computeFunctionSignatureAssignability(&dst, &src);
+    }
+    virtual size_t foreachDotable(const Type& type, const std::function<bool(const IPropertySignature&)>& callback) override {
+      assert(type.validate());
+      size_t visited = 0;
+      bool completed = false;
+      auto flags = type->getPrimitiveFlags();
+      if (Bits::hasAnySet(flags, ValueFlags::Object)) {
+        ++visited;
+        completed = callback(*this->infrashapeObject->dotable);
+      }
+      if (!completed && Bits::hasAnySet(flags, ValueFlags::String)) {
+        ++visited;
+        completed = callback(*this->infrashapeString->dotable);
+      }
+      size_t index = 0;
+      for (auto* shape = type->getShape(index); !completed && (shape != nullptr); shape = type->getShape(++index)) {
+        if (shape->dotable != nullptr) {
+          ++visited;
+          completed = callback(*shape->dotable);
+        }
+      }
+      return visited;
     }
     virtual const IType::Shape* getMetashape(const Type& infratype) override {
       return this->cacheMetashape.find(*infratype);
@@ -1365,10 +1399,27 @@ namespace egg::internal {
       sb << suffix;
       return sb.build(this->allocator);
     }
-    void addMetashapes() {
-      this->addMetashapeType();
-      this->addMetashapeString();
-    }
+    struct InfrashapeBuilder {
+      TypeForgeDefault* forge;
+      HardPtr<ITypeForgeMetashapeBuilder> builder;
+      InfrashapeBuilder(TypeForgeDefault* forge)
+        : forge(forge),
+          builder(forge->createMetashapeBuilder()) {
+      }
+      void setUnknownProperty(const Type& ptype, Accessability paccessability) {
+        this->builder->setUnknownProperty(ptype, paccessability);
+      }
+      void addPropertyData(const char* pname, const Type& ptype, Accessability paccessability) {
+        this->builder->addProperty(String::fromUTF8(this->forge->allocator, pname), ptype, paccessability);
+      }
+      void addPropertyFunction(const char* fname, const Type& ftype, Accessability paccessability) {
+        // TODO
+        this->builder->addProperty(String::fromUTF8(this->forge->allocator, fname), ftype, paccessability);
+      }
+      TypeShape build() {
+        return this->builder->build(nullptr);
+      }
+    };
     struct MetashapeBuilder {
       TypeForgeDefault* forge;
       HardPtr<ITypeForgeMetashapeBuilder> builder;
@@ -1383,21 +1434,36 @@ namespace egg::internal {
         // TODO
         this->builder->addProperty(String::fromUTF8(this->forge->allocator, fname), ftype, paccessability);
       }
-      void build(const Type& infratype) {
+      TypeShape build(const Type& infratype) {
         assert(infratype.validate());
-        this->builder->build(infratype);
+        return this->builder->build(infratype);
       }
     };
-    void addMetashapeType() {
+    TypeShape addInfrashapeObject() {
+      InfrashapeBuilder ib{ this };
+      ib.setUnknownProperty(Type::AnyQ, Accessability::All);
+      return ib.build();
+    }
+    TypeShape addInfrashapeString() {
+      InfrashapeBuilder ib{ this };
+      ib.addPropertyFunction("length", Type::Int, Accessability::Get);
+      return ib.build();
+    }
+    TypeShape addMetashapeType() {
       MetashapeBuilder mb{ this };
       mb.addPropertyFunction("of", Type::String, Accessability::Get);
-      mb.build(Type::Type_);
+      return mb.build(Type::Type_);
     }
-    void addMetashapeString() {
+    TypeShape addMetashapeObject() {
+      MetashapeBuilder mb{ this };
+      mb.addPropertyFunction("new", Type::Void, Accessability::Get);
+      return mb.build(Type::Object);
+    }
+    TypeShape addMetashapeString() {
       MetashapeBuilder mb{ this };
       // TODO
       mb.addPropertyFunction("fromCodePoints", Type::String, Accessability::Get);
-      mb.build(Type::String);
+      return mb.build(Type::String);
     }
   };
 

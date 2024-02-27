@@ -22,6 +22,16 @@ namespace {
     Type
   };
 
+  egg::ovum::Accessability getAccessabilityUnion(const egg::ovum::IPropertySignature& dotable) {
+    // Fix all accessibility bits for all properties (including unknowns for open sets)
+    auto bits = dotable.getAccessability({});
+    auto index = dotable.getNameCount();
+    while (index-- > 0) {
+      bits = egg::ovum::Bits::set(bits, dotable.getAccessability(dotable.getName(index)));
+    }
+    return bits;
+  }
+
   class ModuleCompiler final : public egg::ovum::IVMModuleBuilder::Reporter {
     ModuleCompiler(const ModuleCompiler&) = delete;
     ModuleCompiler& operator=(const ModuleCompiler&) = delete;
@@ -191,8 +201,8 @@ namespace {
     ModuleNode* compileValueExprObject(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileValueExprObjectElement(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileValueExprGuard(ParserNode& pnode, ParserNode& ptype, ParserNode& pexpr, const ExprContext& context);
-    ModuleNode* compileValueExprManifestation(ParserNode& pnode, const egg::ovum::Type& type);
-    ModuleNode* compileValueExprMissing(ParserNode& pnode);
+    ModuleNode* compileValueExprManifestation(ParserNode& pnode, const egg::ovum::Type& type, const ExprContext& context);
+    ModuleNode* compileValueExprMissing(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileTypeExpr(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileTypeExprVariable(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileTypeExprUnary(ParserNode& op, ParserNode& lhs, const ExprContext& context);
@@ -209,14 +219,20 @@ namespace {
     ModuleNode* compileAmbiguousExpr(ParserNode& pnode, const ExprContext& context, Ambiguous& ambiguous);
     ModuleNode* compileAmbiguousVariable(ParserNode& pnode, const ExprContext& context, Ambiguous& ambiguous);
     ModuleNode* compileLiteral(ParserNode& pnode);
-    ModuleNode* checkCompilation(ModuleNode& mnode, const ExprContext& context);
+    ModuleNode* checkAmbiguousExpr(ModuleNode& mnode, const ExprContext& context);
+    ModuleNode* checkValueExpr(ModuleNode& mnode, const ExprContext& context);
     bool checkValueExprOperand(const char* expected, ModuleNode& mnode, ParserNode& pnode, egg::ovum::ValueFlags required, const ExprContext& context);
     bool checkValueExprOperand2(const char* expected, ModuleNode& lhs, ModuleNode& rhs, ParserNode& pnode, egg::ovum::ValueFlags required, const ExprContext& context);
     bool checkValueExprUnary(egg::ovum::ValueUnaryOp op, ModuleNode& rhs, ParserNode& pnode, const ExprContext& context);
     bool checkValueExprBinary(egg::ovum::ValueBinaryOp op, ModuleNode& lhs, ModuleNode& rhs, ParserNode& pnode, const ExprContext& context);
     bool checkValueExprTernary(egg::ovum::ValueTernaryOp op, ModuleNode& lhs, ModuleNode& mid, ModuleNode& rhs, ParserNode& pnode, const ExprContext& context);
+    bool checkStmtVariableMutate(const egg::ovum::String& symbol, egg::ovum::ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context);
+    bool checkStmtPropertyMutate(ModuleNode& instance, ModuleNode& property, egg::ovum::ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context);
+    bool checkStmtIndexMutate(ModuleNode& instance, ModuleNode& index, egg::ovum::ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context);
+    bool checkStmtPointeeMutate(ModuleNode& instance, egg::ovum::ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context);
     egg::ovum::Type literalType(ParserNode& pnode);
-    egg::ovum::Type deduceType(ModuleNode& mnode, const ExprContext& context) {
+    egg::ovum::String deduceString(ModuleNode& mnode, const ExprContext& context);
+    egg::ovum::Type deduceType(ModuleNode& mnode, const ExprContext& context, egg::ovum::IVMTypeResolver::Kind& deduced) {
       class Resolver : public egg::ovum::IVMTypeResolver {
         Resolver(const Resolver&) = delete;
         Resolver& operator=(const Resolver&) = delete;
@@ -254,7 +270,7 @@ namespace {
         }
       };
       Resolver resolver{ this->mbuilder, context, *this };
-      return this->mbuilder.deduce(mnode, resolver, this);
+      return this->mbuilder.deduceType(mnode, resolver, this, deduced);
     }
     void forgeNullability(egg::ovum::Type& type, bool nullable) {
       assert(type != nullptr);
@@ -582,8 +598,9 @@ ModuleNode* ModuleCompiler::compileStmtDeclareVariable(ParserNode& pnode, StmtCo
   if (mtype == nullptr) {
     return nullptr;
   }
-  auto type = this->deduceType(*mtype, context);
-  if (type == nullptr) {
+  egg::ovum::IVMTypeResolver::Kind kind;
+  auto type = this->deduceType(*mtype, context, kind);
+  if ((type == nullptr) || (kind != egg::ovum::IVMTypeResolver::Kind::Type)) {
     return this->error(pnode, "Unable to deduce type of variable '", symbol, "' at compile time");
   }
   assert(type != nullptr);
@@ -607,8 +624,10 @@ ModuleNode* ModuleCompiler::compileStmtDefineVariable(ParserNode& pnode, StmtCon
     return nullptr;
   }
   assert(rnode != nullptr);
-  auto rtype = this->deduceType(*rnode, context);
+  egg::ovum::IVMTypeResolver::Kind rkind;
+  auto rtype = this->deduceType(*rnode, context, rkind);
   assert(rtype != nullptr);
+  assert(rkind == egg::ovum::IVMTypeResolver::Kind::Value);
   auto assignable = this->isAssignable(ltype, rtype);
   if (assignable == egg::ovum::Assignability::Never) {
     return this->error(*pnode.children.back(), "Cannot initialize '", symbol, "' of type '", ltype, "' with a value of type '", rtype, "'");
@@ -631,9 +650,10 @@ ModuleNode* ModuleCompiler::compileStmtDefineType(ParserNode& pnode, StmtContext
   if (mtype == nullptr) {
     return nullptr;
   }
-  auto type = this->deduceType(*mtype, context);
-  if (type == nullptr) {
-    // TODO this is the second error message generated for this problem; the other is issued by 'dedudeType()'
+  egg::ovum::IVMTypeResolver::Kind kind;
+  auto type = this->deduceType(*mtype, context, kind);
+  if ((type == nullptr) || (kind != egg::ovum::IVMTypeResolver::Kind::Type)) {
+    // TODO this is the second error message generated for this problem; the other is issued by 'deduceType()'
     return this->error(pnode, "Unable to deduce type '", symbol, "' at compile time");
   }
   if (!this->addSymbol(context, pnode, StmtContext::Symbol::Kind::Type, symbol, type)) {
@@ -657,8 +677,9 @@ ModuleNode* ModuleCompiler::compileStmtDefineFunction(ParserNode& pnode, StmtCon
   if (mtype == nullptr) {
     return nullptr;
   }
-  auto type = this->deduceType(*mtype, context);
-  if (type == nullptr) {
+  egg::ovum::IVMTypeResolver::Kind kind;
+  auto type = this->deduceType(*mtype, context, kind);
+  if ((type == nullptr) || (kind != egg::ovum::IVMTypeResolver::Kind::Type)) {
     return this->error(pnode, "Unable to deduce type of function '", symbol, "' at compile time");
   }
   auto* signature = type.getOnlyFunctionSignature();
@@ -723,6 +744,9 @@ ModuleNode* ModuleCompiler::compileStmtMutate(ParserNode& pnode, StmtContext& co
     } else {
       rhs = this->compileValueExpr(*pnode.children.back(), context);
     }
+    if (!this->checkStmtVariableMutate(symbol, pnode.op.valueMutationOp, *rhs, pnode, context)) {
+      return nullptr;
+    }
     return &this->mbuilder.stmtVariableMutate(symbol, pnode.op.valueMutationOp, *rhs, pnode.range);
   }
   if (plhs.kind == ParserNode::Kind::ExprProperty) {
@@ -741,6 +765,9 @@ ModuleNode* ModuleCompiler::compileStmtMutate(ParserNode& pnode, StmtContext& co
       rhs = this->compileStmtVoid(pnode);
     } else {
       rhs = this->compileValueExpr(*pnode.children.back(), context);
+    }
+    if (!this->checkStmtPropertyMutate(*instance, *property, pnode.op.valueMutationOp, *rhs, pnode, context)) {
+      return nullptr;
     }
     return &this->mbuilder.stmtPropertyMutate(*instance, *property, pnode.op.valueMutationOp, *rhs, pnode.range);
   }
@@ -761,6 +788,9 @@ ModuleNode* ModuleCompiler::compileStmtMutate(ParserNode& pnode, StmtContext& co
     } else {
       rhs = this->compileValueExpr(*pnode.children.back(), context);
     }
+    if (!this->checkStmtIndexMutate(*instance, *index, pnode.op.valueMutationOp, *rhs, pnode, context)) {
+      return nullptr;
+    }
     return &this->mbuilder.stmtIndexMutate(*instance, *index, pnode.op.valueMutationOp, *rhs, pnode.range);
   }
   if (plhs.kind == ParserNode::Kind::ExprDereference) {
@@ -775,6 +805,9 @@ ModuleNode* ModuleCompiler::compileStmtMutate(ParserNode& pnode, StmtContext& co
       rhs = this->compileStmtVoid(pnode);
     } else {
       rhs = this->compileValueExpr(*pnode.children.back(), context);
+    }
+    if (!this->checkStmtPointeeMutate(*instance, pnode.op.valueMutationOp, *rhs, pnode, context)) {
+      return nullptr;
     }
     return &this->mbuilder.stmtPointeeMutate(*instance, pnode.op.valueMutationOp, *rhs, pnode.range);
   }
@@ -966,8 +999,10 @@ ModuleNode* ModuleCompiler::compileStmtReturn(ParserNode& pnode, StmtContext& co
     if (expr == nullptr) {
       return nullptr;
     }
-    auto type = this->deduceType(*expr, context);
+    egg::ovum::IVMTypeResolver::Kind kind;
+    auto type = this->deduceType(*expr, context, kind);
     assert(type != nullptr);
+    assert(kind == egg::ovum::IVMTypeResolver::Kind::Value);
     auto assignable = this->isAssignable(expected, type);
     if (assignable == egg::ovum::Assignability::Never) {
       return this->error(pchild, "Expected 'return' statement with a value of type '", *expected, "', but instead got a value of type '", *type, "'");
@@ -1008,8 +1043,10 @@ ModuleNode* ModuleCompiler::compileStmtYield(ParserNode& pnode, StmtContext& con
       return nullptr;
     }
     auto& forge = this->vm.getTypeForge();
-    auto xtype = this->deduceType(*expr, context);
+    egg::ovum::IVMTypeResolver::Kind xkind;
+    auto xtype = this->deduceType(*expr, context, xkind);
     assert(xtype != nullptr);
+    assert(xkind == egg::ovum::IVMTypeResolver::Kind::Value);
     auto itype = forge.forgeIterationType(xtype);
     if (itype == nullptr) {
       return this->error(pgrandchild, "Value of type '", *xtype, "' is not iterable in 'yield ...' statement");
@@ -1025,8 +1062,10 @@ ModuleNode* ModuleCompiler::compileStmtYield(ParserNode& pnode, StmtContext& con
   if (expr == nullptr) {
     return nullptr;
   }
-  auto type = this->deduceType(*expr, context);
+  egg::ovum::IVMTypeResolver::Kind kind;
+  auto type = this->deduceType(*expr, context, kind);
   assert(type != nullptr);
+  assert(kind == egg::ovum::IVMTypeResolver::Kind::Value);
   auto assignable = this->isAssignable(context.canYield->type, type);
   if (assignable == egg::ovum::Assignability::Never) {
     return this->error(pchild, "Expected 'yield' statement with a value of type '", *context.canYield->type, "', but instead got a value of type '", *type, "'");
@@ -1109,8 +1148,9 @@ ModuleNode* ModuleCompiler::compileStmtCatch(ParserNode& pnode, StmtContext& con
       // The catch type
       auto mtype = this->compileTypeExpr(*pchild, context);
       if (mtype != nullptr) {
-        auto type = this->deduceType(*mtype, context);
-        if (type == nullptr) {
+        egg::ovum::IVMTypeResolver::Kind kind;
+        auto type = this->deduceType(*mtype, context, kind);
+        if ((type == nullptr) || (kind != egg::ovum::IVMTypeResolver::Kind::Type)) {
           return this->error(pnode, "Unable to deduce type of '", symbol, "' at compile time");
         }
         if (this->addSymbol(context, *pchild, StmtContext::Symbol::Kind::Variable, symbol, type)) {
@@ -1307,6 +1347,7 @@ ModuleNode* ModuleCompiler::compileStmtContinue(ParserNode& pnode, StmtContext& 
 }
 
 ModuleNode* ModuleCompiler::compileStmtMissing(ParserNode& pnode, StmtContext&) {
+  // This is a missing statement; replace with an empty block
   assert(pnode.kind == ParserNode::Kind::Missing);
   EXPECT(pnode, pnode.children.empty());
   auto* stmt = &this->mbuilder.stmtBlock(pnode.range);
@@ -1369,31 +1410,31 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode, const ExprContex
     return this->compileLiteral(pnode);
   case ParserNode::Kind::Missing:
     EXPECT(pnode, pnode.children.empty());
-    return this->compileValueExprMissing(pnode);
+    return this->compileValueExprMissing(pnode, context);
   case ParserNode::Kind::TypeVoid:
     EXPECT(pnode, pnode.children.empty());
-    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Void);
+    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Void, context);
   case ParserNode::Kind::TypeBool:
     EXPECT(pnode, pnode.children.empty());
-    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Bool);
+    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Bool, context);
   case ParserNode::Kind::TypeInt:
     EXPECT(pnode, pnode.children.empty());
-    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Int);
+    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Int, context);
   case ParserNode::Kind::TypeFloat:
     EXPECT(pnode, pnode.children.empty());
-    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Float);
+    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Float, context);
   case ParserNode::Kind::TypeString:
     EXPECT(pnode, pnode.children.empty());
-    return this->compileValueExprManifestation(pnode, egg::ovum::Type::String);
+    return this->compileValueExprManifestation(pnode, egg::ovum::Type::String, context);
   case ParserNode::Kind::TypeObject:
     EXPECT(pnode, pnode.children.empty());
-    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Object);
+    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Object, context);
   case ParserNode::Kind::TypeAny:
     EXPECT(pnode, pnode.children.empty());
-    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Any);
+    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Any, context);
   case ParserNode::Kind::TypeType:
     EXPECT(pnode, pnode.children.empty());
-    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Type_);
+    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Type_, context);
   case ParserNode::Kind::ModuleRoot:
   case ParserNode::Kind::ExprEllipsis:
   case ParserNode::Kind::TypeInfer:
@@ -1595,7 +1636,7 @@ ModuleNode* ModuleCompiler::compileValueExprCall(ParserNodes& pnodes, const Expr
   ModuleNode* call = nullptr;
   auto type = this->literalType(**pnode);
   if (type != nullptr) {
-    call = this->compileValueExprManifestation(**pnode, type);
+    call = this->compileValueExprManifestation(**pnode, type, context);
   } else {
     call = this->compileValueExpr(**pnode, context);
   }
@@ -1652,7 +1693,7 @@ ModuleNode* ModuleCompiler::compileValueExprProperty(ParserNode& dot, ParserNode
   if (ambiguous == Ambiguous::Type) {
     lexpr = &this->mbuilder.typeManifestation(*lexpr, lhs.range);
   }
-  return this->checkCompilation(this->mbuilder.exprPropertyGet(*lexpr, *rexpr, dot.range), context);
+  return this->checkAmbiguousExpr(this->mbuilder.exprPropertyGet(*lexpr, *rexpr, dot.range), context);
 }
 
 ModuleNode* ModuleCompiler::compileValueExprReference(ParserNode& ampersand, ParserNode& pexpr, const ExprContext& context) {
@@ -1661,7 +1702,7 @@ ModuleNode* ModuleCompiler::compileValueExprReference(ParserNode& ampersand, Par
     EXPECT(pexpr, pexpr.children.empty());
     egg::ovum::String symbol;
     EXPECT(pexpr, pexpr.value->getString(symbol));
-    return this->checkCompilation(this->mbuilder.exprVariableRef(symbol, ampersand.range), context);
+    return this->checkValueExpr(this->mbuilder.exprVariableRef(symbol, ampersand.range), context);
   }
   if (pexpr.kind == ParserNode::Kind::ExprIndex) {
     // '&instance[index]'
@@ -1674,7 +1715,7 @@ ModuleNode* ModuleCompiler::compileValueExprReference(ParserNode& ampersand, Par
     if (index == nullptr) {
       return nullptr;
     }
-    return this->checkCompilation(this->mbuilder.exprIndexRef(*instance, *index, ampersand.range), context);
+    return this->checkValueExpr(this->mbuilder.exprIndexRef(*instance, *index, ampersand.range), context);
   }
   if (pexpr.kind == ParserNode::Kind::ExprProperty) {
     // '&instance.property'
@@ -1687,7 +1728,7 @@ ModuleNode* ModuleCompiler::compileValueExprReference(ParserNode& ampersand, Par
     if (property == nullptr) {
       return nullptr;
     }
-    return this->checkCompilation(this->mbuilder.exprPropertyRef(*instance, *property, ampersand.range), context);
+    return this->checkValueExpr(this->mbuilder.exprPropertyRef(*instance, *property, ampersand.range), context);
   }
   return this->expected(pexpr, "addressable expression");
 }
@@ -1696,7 +1737,7 @@ ModuleNode* ModuleCompiler::compileValueExprDereference(ParserNode& star, Parser
   // '*expression'
   auto* mexpr = this->compileValueExpr(pexpr, context);
   if (mexpr != nullptr) {
-    return this->checkCompilation(this->mbuilder.exprPointeeGet(*mexpr, star.range), context);
+    return this->checkValueExpr(this->mbuilder.exprPointeeGet(*mexpr, star.range), context);
   }
   return nullptr;
 }
@@ -1741,8 +1782,10 @@ ModuleNode* ModuleCompiler::compileValueExprArrayUnhinted(ParserNode& pnode, con
     if (mchild == nullptr) {
       unionType = nullptr;
     } else if (unionType != nullptr) {
-      auto elementType = this->deduceType(*mchild, context);
+      egg::ovum::IVMTypeResolver::Kind elementKind;
+      auto elementType = this->deduceType(*mchild, context, elementKind);
       assert(elementType != nullptr);
+      assert(elementKind == egg::ovum::IVMTypeResolver::Kind::Value);
       unionType = forge.forgeUnionType(unionType, elementType);
       assert(unionType != nullptr);
       mchildren.push_back(mchild);
@@ -1838,8 +1881,9 @@ ModuleNode* ModuleCompiler::compileValueExprObjectElement(ParserNode& pnode, con
     if (mtype == nullptr) {
       return nullptr;
     }
-    auto type = this->deduceType(*mtype, context);
-    if (type == nullptr) {
+    egg::ovum::IVMTypeResolver::Kind kind;
+    auto type = this->deduceType(*mtype, context, kind);
+    if ((type == nullptr) || (kind != egg::ovum::IVMTypeResolver::Kind::Type)) {
       // TODO double-reported?
       return this->error(pnode, "Unable to deduce type of object function '", symbol, "' at compile time");
     }
@@ -1876,7 +1920,7 @@ ModuleNode* ModuleCompiler::compileValueExprObjectElement(ParserNode& pnode, con
     for (const auto& capture : captures) {
       this->mbuilder.appendChild(mvalue, this->mbuilder.exprFunctionCapture(capture, pnode.range));
     }
-    return &this->mbuilder.exprObjectConstructProperty(symbol, *mtype, mvalue, egg::ovum::Accessability::All, pnode.range);
+    return &this->mbuilder.exprObjectConstructProperty(symbol, *mtype, mvalue, egg::ovum::Accessability::Get, pnode.range);
   }
   return this->expected(pnode, "object expression element");
 }
@@ -1886,21 +1930,21 @@ ModuleNode* ModuleCompiler::compileValueExprGuard(ParserNode& pnode, ParserNode&
   egg::ovum::String symbol;
   EXPECT(pnode, pnode.value->getString(symbol));
   auto* mexpr = this->compileValueExpr(pexpr, context);
-  if (mexpr != nullptr) {
-    return &this->mbuilder.exprGuard(symbol, *mexpr, pnode.range);
+  if (mexpr == nullptr) {
+    return nullptr;
   }
-  return nullptr;
+  return &this->mbuilder.exprGuard(symbol, *mexpr, pnode.range);
 }
 
-ModuleNode* ModuleCompiler::compileValueExprManifestation(ParserNode& pnode, const egg::ovum::Type& type) {
+ModuleNode* ModuleCompiler::compileValueExprManifestation(ParserNode& pnode, const egg::ovum::Type& type, const ExprContext&) {
   return &this->mbuilder.typeManifestation(this->mbuilder.typeLiteral(type, pnode.range), pnode.range);
 }
 
-ModuleNode* ModuleCompiler::compileValueExprMissing(ParserNode& pnode) {
+ModuleNode* ModuleCompiler::compileValueExprMissing(ParserNode& pnode, const ExprContext&) {
+  // This is a missing condition (e.g. 'for(;;){}'); replace with 'true'
   assert(pnode.kind == ParserNode::Kind::Missing);
   EXPECT(pnode, pnode.children.empty());
-  auto* stmt = &this->mbuilder.exprLiteral(egg::ovum::HardValue::True, pnode.range);
-  return stmt;
+  return &this->mbuilder.exprLiteral(egg::ovum::HardValue::True, pnode.range);
 }
 
 ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode, const ExprContext& context) {
@@ -2145,8 +2189,9 @@ ModuleNode* ModuleCompiler::compileTypeSpecificationStaticFunction(ParserNode& p
   if (mtype == nullptr) {
     return nullptr;
   }
-  auto type = this->deduceType(*mtype, context);
-  if (type == nullptr) {
+  egg::ovum::IVMTypeResolver::Kind kind;
+  auto type = this->deduceType(*mtype, context, kind);
+  if ((type == nullptr) || (kind != egg::ovum::IVMTypeResolver::Kind::Type)) {
     // TODO double-reported?
     return this->error(pnode, "Unable to deduce type of static function '", symbol, "' at compile time");
   }
@@ -2248,7 +2293,9 @@ ModuleNode* ModuleCompiler::compileTypeGuard(ParserNode& pnode, const ExprContex
   if (mexpr != nullptr) {
     egg::ovum::String symbol;
     EXPECT(pnode, pnode.value->getString(symbol));
-    auto actual = this->deduceType(*mexpr, context);
+    egg::ovum::IVMTypeResolver::Kind kind;
+    auto actual = this->deduceType(*mexpr, context, kind);
+    assert(kind == egg::ovum::IVMTypeResolver::Kind::Value);
     switch (this->isAssignable(type, actual)) {
     case egg::ovum::Assignability::Never:
       this->log(egg::ovum::ILogger::Severity::Warning, this->resource, pnode.range, ": Guarded assignment to '", symbol, "' of type '", type, "' will always fail");
@@ -2276,9 +2323,13 @@ ModuleNode* ModuleCompiler::compileTypeInfer(ParserNode& pnode, ParserNode& ptyp
   if (mtype == nullptr) {
     return nullptr;
   }
-  type = this->deduceType(*mtype, context);
+  egg::ovum::IVMTypeResolver::Kind kind;
+  type = this->deduceType(*mtype, context, kind);
   if (type == nullptr) {
     return this->error(pnode, "Unable to infer type at compile time"); // TODO
+  }
+  if (kind != egg::ovum::IVMTypeResolver::Kind::Type) {
+    return this->error(pnode, "WIBBLE: Inferred type is not a type"); // TODO
   }
   mexpr = this->compileValueExpr(pexpr, context);
   if (mexpr == nullptr) {
@@ -2286,8 +2337,9 @@ ModuleNode* ModuleCompiler::compileTypeInfer(ParserNode& pnode, ParserNode& ptyp
   }
   if (pnode.kind == ParserNode::Kind::StmtForEach) {
     // We need to check the validity of 'for (<type> <iterator> : <iterable>)'
-    auto actual = this->deduceType(*mexpr, context);
+    auto actual = this->deduceType(*mexpr, context, kind);
     assert(actual != nullptr);
+    assert(kind == egg::ovum::IVMTypeResolver::Kind::Type);
     auto& forge = this->vm.getTypeForge();
     auto itype = forge.forgeIterationType(type);
     if (itype == nullptr) {
@@ -2306,8 +2358,11 @@ ModuleNode* ModuleCompiler::compileTypeInferVar(ParserNode& pnode, ParserNode& p
   if (mexpr == nullptr) {
     return nullptr;
   }
-  type = this->deduceType(*mexpr, context);
+  egg::ovum::IVMTypeResolver::Kind kind;
+  type = this->deduceType(*mexpr, context, kind);
   assert(type != nullptr);
+  if (kind != egg::ovum::IVMTypeResolver::Kind::Value) // WIBBLE
+  assert(kind == egg::ovum::IVMTypeResolver::Kind::Value);
   auto& forge = this->vm.getTypeForge();
   if (pnode.kind == ParserNode::Kind::StmtForEach) {
     // We now have the type of 'iterable' in 'for (var[?] <iterator> : <iterable>)'
@@ -2404,8 +2459,29 @@ egg::ovum::Type ModuleCompiler::literalType(ParserNode& pnode) {
   return nullptr;
 }
 
-ModuleNode* ModuleCompiler::checkCompilation(ModuleNode& mnode, const ExprContext& context) {
-  auto type = this->deduceType(mnode, context);
+egg::ovum::String ModuleCompiler::deduceString(ModuleNode& mnode, const ExprContext&) {
+  auto value = this->mbuilder.deduceConstant(mnode);
+  egg::ovum::String svalue;
+  if (value->getString(svalue)) {
+    return svalue;
+  }
+  return {};
+}
+
+ModuleNode* ModuleCompiler::checkAmbiguousExpr(ModuleNode& mnode, const ExprContext& context) {
+  egg::ovum::IVMTypeResolver::Kind kind;
+  auto type = this->deduceType(mnode, context, kind);
+  if (type == nullptr) {
+    return nullptr;
+  }
+  return &mnode;
+}
+
+ModuleNode* ModuleCompiler::checkValueExpr(ModuleNode& mnode, const ExprContext& context) {
+  egg::ovum::IVMTypeResolver::Kind kind;
+  auto type = this->deduceType(mnode, context, kind);
+  if(kind != egg::ovum::IVMTypeResolver::Kind::Value) // WIBBLE
+  assert(kind == egg::ovum::IVMTypeResolver::Kind::Value);
   if (type == nullptr) {
     return nullptr;
   }
@@ -2413,8 +2489,10 @@ ModuleNode* ModuleCompiler::checkCompilation(ModuleNode& mnode, const ExprContex
 }
 
 bool ModuleCompiler::checkValueExprOperand(const char* expected, ModuleNode& mnode, ParserNode& pnode, egg::ovum::ValueFlags required, const ExprContext& context) {
-  auto type = this->deduceType(mnode, context);
+  egg::ovum::IVMTypeResolver::Kind kind;
+  auto type = this->deduceType(mnode, context, kind);
   assert(type != nullptr);
+  assert(kind == egg::ovum::IVMTypeResolver::Kind::Value);
   if (!egg::ovum::Bits::hasAnySet(type->getPrimitiveFlags(), required)) {
     this->error(pnode, "Expected ", expected, ", but instead got a value of type '", *type, "'");
     return false;
@@ -2423,14 +2501,17 @@ bool ModuleCompiler::checkValueExprOperand(const char* expected, ModuleNode& mno
 }
 
 bool ModuleCompiler::checkValueExprOperand2(const char* expected, ModuleNode& lhs, ModuleNode& rhs, ParserNode& pnode, egg::ovum::ValueFlags required, const ExprContext& context) {
-  auto type = this->deduceType(lhs, context);
+  egg::ovum::IVMTypeResolver::Kind kind;
+  auto type = this->deduceType(lhs, context, kind);
   assert(type != nullptr);
+  assert(kind == egg::ovum::IVMTypeResolver::Kind::Value);
   if (!egg::ovum::Bits::hasAnySet(type->getPrimitiveFlags(), required)) {
     this->error(pnode, "Expected left-hand side of ", expected, ", but instead got a value of type '", *type, "'");
     return false;
   }
-  type = this->deduceType(rhs, context);
+  type = this->deduceType(rhs, context, kind);
   assert(type != nullptr);
+  assert(kind == egg::ovum::IVMTypeResolver::Kind::Value);
   if (!egg::ovum::Bits::hasAnySet(type->getPrimitiveFlags(), required)) {
     this->error(pnode, "Expected right-hand side of ", expected, ", but instead got a value of type '", *type, "'");
     return false;
@@ -2515,12 +2596,106 @@ bool ModuleCompiler::checkValueExprTernary(egg::ovum::ValueTernaryOp, ModuleNode
   if (!this->checkValueExprOperand("condition of ternary operator '?:' to be a 'bool'", lhs, pnode, egg::ovum::ValueFlags::Bool, context)) {
     return false;
   }
-  if (this->checkCompilation(mid, context) == nullptr) {
+  if (this->checkValueExpr(mid, context) == nullptr) {
     return false;
   }
-  if (this->checkCompilation(rhs, context) == nullptr) {
+  if (this->checkValueExpr(rhs, context) == nullptr) {
     return false;
   }
+  return true;
+}
+
+bool ModuleCompiler::checkStmtVariableMutate(const egg::ovum::String& symbol, egg::ovum::ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context) {
+  (void)(symbol); (void)(op); (void)(value); (void)(pnode); (void)(context); // WIBBLE
+  return true;
+}
+
+bool ModuleCompiler::checkStmtPropertyMutate(ModuleNode& instance, ModuleNode& property, egg::ovum::ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context) {
+  (void)(instance); (void)(property); (void)(op); (void)(value); (void)pnode; (void)(context); // WIBBLE
+  egg::ovum::IVMTypeResolver::Kind kind;
+  auto ptype = this->deduceType(instance, context, kind);
+  if (ptype == nullptr) {
+    return false;
+  }
+  auto pname = this->deduceString(property, context);
+  auto& forge = this->vm.getTypeForge();
+  if (kind == egg::ovum::IVMTypeResolver::Kind::Type) {
+    auto* metashape = forge.getMetashape(ptype);
+    if (metashape == nullptr) {
+      this->error(pnode, "TODO: Cannot find metashape for type '", *ptype, "'");
+      return false;
+    }
+    if (metashape->dotable == nullptr) {
+      this->error(pnode, "Type '", *ptype, "' does not support properties");
+      return false;
+    }
+    if (pname.empty()) {
+      // Unknown or runtime-only property name
+      auto paccessability = getAccessabilityUnion(*metashape->dotable);
+      if (egg::ovum::Bits::hasNoneSet(paccessability, egg::ovum::Accessability::Mut)) {
+        this->error(pnode, "Type '", *ptype, "' does not support property modification");
+        return false;
+      }
+      return true;
+    }
+    auto paccessability = metashape->dotable->getAccessability(pname);
+    if (paccessability == egg::ovum::Accessability::None) {
+      this->error(pnode, "Type '", *ptype, "' does not support property '", pname, "'");
+      return false;
+    }
+    if (egg::ovum::Bits::hasNoneSet(paccessability, egg::ovum::Accessability::Mut)) {
+      this->error(pnode, "Type '", *ptype, "' does not support modification of property '", pname, "'");
+      return false;
+    }
+    return true;
+  }
+  auto foundAny = false;
+  auto foundMut = false;
+  if (pname.empty()) {
+    // Unknown or runtime-only property name
+    forge.foreachDotable(ptype, [&](const egg::ovum::IPropertySignature& dotable) {
+      foundAny = true;
+      if (egg::ovum::Bits::hasAnySet(dotable.getAccessability(pname), egg::ovum::Accessability::Mut)) {
+        foundMut = true;
+      }
+      return foundMut; // completed if found a mutable property
+    });
+    if (!foundAny) {
+      this->error(pnode, "Values of type '", *ptype, "' do not support properties");
+      return false;
+    }
+    if (!foundMut) {
+      this->error(pnode, "Values of type '", *ptype, "' do not support property modification");
+      return false;
+    }
+    return true;
+  }
+  forge.foreachDotable(ptype, [&](const egg::ovum::IPropertySignature& dotable) {
+    auto paccessability = dotable.getAccessability(pname);
+    foundAny = paccessability != egg::ovum::Accessability::None;
+    if (egg::ovum::Bits::hasAnySet(paccessability, egg::ovum::Accessability::Mut)) {
+      foundMut = true;
+    }
+    return foundMut; // completed if found a mutable property
+  });
+  if (!foundAny) {
+    this->error(pnode, "Values of type '", *ptype, "' do not support property '", pname, "'");
+    return false;
+  }
+  if (!foundMut) {
+    this->error(pnode, "Values of type '", *ptype, "' do not support modification of property '", pname, "'");
+    return false;
+  }
+  return true;
+}
+
+bool ModuleCompiler::checkStmtIndexMutate(ModuleNode& instance, ModuleNode& index, egg::ovum::ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context) {
+  (void)(instance); (void)(index); (void)(op); (void)(value); (void)(pnode); (void)(context); // WIBBLE
+  return true;
+}
+
+bool ModuleCompiler::checkStmtPointeeMutate(ModuleNode& instance, egg::ovum::ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context) {
+  (void)(instance); (void)(op); (void)(value); (void)(pnode); (void)(context); // WIBBLE
   return true;
 }
 

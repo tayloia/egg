@@ -1,0 +1,17 @@
+type Class {
+  static int a = 1;
+  static int b() { return 2; }
+  int c;
+  int d();
+};
+assert(type.of(Class.a) == "int");
+assert(type.of(Class.b) == "int()");
+var instance = Class {
+  int|float c = 3;
+  int|string d() { return 4; }
+};
+assert(type.of(instance) == "Class");
+assert(type.of(instance.c) == "int");
+assert(type.of(instance.d) == "(string|int)()");
+instance.d = "four";
+///<COMPILER><ERROR><RESOURCE>(16,1-19): Values of type 'Class' do not support modification of property 'd'
