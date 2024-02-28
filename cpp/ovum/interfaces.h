@@ -438,6 +438,7 @@ namespace egg::ovum {
     virtual void setDescription(const String& description, int precedence) = 0;
     virtual void setUnknownProperty(const Type& type, Accessability accessability) = 0;
     virtual void addProperty(const String& name, const Type& type, Accessability accessability) = 0;
+    virtual void addIndex(const Type& rtype, const Type& itype, Accessability accessability) = 0;
     virtual TypeShape build(const Type& infratype) = 0;
   };
 
@@ -463,6 +464,8 @@ namespace egg::ovum {
     virtual Assignability isTypeAssignable(const Type& dst, const Type& src) = 0;
     virtual Assignability isFunctionSignatureAssignable(const IFunctionSignature& dst, const IFunctionSignature& src) = 0;
     virtual size_t foreachDotable(const Type& type, const std::function<bool(const IPropertySignature&)>& callback) = 0;
+    virtual size_t foreachIndexable(const Type& type, const std::function<bool(const IIndexSignature&)>& callback) = 0;
+    virtual size_t foreachPointable(const Type& type, const std::function<bool(const IPointerSignature&)>& callback) = 0;
     virtual const IType::Shape* getMetashape(const Type& type) = 0;
     virtual HardPtr<ITypeForgeFunctionBuilder> createFunctionBuilder() = 0;
     virtual HardPtr<ITypeForgePropertyBuilder> createPropertyBuilder() = 0;

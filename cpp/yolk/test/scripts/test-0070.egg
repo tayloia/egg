@@ -1,0 +1,3 @@
+type Arithmetic = int|float;
+Arithmetic |= string;
+///<COMPILER><ERROR><RESOURCE>(2,1-20): Type identifier 'Arithmetic' cannot be modified

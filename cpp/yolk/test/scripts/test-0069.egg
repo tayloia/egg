@@ -1,0 +1,3 @@
+type Class {};
+Class = null;
+///<COMPILER><ERROR><RESOURCE>(2,1-12): Type identifier 'Class' cannot be modified

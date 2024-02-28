@@ -1032,7 +1032,7 @@ namespace {
         resolver(resolver),
         reporter(reporter) {
     }
-    Deduced deduceEither(Node& node, IVMTypeResolver::Kind hint) {
+    Deduced deduceAmbiguous(Node& node, IVMTypeResolver::Kind hint) {
       switch (node.kind) {
       case Node::Kind::ExprLiteral:
         return { IVMTypeResolver::Kind::Value, node.literal->getRuntimeType() };
@@ -1046,10 +1046,7 @@ namespace {
       case Node::Kind::ExprPropertyGet:
         assert(node.literal->getVoid());
         assert(node.children.size() == 2);
-        if (hint == IVMTypeResolver::Kind::Type) {
-          return this->deduceTypePropertyGet(*node.children.front(), *node.children.back(), node.range);
-        }
-        return this->deduceExprPropertyGet(*node.children.front(), *node.children.back(), node.range);
+        return this->deduceAmbiguousPropertyGet(*node.children.front(), *node.children.back(), node.range, hint);
       case Node::Kind::ExprIndexGet:
         assert(node.literal->getVoid());
         assert(node.children.size() == 2);
@@ -1064,10 +1061,7 @@ namespace {
       case Node::Kind::ExprPropertyRef:
         assert(node.literal->getVoid());
         assert(node.children.size() == 2);
-        if (hint == IVMTypeResolver::Kind::Type) {
-          return this->deduceExprReference(this->deduceTypePropertyGet(*node.children.front(), *node.children.back(), node.range));
-        }
-        return this->deduceExprReference(this->deduceExprPropertyGet(*node.children.front(), *node.children.back(), node.range));
+        return this->deduceExprReference(this->deduceAmbiguousPropertyGet(*node.children.front(), *node.children.back(), node.range, hint));
       case Node::Kind::ExprIndexRef:
         assert(node.literal->getVoid());
         assert(node.children.size() == 2);
@@ -1121,7 +1115,7 @@ namespace {
         return this->deduceTypeFunctionSignature(node, node.range);
       case Node::Kind::TypeFunctionSignatureParameter:
         assert(!node.children.empty());
-        return this->deduceEither(*node.children.front(), hint);
+        return this->deduceAmbiguous(*node.children.front(), hint);
       case Node::Kind::TypeSpecification:
         return this->deduceTypeSpecification(node, node.range);
       case Node::Kind::TypeManifestation:
@@ -1171,45 +1165,7 @@ namespace {
       }
       return this->fail(node.range, "TODO: Cannot deduce type for unexpected module node kind");
     }
-    Type deduceValue(Node& node) {
-      auto deduced = this->deduceEither(node, IVMTypeResolver::Kind::Value);
-      if (deduced.failed()) {
-        return nullptr;
-      }
-      if (deduced.kind != IVMTypeResolver::Kind::Value) {
-        this->fail(node.range, "TODO: Expected deduced value type but got metatype instead");
-        return nullptr;
-      }
-      return deduced.type;
-    }
-    Type deduceType(Node& node) {
-      auto deduced = this->deduceEither(node, IVMTypeResolver::Kind::Type);
-      if (deduced.failed()) {
-        return nullptr;
-      }
-      if (deduced.kind != IVMTypeResolver::Kind::Type) {
-        this->fail(node.range, "TODO: Expected deduced metatype but got value type instead");
-        return nullptr;
-      }
-      return deduced.type;
-    }
-  private:
-    Deduced deduceExprVariableGet(const HardValue& literal, const SourceRange& range) {
-      String symbol;
-      if (!literal->getString(symbol)) {
-        return this->fail(range, "Invalid variable symbol literal: ", literal);
-      }
-      Resolver::Kind kind;
-      auto type = this->resolver.resolveSymbol(symbol, kind);
-      if (type == nullptr) {
-        return this->fail(range, "Cannot deduce type for unknown identifier '", symbol, "'");
-      }
-      if (kind == Resolver::Kind::Type) {
-        return this->fail(range, "Identifier '", symbol, "' is a type, not a variable");
-      }
-      return { IVMTypeResolver::Kind::Value, type };
-    }
-    Deduced deduceExprPropertyGet(Node& instance, Node& property, const SourceRange& range) {
+    Deduced deduceAmbiguousPropertyGet(Node& instance, Node& property, const SourceRange& range, IVMTypeResolver::Kind hint) {
       // TODO
       if (instance.kind == Node::Kind::TypeManifestation) {
         // e.g. 'string.from', 'int.max' or 'Class.i'
@@ -1235,7 +1191,7 @@ namespace {
                 }
                 return this->fail(range, "Type '", description, "' does not support the static member '", pname, "'");
               }
-              return { IVMTypeResolver::Kind::Value, ptype };
+              return { hint, ptype };
             }
             return this->fail(range, "Cannot deduce type of property '", pname, "' for type");
           }
@@ -1243,7 +1199,45 @@ namespace {
         return this->fail(range, "Cannot deduce type of property for type");
       }
       // TODO
-      return { IVMTypeResolver::Kind::Value, Type::AnyQ };
+      return { hint, Type::AnyQ };
+    }
+    Type deduceValue(Node& node) {
+      auto deduced = this->deduceAmbiguous(node, IVMTypeResolver::Kind::Value);
+      if (deduced.failed()) {
+        return nullptr;
+      }
+      if (deduced.kind != IVMTypeResolver::Kind::Value) {
+        this->fail(node.range, "TODO: Expected deduced value type but got metatype instead");
+        return nullptr;
+      }
+      return deduced.type;
+    }
+    Type deduceType(Node& node) {
+      auto deduced = this->deduceAmbiguous(node, IVMTypeResolver::Kind::Type);
+      if (deduced.failed()) {
+        return nullptr;
+      }
+      if (deduced.kind != IVMTypeResolver::Kind::Type) {
+        this->fail(node.range, "TODO: Expected deduced metatype but got value type instead");
+        return nullptr;
+      }
+      return deduced.type;
+    }
+  private:
+    Deduced deduceExprVariableGet(const HardValue& literal, const SourceRange& range) {
+      String symbol;
+      if (!literal->getString(symbol)) {
+        return this->fail(range, "Invalid variable symbol literal: ", literal);
+      }
+      Resolver::Kind kind;
+      auto type = this->resolver.resolveSymbol(symbol, kind);
+      if (type == nullptr) {
+        return this->fail(range, "Cannot deduce type for unknown identifier '", symbol, "'");
+      }
+      if (kind == Resolver::Kind::Type) {
+        return this->fail(range, "Identifier '", symbol, "' is a type, not a variable");
+      }
+      return { IVMTypeResolver::Kind::Value, type };
     }
     Deduced deduceExprIndexGet(Node& instance, const SourceRange& range) {
       auto itype = this->deduceValue(instance);
@@ -1300,7 +1294,7 @@ namespace {
     Deduced deduceExprUnaryOp(ValueUnaryOp op, Node& rhs, const SourceRange& range) {
       switch (op) {
       case ValueUnaryOp::Negate:
-        return this->deduceEither(rhs, IVMTypeResolver::Kind::Value);
+        return this->deduceAmbiguous(rhs, IVMTypeResolver::Kind::Value);
       case ValueUnaryOp::BitwiseNot:
         return { IVMTypeResolver::Kind::Value, Type::Int };
       case ValueUnaryOp::LogicalNot:
@@ -1401,42 +1395,6 @@ namespace {
         return this->fail(range, "Values of type '", *ftype,"' do not support function call semantics");
       }
       return { IVMTypeResolver::Kind::Value, rtype };
-    }
-    Deduced deduceTypePropertyGet(Node& instance, Node& property, const SourceRange& range) {
-      // TODO
-      if (instance.kind == Node::Kind::TypeManifestation) {
-        // e.g. 'string.from', 'int.max' or 'Class.i'
-        assert(instance.children.size() == 1);
-        if (property.kind == Node::Kind::ExprLiteral) {
-          String pname;
-          if (property.literal->getString(pname)) {
-            auto infratype = this->deduceType(*instance.children.front());
-            if (infratype != nullptr) {
-              auto metashape = this->forge.getMetashape(infratype);
-              if ((metashape == nullptr) || (metashape->dotable == nullptr)) {
-                auto description = describe(*infratype);
-                if (infratype.hasProperties()) {
-                  return this->fail(range, "Type '", description, "' does not support static member (though values of type '", description, "' support properties)");
-                }
-                return this->fail(range, "Type '", description, "' does not support static members");
-              }
-              auto ptype = metashape->dotable->getType(pname);
-              if (ptype == nullptr) {
-                auto description = describe(*infratype);
-                if (infratype.hasProperty(pname)) {
-                  return this->fail(range, "Type '", description, "' does not support the static member '", pname, "' (though values of type '", description, "' support a property with that name)");
-                }
-                return this->fail(range, "Type '", description, "' does not support the static member '", pname, "'");
-              }
-              return { IVMTypeResolver::Kind::Type, ptype };
-            }
-            return this->fail(range, "Cannot deduce type of property '", pname, "' for type");
-          }
-        }
-        return this->fail(range, "Cannot deduce type of property for type");
-      }
-      // TODO
-      return { IVMTypeResolver::Kind::Type, Type::AnyQ };
     }
     Deduced deduceTypeVariableGet(const HardValue& literal, const SourceRange& range) {
       String symbol;
@@ -1549,7 +1507,7 @@ namespace {
       return { IVMTypeResolver::Kind::Type, Type::Object };
     }
     bool isDeducedAsFloat(Node& node) {
-      auto type = this->deduceEither(node, IVMTypeResolver::Kind::Value);
+      auto type = this->deduceAmbiguous(node, IVMTypeResolver::Kind::Value);
       return !type.failed() && Bits::hasAnySet(type.type->getPrimitiveFlags(), ValueFlags::Float);
     }
     template<typename... ARGS>
@@ -2011,7 +1969,7 @@ namespace {
     }
     virtual Type deduceType(Node& node, Resolver& resolver, Reporter* reporter, egg::ovum::IVMTypeResolver::Kind& deduced) override {
       VMTypeDeducer deducer{ *this->program, this->getTypeForge(), resolver, reporter };
-      auto result = deducer.deduceEither(node, deduced);
+      auto result = deducer.deduceAmbiguous(node, deduced);
       deduced = result.kind;
       return result.type;
     }

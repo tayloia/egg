@@ -743,6 +743,7 @@ namespace egg::internal {
     TypeForgeMetashapeBuilder(const TypeForgeMetashapeBuilder&) = delete;
     TypeForgeMetashapeBuilder& operator=(const TypeForgeMetashapeBuilder&) = delete;
   private:
+    HardPtr<ITypeForgeIndexBuilder> indexBuilder;
     HardPtr<ITypeForgePropertyBuilder> propertyBuilder;
     HardPtr<ITypeForgeTaggableBuilder> taggableBuilder;
   public:
@@ -758,7 +759,16 @@ namespace egg::internal {
     virtual void addProperty(const String& name, const Type& type, Accessability accessability) override {
       this->getPropertyBuilder().addProperty(name, type, accessability);
     }
+    virtual void addIndex(const Type& rtype, const Type& itype, Accessability accessability) override {
+      auto& ib = this->getIndexBuilder();
+      ib.setResultType(rtype);
+      if (itype != nullptr) {
+        ib.setIndexType(itype);
+      }
+      ib.setAccessability(accessability);
+    }
     virtual TypeShape build(const Type& infratype) override;
+    ITypeForgeIndexBuilder& getIndexBuilder();
     ITypeForgePropertyBuilder& getPropertyBuilder();
     ITypeForgeTaggableBuilder& getTaggableBuilder();
   };
@@ -1004,6 +1014,41 @@ namespace egg::internal {
         if (shape->dotable != nullptr) {
           ++visited;
           completed = callback(*shape->dotable);
+        }
+      }
+      return visited;
+    }
+    virtual size_t foreachIndexable(const Type& type, const std::function<bool(const IIndexSignature&)>& callback) override {
+      assert(type.validate());
+      size_t visited = 0;
+      bool completed = false;
+      auto flags = type->getPrimitiveFlags();
+      if (Bits::hasAnySet(flags, ValueFlags::Object)) {
+        ++visited;
+        completed = callback(*this->infrashapeObject->indexable);
+      }
+      if (!completed && Bits::hasAnySet(flags, ValueFlags::String)) {
+        ++visited;
+        completed = callback(*this->infrashapeString->indexable);
+      }
+      size_t index = 0;
+      for (auto* shape = type->getShape(index); !completed && (shape != nullptr); shape = type->getShape(++index)) {
+        if (shape->indexable != nullptr) {
+          ++visited;
+          completed = callback(*shape->indexable);
+        }
+      }
+      return visited;
+    }
+    virtual size_t foreachPointable(const Type& type, const std::function<bool(const IPointerSignature&)>& callback) override {
+      assert(type.validate());
+      size_t visited = 0;
+      bool completed = false;
+      size_t index = 0;
+      for (auto* shape = type->getShape(index); !completed && (shape != nullptr); shape = type->getShape(++index)) {
+        if (shape->pointable != nullptr) {
+          ++visited;
+          completed = callback(*shape->pointable);
         }
       }
       return visited;
@@ -1416,6 +1461,9 @@ namespace egg::internal {
         // TODO
         this->builder->addProperty(String::fromUTF8(this->forge->allocator, fname), ftype, paccessability);
       }
+      void addIndex(const Type& rtype, const Type& itype, Accessability paccessability) {
+        this->builder->addIndex(rtype, itype, paccessability);
+      }
       TypeShape build() {
         return this->builder->build(nullptr);
       }
@@ -1446,7 +1494,8 @@ namespace egg::internal {
     }
     TypeShape addInfrashapeString() {
       InfrashapeBuilder ib{ this };
-      ib.addPropertyFunction("length", Type::Int, Accessability::Get);
+      ib.addPropertyData("length", Type::Int, Accessability::Get);
+      ib.addIndex(Type::String, Type::Int, Accessability::Get);
       return ib.build();
     }
     TypeShape addMetashapeType() {
@@ -1520,6 +1569,13 @@ namespace egg::internal {
     return this->forge.forgeComplexType(this->flags, this->shapeset, this->specification);
   }
 
+  ITypeForgeIndexBuilder& TypeForgeMetashapeBuilder::getIndexBuilder() {
+    if (this->indexBuilder == nullptr) {
+      this->indexBuilder = this->forge.createIndexBuilder();
+    }
+    return *this->indexBuilder;
+  }
+
   ITypeForgePropertyBuilder& TypeForgeMetashapeBuilder::getPropertyBuilder() {
     if (this->propertyBuilder == nullptr) {
       this->propertyBuilder = this->forge.createPropertyBuilder();
@@ -1542,6 +1598,9 @@ namespace egg::internal {
       this->getTaggableBuilder().setDescription(sb.build(this->forge.getAllocator()), 2);
     }
     TypeForgeShape metashape;
+    if (this->indexBuilder != nullptr) {
+      metashape.indexable = &this->indexBuilder->build();
+    }
     if (this->propertyBuilder != nullptr) {
       metashape.dotable = &this->propertyBuilder->build();
     }

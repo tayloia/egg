@@ -562,7 +562,7 @@ namespace {
         }
         pfound = this->propertyCreate(property);
       }
-      // WIBBLE type check
+      // TODO type check
       return execution.mutateSoftValue(pfound->second, mutation, value);
     }
     HardValue propertyRef(IVMExecution& execution, const HardValue& property) {

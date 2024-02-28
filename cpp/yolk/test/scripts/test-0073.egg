@@ -1,0 +1,3 @@
+string s;
+*s = "a";
+///<COMPILER><ERROR><RESOURCE>(2,1-8): Values of type 'string' do not support pointer operator '*'

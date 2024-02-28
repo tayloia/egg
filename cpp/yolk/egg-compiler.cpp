@@ -229,7 +229,8 @@ namespace {
     bool checkStmtPropertyMutate(ModuleNode& instance, ModuleNode& property, egg::ovum::ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context);
     bool checkStmtIndexMutate(ModuleNode& instance, ModuleNode& index, egg::ovum::ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context);
     bool checkStmtPointeeMutate(ModuleNode& instance, egg::ovum::ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context);
-    egg::ovum::Type literalType(ParserNode& pnode);
+    bool checkTargetMutate(const egg::ovum::Type& target, egg::ovum::ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context);
+    egg::ovum::Type literalType(ParserNode & pnode);
     egg::ovum::String deduceString(ModuleNode& mnode, const ExprContext& context);
     egg::ovum::Type deduceType(ModuleNode& mnode, const ExprContext& context, egg::ovum::IVMTypeResolver::Kind& deduced) {
       class Resolver : public egg::ovum::IVMTypeResolver {
@@ -2592,54 +2593,65 @@ bool ModuleCompiler::checkValueExprTernary(egg::ovum::ValueTernaryOp, ModuleNode
 }
 
 bool ModuleCompiler::checkStmtVariableMutate(const egg::ovum::String& symbol, egg::ovum::ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context) {
-  (void)(symbol); (void)(op); (void)(value); (void)(pnode); (void)(context); // WIBBLE
-  return true;
+  auto extant = context.findSymbol(symbol);
+  if (extant == nullptr) {
+    this->error(pnode, "Unknown identifier: '", symbol, "'");
+    return false;
+  }
+  if (extant->kind == ExprContext::Symbol::Kind::Type) {
+    this->error(pnode, "Type identifier '", symbol, "' cannot be modified");
+    return false;
+  }
+  return this->checkTargetMutate(extant->type, op, value, pnode, context);
 }
 
 bool ModuleCompiler::checkStmtPropertyMutate(ModuleNode& instance, ModuleNode& property, egg::ovum::ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context) {
-  (void)(instance); (void)(property); (void)(op); (void)(value); (void)pnode; (void)(context); // WIBBLE
+  // Careful: The property may belong to a type (e.g. 'int.max') or an instance (e.g. 'o.p')
   auto kind = egg::ovum::IVMTypeResolver::Kind::Type;
-  auto ptype = this->deduceType(instance, context, kind);
-  if (ptype == nullptr) {
+  auto ctype = this->deduceType(instance, context, kind);
+  if (ctype == nullptr) {
     return false;
   }
   auto pname = this->deduceString(property, context);
   auto& forge = this->vm.getTypeForge();
   if (kind == egg::ovum::IVMTypeResolver::Kind::Type) {
-    auto* metashape = forge.getMetashape(ptype);
+    auto* metashape = forge.getMetashape(ctype);
     if (metashape == nullptr) {
-      this->error(pnode, "TODO: Cannot find metashape for type '", *ptype, "'");
+      this->error(pnode, "TODO: Cannot find metashape for type '", *ctype, "'");
       return false;
     }
     if (metashape->dotable == nullptr) {
-      this->error(pnode, "Type '", *ptype, "' does not support properties");
+      this->error(pnode, "Type '", *ctype, "' does not support properties");
       return false;
     }
     if (pname.empty()) {
       // Unknown or runtime-only property name
       auto paccessability = getAccessabilityUnion(*metashape->dotable);
       if (egg::ovum::Bits::hasNoneSet(paccessability, egg::ovum::Accessability::Mut)) {
-        this->error(pnode, "Type '", *ptype, "' does not support property modification");
+        this->error(pnode, "Type '", *ctype, "' does not support property modification");
         return false;
       }
-      return true;
+      // TODO
+      return this->checkTargetMutate(egg::ovum::Type::AnyQ, op, value, pnode, context);
     }
     auto paccessability = metashape->dotable->getAccessability(pname);
-    if (paccessability == egg::ovum::Accessability::None) {
-      this->error(pnode, "Type '", *ptype, "' does not support property '", pname, "'");
+    auto ptype = metashape->dotable->getType(pname);
+    if ((paccessability == egg::ovum::Accessability::None) || (ptype == nullptr)) {
+      this->error(pnode, "Type '", *ctype, "' does not support property '", pname, "'");
       return false;
     }
     if (egg::ovum::Bits::hasNoneSet(paccessability, egg::ovum::Accessability::Mut)) {
-      this->error(pnode, "Type '", *ptype, "' does not support modification of property '", pname, "'");
+      this->error(pnode, "Type '", *ctype, "' does not support modification of property '", pname, "'");
       return false;
     }
-    return true;
+    return this->checkTargetMutate(ptype, op, value, pnode, context);
   }
   auto foundAny = false;
   auto foundMut = false;
   if (pname.empty()) {
     // Unknown or runtime-only property name
-    forge.foreachDotable(ptype, [&](const egg::ovum::IPropertySignature& dotable) {
+    forge.foreachDotable(ctype, [&](const egg::ovum::IPropertySignature& dotable) {
+      // 'pname' is empty here, so we're effectively asking for unknown accessability
       foundAny = true;
       if (egg::ovum::Bits::hasAnySet(dotable.getAccessability(pname), egg::ovum::Accessability::Mut)) {
         foundMut = true;
@@ -2647,41 +2659,121 @@ bool ModuleCompiler::checkStmtPropertyMutate(ModuleNode& instance, ModuleNode& p
       return foundMut; // completed if found a mutable property
     });
     if (!foundAny) {
-      this->error(pnode, "Values of type '", *ptype, "' do not support properties");
+      this->error(pnode, "Values of type '", *ctype, "' do not support properties");
       return false;
     }
     if (!foundMut) {
-      this->error(pnode, "Values of type '", *ptype, "' do not support property modification");
+      this->error(pnode, "Values of type '", *ctype, "' do not support property modification");
       return false;
     }
-    return true;
+    // TODO
+    return this->checkTargetMutate(egg::ovum::Type::AnyQ, op, value, pnode, context);
   }
-  forge.foreachDotable(ptype, [&](const egg::ovum::IPropertySignature& dotable) {
-    auto paccessability = dotable.getAccessability(pname);
-    foundAny = paccessability != egg::ovum::Accessability::None;
-    if (egg::ovum::Bits::hasAnySet(paccessability, egg::ovum::Accessability::Mut)) {
+  auto builder = forge.createComplexBuilder();
+  forge.foreachDotable(ctype, [&](const egg::ovum::IPropertySignature& dotable) {
+    auto accessability = dotable.getAccessability(pname);
+    foundAny |= (accessability != egg::ovum::Accessability::None);
+    if (egg::ovum::Bits::hasAnySet(accessability, egg::ovum::Accessability::Mut)) {
+      auto ptype = dotable.getType(pname);
+      if (ptype != nullptr) {
+        // The builder constructs a union of all plausible property types
+        builder->addType(ptype);
+      }
       foundMut = true;
     }
-    return foundMut; // completed if found a mutable property
+    return false;
   });
   if (!foundAny) {
-    this->error(pnode, "Values of type '", *ptype, "' do not support property '", pname, "'");
+    this->error(pnode, "Values of type '", *ctype, "' do not support property '", pname, "'");
     return false;
   }
   if (!foundMut) {
-    this->error(pnode, "Values of type '", *ptype, "' do not support modification of property '", pname, "'");
+    this->error(pnode, "Values of type '", *ctype, "' do not support modification of property '", pname, "'");
     return false;
   }
-  return true;
+  auto ptype = builder->build();
+  return this->checkTargetMutate(ptype, op, value, pnode, context);
 }
 
 bool ModuleCompiler::checkStmtIndexMutate(ModuleNode& instance, ModuleNode& index, egg::ovum::ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context) {
-  (void)(instance); (void)(index); (void)(op); (void)(value); (void)(pnode); (void)(context); // WIBBLE
-  return true;
+  auto ctype = this->deduceExprType(instance, context);
+  if (ctype == nullptr) {
+    return false;
+  }
+  auto itype = this->deduceExprType(index, context);
+  if (itype == nullptr) {
+    return false;
+  }
+  auto& forge = this->vm.getTypeForge();
+  auto foundAny = false;
+  auto foundMut = false;
+  auto rbuilder = forge.createComplexBuilder();
+  forge.foreachIndexable(ctype, [&](const egg::ovum::IIndexSignature& indexable) {
+    auto accessability = indexable.getAccessability();
+    foundAny |= (accessability != egg::ovum::Accessability::None);
+    if (egg::ovum::Bits::hasAnySet(accessability, egg::ovum::Accessability::Mut)) {
+      // TODO check index type
+      auto rtype = indexable.getResultType();
+      if (rtype != nullptr) {
+        // The builder constructs a union of all plausible result types
+        rbuilder->addType(rtype);
+      }
+      foundMut = true;
+    }
+    return false;
+  });
+  if (!foundAny) {
+    this->error(pnode, "Values of type '", *ctype, "' do not support indexing");
+    return false;
+  }
+  if (!foundMut) {
+    this->error(pnode, "Values of type '", *ctype, "' do not support modification via indexing");
+    return false;
+  }
+  auto rtype = rbuilder->build();
+  return this->checkTargetMutate(rtype, op, value, pnode, context);
 }
 
 bool ModuleCompiler::checkStmtPointeeMutate(ModuleNode& instance, egg::ovum::ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context) {
-  (void)(instance); (void)(op); (void)(value); (void)(pnode); (void)(context); // WIBBLE
+  auto ctype = this->deduceExprType(instance, context);
+  if (ctype == nullptr) {
+    return false;
+  }
+ auto& forge = this->vm.getTypeForge();
+  auto foundAny = false;
+  auto foundMut = false;
+  auto rbuilder = forge.createComplexBuilder();
+  forge.foreachPointable(ctype, [&](const egg::ovum::IPointerSignature& pointable) {
+    auto modifiability = pointable.getModifiability();
+    foundAny |= (modifiability != egg::ovum::Modifiability::None);
+    if (egg::ovum::Bits::hasAnySet(modifiability, egg::ovum::Modifiability::Mutate)) {
+      auto type = pointable.getPointeeType();
+      if (type != nullptr) {
+        // The builder constructs a union of all plausible result types
+        rbuilder->addType(type);
+      }
+      foundMut = true;
+    }
+    return false;
+  });
+  if (!foundAny) {
+    this->error(pnode, "Values of type '", *ctype, "' do not support pointer operator '*'");
+    return false;
+  }
+  if (!foundMut) {
+    this->error(pnode, "Values of type '", *ctype, "' do not support modification via pointer operator '*'");
+    return false;
+  }
+  auto rtype = rbuilder->build();
+  return this->checkTargetMutate(rtype, op, value, pnode, context);
+}
+
+bool ModuleCompiler::checkTargetMutate(const egg::ovum::Type& target, egg::ovum::ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context) {
+  (void)(target); (void)(op); (void)(pnode); // WIBBLE
+  auto vtype = this->deduceExprType(value, context);
+  if (vtype == nullptr) {
+    return false;
+  }
   return true;
 }
 

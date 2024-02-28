@@ -138,6 +138,12 @@
     <None Include="..\yolk\test\scripts\test-0066.egg" />
     <None Include="..\yolk\test\scripts\test-0067.egg" />
     <None Include="..\yolk\test\scripts\test-0068.egg" />
+    <None Include="..\yolk\test\scripts\test-0069.egg" />
+    <None Include="..\yolk\test\scripts\test-0070.egg" />
+    <None Include="..\yolk\test\scripts\test-0071.egg" />
+    <None Include="..\yolk\test\scripts\test-0072.egg" />
+    <None Include="..\yolk\test\scripts\test-0073.egg" />
+    <None Include="..\yolk\test\scripts\test-0074.egg" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\yolk\test\data\utf-8-demo.bom.txt" />
