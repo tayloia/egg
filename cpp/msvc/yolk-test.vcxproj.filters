@@ -320,6 +320,12 @@
     <None Include="..\yolk\test\scripts\test-0076.egg">
       <Filter>Test Scripts</Filter>
     </None>
+    <None Include="..\yolk\test\scripts\test-0077.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0078.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\yolk\test\data\utf-8-demo.bom.txt">
