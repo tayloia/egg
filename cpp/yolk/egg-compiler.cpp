@@ -219,7 +219,6 @@ namespace {
     ModuleNode* compileAmbiguousExpr(ParserNode& pnode, const ExprContext& context, Ambiguous& ambiguous);
     ModuleNode* compileAmbiguousVariable(ParserNode& pnode, const ExprContext& context, Ambiguous& ambiguous);
     ModuleNode* compileLiteral(ParserNode& pnode);
-    ModuleNode* checkAmbiguousExpr(ModuleNode& mnode, const ExprContext& context);
     ModuleNode* checkValueExpr(ModuleNode& mnode, const ExprContext& context);
     bool checkValueExprOperand(const char* expected, ModuleNode& mnode, ParserNode& pnode, egg::ovum::ValueFlags required, const ExprContext& context);
     bool checkValueExprOperand2(const char* expected, ModuleNode& lhs, ModuleNode& rhs, ParserNode& pnode, egg::ovum::ValueFlags required, const ExprContext& context);
@@ -271,6 +270,23 @@ namespace {
       };
       Resolver resolver{ this->mbuilder, context, *this };
       return this->mbuilder.deduceType(mnode, resolver, this, deduced);
+    }
+    egg::ovum::Type deduceTypeExpr(ModuleNode& mnode, const ExprContext& context) {
+      // TODO: The split between 'deduceTypeExpr' and 'deduceExprType' needs revisiting
+      auto kind = egg::ovum::IVMTypeResolver::Kind::Type;
+      auto type = this->deduceType(mnode, context, kind);
+      if ((type != nullptr) && (kind != egg::ovum::IVMTypeResolver::Kind::Type)) {
+        throw std::logic_error("Cannot deduce type expression");
+      }
+      return type;
+    }
+    egg::ovum::Type deduceExprType(ModuleNode& mnode, const ExprContext& context) {
+      auto kind = egg::ovum::IVMTypeResolver::Kind::Value;
+      auto type = this->deduceType(mnode, context, kind);
+      if ((type != nullptr) && (kind != egg::ovum::IVMTypeResolver::Kind::Value)) {
+        throw std::logic_error("Cannot deduce type of expression");
+      }
+      return type;
     }
     void forgeNullability(egg::ovum::Type& type, bool nullable) {
       assert(type != nullptr);
@@ -598,9 +614,8 @@ ModuleNode* ModuleCompiler::compileStmtDeclareVariable(ParserNode& pnode, StmtCo
   if (mtype == nullptr) {
     return nullptr;
   }
-  egg::ovum::IVMTypeResolver::Kind kind;
-  auto type = this->deduceType(*mtype, context, kind);
-  if ((type == nullptr) || (kind != egg::ovum::IVMTypeResolver::Kind::Type)) {
+  auto type = this->deduceTypeExpr(*mtype, context);
+  if (type == nullptr) {
     return this->error(pnode, "Unable to deduce type of variable '", symbol, "' at compile time");
   }
   assert(type != nullptr);
@@ -624,10 +639,8 @@ ModuleNode* ModuleCompiler::compileStmtDefineVariable(ParserNode& pnode, StmtCon
     return nullptr;
   }
   assert(rnode != nullptr);
-  egg::ovum::IVMTypeResolver::Kind rkind;
-  auto rtype = this->deduceType(*rnode, context, rkind);
+  auto rtype = this->deduceExprType(*rnode, context);
   assert(rtype != nullptr);
-  assert(rkind == egg::ovum::IVMTypeResolver::Kind::Value);
   auto assignable = this->isAssignable(ltype, rtype);
   if (assignable == egg::ovum::Assignability::Never) {
     return this->error(*pnode.children.back(), "Cannot initialize '", symbol, "' of type '", ltype, "' with a value of type '", rtype, "'");
@@ -650,10 +663,9 @@ ModuleNode* ModuleCompiler::compileStmtDefineType(ParserNode& pnode, StmtContext
   if (mtype == nullptr) {
     return nullptr;
   }
-  egg::ovum::IVMTypeResolver::Kind kind;
-  auto type = this->deduceType(*mtype, context, kind);
-  if ((type == nullptr) || (kind != egg::ovum::IVMTypeResolver::Kind::Type)) {
-    // TODO this is the second error message generated for this problem; the other is issued by 'deduceType()'
+  auto type = this->deduceTypeExpr(*mtype, context);
+  if (type == nullptr) {
+    // TODO this is the second error message generated for this problem; the other is issued by 'deduceTypeExpr()'
     return this->error(pnode, "Unable to deduce type '", symbol, "' at compile time");
   }
   if (!this->addSymbol(context, pnode, StmtContext::Symbol::Kind::Type, symbol, type)) {
@@ -677,9 +689,8 @@ ModuleNode* ModuleCompiler::compileStmtDefineFunction(ParserNode& pnode, StmtCon
   if (mtype == nullptr) {
     return nullptr;
   }
-  egg::ovum::IVMTypeResolver::Kind kind;
-  auto type = this->deduceType(*mtype, context, kind);
-  if ((type == nullptr) || (kind != egg::ovum::IVMTypeResolver::Kind::Type)) {
+  auto type = this->deduceTypeExpr(*mtype, context);
+  if (type == nullptr) {
     return this->error(pnode, "Unable to deduce type of function '", symbol, "' at compile time");
   }
   auto* signature = type.getOnlyFunctionSignature();
@@ -999,10 +1010,8 @@ ModuleNode* ModuleCompiler::compileStmtReturn(ParserNode& pnode, StmtContext& co
     if (expr == nullptr) {
       return nullptr;
     }
-    egg::ovum::IVMTypeResolver::Kind kind;
-    auto type = this->deduceType(*expr, context, kind);
+    auto type = this->deduceExprType(*expr, context);
     assert(type != nullptr);
-    assert(kind == egg::ovum::IVMTypeResolver::Kind::Value);
     auto assignable = this->isAssignable(expected, type);
     if (assignable == egg::ovum::Assignability::Never) {
       return this->error(pchild, "Expected 'return' statement with a value of type '", *expected, "', but instead got a value of type '", *type, "'");
@@ -1043,10 +1052,8 @@ ModuleNode* ModuleCompiler::compileStmtYield(ParserNode& pnode, StmtContext& con
       return nullptr;
     }
     auto& forge = this->vm.getTypeForge();
-    egg::ovum::IVMTypeResolver::Kind xkind;
-    auto xtype = this->deduceType(*expr, context, xkind);
+    auto xtype = this->deduceExprType(*expr, context);
     assert(xtype != nullptr);
-    assert(xkind == egg::ovum::IVMTypeResolver::Kind::Value);
     auto itype = forge.forgeIterationType(xtype);
     if (itype == nullptr) {
       return this->error(pgrandchild, "Value of type '", *xtype, "' is not iterable in 'yield ...' statement");
@@ -1062,10 +1069,8 @@ ModuleNode* ModuleCompiler::compileStmtYield(ParserNode& pnode, StmtContext& con
   if (expr == nullptr) {
     return nullptr;
   }
-  egg::ovum::IVMTypeResolver::Kind kind;
-  auto type = this->deduceType(*expr, context, kind);
+  auto type = this->deduceExprType(*expr, context);
   assert(type != nullptr);
-  assert(kind == egg::ovum::IVMTypeResolver::Kind::Value);
   auto assignable = this->isAssignable(context.canYield->type, type);
   if (assignable == egg::ovum::Assignability::Never) {
     return this->error(pchild, "Expected 'yield' statement with a value of type '", *context.canYield->type, "', but instead got a value of type '", *type, "'");
@@ -1148,9 +1153,8 @@ ModuleNode* ModuleCompiler::compileStmtCatch(ParserNode& pnode, StmtContext& con
       // The catch type
       auto mtype = this->compileTypeExpr(*pchild, context);
       if (mtype != nullptr) {
-        egg::ovum::IVMTypeResolver::Kind kind;
-        auto type = this->deduceType(*mtype, context, kind);
-        if ((type == nullptr) || (kind != egg::ovum::IVMTypeResolver::Kind::Type)) {
+        auto type = this->deduceTypeExpr(*mtype, context);
+        if (type == nullptr) {
           return this->error(pnode, "Unable to deduce type of '", symbol, "' at compile time");
         }
         if (this->addSymbol(context, *pchild, StmtContext::Symbol::Kind::Variable, symbol, type)) {
@@ -1690,10 +1694,22 @@ ModuleNode* ModuleCompiler::compileValueExprProperty(ParserNode& dot, ParserNode
   if (rexpr == nullptr) {
     return nullptr;
   }
+  ModuleNode* mnode;
   if (ambiguous == Ambiguous::Type) {
     lexpr = &this->mbuilder.typeManifestation(*lexpr, lhs.range);
+    mnode = &this->mbuilder.exprPropertyGet(*lexpr, *rexpr, dot.range);
+    auto type = this->deduceTypeExpr(*mnode, context);
+    if (type == nullptr) {
+      return nullptr;
+    }
+  } else {
+    mnode = &this->mbuilder.exprPropertyGet(*lexpr, *rexpr, dot.range);
+    auto type = this->deduceExprType(*mnode, context);
+    if (type == nullptr) {
+      return nullptr;
+    }
   }
-  return this->checkAmbiguousExpr(this->mbuilder.exprPropertyGet(*lexpr, *rexpr, dot.range), context);
+  return mnode;
 }
 
 ModuleNode* ModuleCompiler::compileValueExprReference(ParserNode& ampersand, ParserNode& pexpr, const ExprContext& context) {
@@ -1782,10 +1798,8 @@ ModuleNode* ModuleCompiler::compileValueExprArrayUnhinted(ParserNode& pnode, con
     if (mchild == nullptr) {
       unionType = nullptr;
     } else if (unionType != nullptr) {
-      egg::ovum::IVMTypeResolver::Kind elementKind;
-      auto elementType = this->deduceType(*mchild, context, elementKind);
+      auto elementType = this->deduceExprType(*mchild, context);
       assert(elementType != nullptr);
-      assert(elementKind == egg::ovum::IVMTypeResolver::Kind::Value);
       unionType = forge.forgeUnionType(unionType, elementType);
       assert(unionType != nullptr);
       mchildren.push_back(mchild);
@@ -1881,9 +1895,8 @@ ModuleNode* ModuleCompiler::compileValueExprObjectElement(ParserNode& pnode, con
     if (mtype == nullptr) {
       return nullptr;
     }
-    egg::ovum::IVMTypeResolver::Kind kind;
-    auto type = this->deduceType(*mtype, context, kind);
-    if ((type == nullptr) || (kind != egg::ovum::IVMTypeResolver::Kind::Type)) {
+    auto type = this->deduceTypeExpr(*mtype, context);
+    if (type == nullptr) {
       // TODO double-reported?
       return this->error(pnode, "Unable to deduce type of object function '", symbol, "' at compile time");
     }
@@ -2189,9 +2202,8 @@ ModuleNode* ModuleCompiler::compileTypeSpecificationStaticFunction(ParserNode& p
   if (mtype == nullptr) {
     return nullptr;
   }
-  egg::ovum::IVMTypeResolver::Kind kind;
-  auto type = this->deduceType(*mtype, context, kind);
-  if ((type == nullptr) || (kind != egg::ovum::IVMTypeResolver::Kind::Type)) {
+  auto type = this->deduceTypeExpr(*mtype, context);
+  if (type == nullptr) {
     // TODO double-reported?
     return this->error(pnode, "Unable to deduce type of static function '", symbol, "' at compile time");
   }
@@ -2293,9 +2305,8 @@ ModuleNode* ModuleCompiler::compileTypeGuard(ParserNode& pnode, const ExprContex
   if (mexpr != nullptr) {
     egg::ovum::String symbol;
     EXPECT(pnode, pnode.value->getString(symbol));
-    egg::ovum::IVMTypeResolver::Kind kind;
-    auto actual = this->deduceType(*mexpr, context, kind);
-    assert(kind == egg::ovum::IVMTypeResolver::Kind::Value);
+    auto actual = this->deduceExprType(*mexpr, context);
+    assert(actual != nullptr);
     switch (this->isAssignable(type, actual)) {
     case egg::ovum::Assignability::Never:
       this->log(egg::ovum::ILogger::Severity::Warning, this->resource, pnode.range, ": Guarded assignment to '", symbol, "' of type '", type, "' will always fail");
@@ -2323,13 +2334,9 @@ ModuleNode* ModuleCompiler::compileTypeInfer(ParserNode& pnode, ParserNode& ptyp
   if (mtype == nullptr) {
     return nullptr;
   }
-  egg::ovum::IVMTypeResolver::Kind kind;
-  type = this->deduceType(*mtype, context, kind);
+  type = this->deduceTypeExpr(*mtype, context);
   if (type == nullptr) {
     return this->error(pnode, "Unable to infer type at compile time"); // TODO
-  }
-  if (kind != egg::ovum::IVMTypeResolver::Kind::Type) {
-    return this->error(pnode, "WIBBLE: Inferred type is not a type"); // TODO
   }
   mexpr = this->compileValueExpr(pexpr, context);
   if (mexpr == nullptr) {
@@ -2337,9 +2344,8 @@ ModuleNode* ModuleCompiler::compileTypeInfer(ParserNode& pnode, ParserNode& ptyp
   }
   if (pnode.kind == ParserNode::Kind::StmtForEach) {
     // We need to check the validity of 'for (<type> <iterator> : <iterable>)'
-    auto actual = this->deduceType(*mexpr, context, kind);
+    auto actual = this->deduceTypeExpr(*mexpr, context);
     assert(actual != nullptr);
-    assert(kind == egg::ovum::IVMTypeResolver::Kind::Type);
     auto& forge = this->vm.getTypeForge();
     auto itype = forge.forgeIterationType(type);
     if (itype == nullptr) {
@@ -2358,11 +2364,8 @@ ModuleNode* ModuleCompiler::compileTypeInferVar(ParserNode& pnode, ParserNode& p
   if (mexpr == nullptr) {
     return nullptr;
   }
-  egg::ovum::IVMTypeResolver::Kind kind;
-  type = this->deduceType(*mexpr, context, kind);
+  type = this->deduceExprType(*mexpr, context);
   assert(type != nullptr);
-  if (kind != egg::ovum::IVMTypeResolver::Kind::Value) // WIBBLE
-  assert(kind == egg::ovum::IVMTypeResolver::Kind::Value);
   auto& forge = this->vm.getTypeForge();
   if (pnode.kind == ParserNode::Kind::StmtForEach) {
     // We now have the type of 'iterable' in 'for (var[?] <iterator> : <iterable>)'
@@ -2468,20 +2471,8 @@ egg::ovum::String ModuleCompiler::deduceString(ModuleNode& mnode, const ExprCont
   return {};
 }
 
-ModuleNode* ModuleCompiler::checkAmbiguousExpr(ModuleNode& mnode, const ExprContext& context) {
-  egg::ovum::IVMTypeResolver::Kind kind;
-  auto type = this->deduceType(mnode, context, kind);
-  if (type == nullptr) {
-    return nullptr;
-  }
-  return &mnode;
-}
-
 ModuleNode* ModuleCompiler::checkValueExpr(ModuleNode& mnode, const ExprContext& context) {
-  egg::ovum::IVMTypeResolver::Kind kind;
-  auto type = this->deduceType(mnode, context, kind);
-  if(kind != egg::ovum::IVMTypeResolver::Kind::Value) // WIBBLE
-  assert(kind == egg::ovum::IVMTypeResolver::Kind::Value);
+  auto type = this->deduceExprType(mnode, context);
   if (type == nullptr) {
     return nullptr;
   }
@@ -2489,10 +2480,8 @@ ModuleNode* ModuleCompiler::checkValueExpr(ModuleNode& mnode, const ExprContext&
 }
 
 bool ModuleCompiler::checkValueExprOperand(const char* expected, ModuleNode& mnode, ParserNode& pnode, egg::ovum::ValueFlags required, const ExprContext& context) {
-  egg::ovum::IVMTypeResolver::Kind kind;
-  auto type = this->deduceType(mnode, context, kind);
+  auto type = this->deduceExprType(mnode, context);
   assert(type != nullptr);
-  assert(kind == egg::ovum::IVMTypeResolver::Kind::Value);
   if (!egg::ovum::Bits::hasAnySet(type->getPrimitiveFlags(), required)) {
     this->error(pnode, "Expected ", expected, ", but instead got a value of type '", *type, "'");
     return false;
@@ -2501,17 +2490,14 @@ bool ModuleCompiler::checkValueExprOperand(const char* expected, ModuleNode& mno
 }
 
 bool ModuleCompiler::checkValueExprOperand2(const char* expected, ModuleNode& lhs, ModuleNode& rhs, ParserNode& pnode, egg::ovum::ValueFlags required, const ExprContext& context) {
-  egg::ovum::IVMTypeResolver::Kind kind;
-  auto type = this->deduceType(lhs, context, kind);
+  auto type = this->deduceExprType(lhs, context);
   assert(type != nullptr);
-  assert(kind == egg::ovum::IVMTypeResolver::Kind::Value);
   if (!egg::ovum::Bits::hasAnySet(type->getPrimitiveFlags(), required)) {
     this->error(pnode, "Expected left-hand side of ", expected, ", but instead got a value of type '", *type, "'");
     return false;
   }
-  type = this->deduceType(rhs, context, kind);
+  type = this->deduceExprType(rhs, context);
   assert(type != nullptr);
-  assert(kind == egg::ovum::IVMTypeResolver::Kind::Value);
   if (!egg::ovum::Bits::hasAnySet(type->getPrimitiveFlags(), required)) {
     this->error(pnode, "Expected right-hand side of ", expected, ", but instead got a value of type '", *type, "'");
     return false;
@@ -2612,7 +2598,7 @@ bool ModuleCompiler::checkStmtVariableMutate(const egg::ovum::String& symbol, eg
 
 bool ModuleCompiler::checkStmtPropertyMutate(ModuleNode& instance, ModuleNode& property, egg::ovum::ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context) {
   (void)(instance); (void)(property); (void)(op); (void)(value); (void)pnode; (void)(context); // WIBBLE
-  egg::ovum::IVMTypeResolver::Kind kind;
+  auto kind = egg::ovum::IVMTypeResolver::Kind::Type;
   auto ptype = this->deduceType(instance, context, kind);
   if (ptype == nullptr) {
     return false;
