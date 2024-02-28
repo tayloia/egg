@@ -1,0 +1,9 @@
+type Class {
+  int i;
+};
+var v = Class {
+  int i = 10;
+};
+assert(v.i == 10);
+v.i = "ten";
+///<COMPILER><ERROR><RESOURCE>(8,1-11): 'Class' property 'i' (declared as 'int') cannot be assigned a value of type 'string'

@@ -13,5 +13,3 @@ var instance = Class {
 assert(type.of(instance) == "Class");
 assert(type.of(instance.c) == "int");
 assert(type.of(instance.d) == "(string|int)()");
-instance.c = "three";
-///<RUNTIME><ERROR><RESOURCE>(16,1-20): Type mismatch setting 'Class' property 'c' (declared as 'float|int') to a value of type 'string'

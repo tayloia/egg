@@ -229,7 +229,8 @@ namespace {
     bool checkStmtPropertyMutate(ModuleNode& instance, ModuleNode& property, egg::ovum::ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context);
     bool checkStmtIndexMutate(ModuleNode& instance, ModuleNode& index, egg::ovum::ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context);
     bool checkStmtPointeeMutate(ModuleNode& instance, egg::ovum::ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context);
-    bool checkTargetMutate(const egg::ovum::Type& target, egg::ovum::ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context);
+    enum class MutateCheck { Success, Unnecessary, Failure };
+    MutateCheck checkTargetMutate(const egg::ovum::Type& target, egg::ovum::ValueMutationOp op, const egg::ovum::Type& value, egg::ovum::String& problem);
     egg::ovum::Type literalType(ParserNode & pnode);
     egg::ovum::String deduceString(ModuleNode& mnode, const ExprContext& context);
     egg::ovum::Type deduceType(ModuleNode& mnode, const ExprContext& context, egg::ovum::IVMTypeResolver::Kind& deduced) {
@@ -2602,7 +2603,23 @@ bool ModuleCompiler::checkStmtVariableMutate(const egg::ovum::String& symbol, eg
     this->error(pnode, "Type identifier '", symbol, "' cannot be modified");
     return false;
   }
-  return this->checkTargetMutate(extant->type, op, value, pnode, context);
+  auto vtype = this->deduceExprType(value, context);
+  if (vtype == nullptr) {
+    return false;
+  }
+  egg::ovum::String problem;
+  switch (this->checkTargetMutate(extant->type, op, vtype, problem)) {
+  case MutateCheck::Failure:
+    this->error(pnode, "Variable '", symbol, "' (declared as '", *extant->type, "') ", problem);
+    return false;
+  case MutateCheck::Unnecessary:
+    this->warning(pnode, problem, " when applied to variable '", symbol, "' (declared as '", *extant->type, "')");
+    break;
+  case MutateCheck::Success:
+  default:
+    break;
+  }
+  return true;
 }
 
 bool ModuleCompiler::checkStmtPropertyMutate(ModuleNode& instance, ModuleNode& property, egg::ovum::ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context) {
@@ -2610,6 +2627,10 @@ bool ModuleCompiler::checkStmtPropertyMutate(ModuleNode& instance, ModuleNode& p
   auto kind = egg::ovum::IVMTypeResolver::Kind::Type;
   auto ctype = this->deduceType(instance, context, kind);
   if (ctype == nullptr) {
+    return false;
+  }
+  auto vtype = this->deduceExprType(value, context);
+  if (vtype == nullptr) {
     return false;
   }
   auto pname = this->deduceString(property, context);
@@ -2632,7 +2653,17 @@ bool ModuleCompiler::checkStmtPropertyMutate(ModuleNode& instance, ModuleNode& p
         return false;
       }
       // TODO
-      return this->checkTargetMutate(egg::ovum::Type::AnyQ, op, value, pnode, context);
+      egg::ovum::String problem;
+      switch (this->checkTargetMutate(egg::ovum::Type::AnyQ, op, vtype, problem)) {
+      case MutateCheck::Failure:
+        this->error(pnode, "Type '", *ctype, "' property ", problem);
+        return false;
+      case MutateCheck::Unnecessary: // never unnecessary
+      case MutateCheck::Success:
+      default:
+        break;
+      }
+      return true;
     }
     auto paccessability = metashape->dotable->getAccessability(pname);
     auto ptype = metashape->dotable->getType(pname);
@@ -2644,7 +2675,19 @@ bool ModuleCompiler::checkStmtPropertyMutate(ModuleNode& instance, ModuleNode& p
       this->error(pnode, "Type '", *ctype, "' does not support modification of property '", pname, "'");
       return false;
     }
-    return this->checkTargetMutate(ptype, op, value, pnode, context);
+    egg::ovum::String problem;
+    switch (this->checkTargetMutate(ptype, op, vtype, problem)) {
+    case MutateCheck::Failure:
+      this->error(pnode, "Type '", *ctype, "' property '", pname, "' (declared as '", *ptype, "') ", problem);
+      return false;
+    case MutateCheck::Unnecessary:
+      this->warning(pnode, problem, " when applied to type '", *ctype, "' property '", pname, "' (declared as '", *ptype, "')");
+      break;
+    case MutateCheck::Success:
+    default:
+      break;
+    }
+    return true;
   }
   auto foundAny = false;
   auto foundMut = false;
@@ -2667,7 +2710,21 @@ bool ModuleCompiler::checkStmtPropertyMutate(ModuleNode& instance, ModuleNode& p
       return false;
     }
     // TODO
-    return this->checkTargetMutate(egg::ovum::Type::AnyQ, op, value, pnode, context);
+    egg::ovum::String problem;
+    switch (this->checkTargetMutate(egg::ovum::Type::AnyQ, op, vtype, problem)) {
+    case MutateCheck::Failure:
+      this->error(pnode, "'", *ctype, "' property ", problem);
+      return false;
+    case MutateCheck::Unnecessary: // never unnecessary
+    case MutateCheck::Success:
+    default:
+      break;
+    }
+    if (!problem.empty()) {
+      this->error(pnode, "'", *ctype, "' property ", problem);
+      return false;
+    }
+    return true;
   }
   auto builder = forge.createComplexBuilder();
   forge.foreachDotable(ctype, [&](const egg::ovum::IPropertySignature& dotable) {
@@ -2692,7 +2749,19 @@ bool ModuleCompiler::checkStmtPropertyMutate(ModuleNode& instance, ModuleNode& p
     return false;
   }
   auto ptype = builder->build();
-  return this->checkTargetMutate(ptype, op, value, pnode, context);
+  egg::ovum::String problem;
+  switch (this->checkTargetMutate(ptype, op, vtype, problem)) {
+  case MutateCheck::Failure:
+    this->error(pnode, "'", *ctype, "' property '", pname, "' (declared as '", *ptype, "') ", problem);
+    return false;
+  case MutateCheck::Unnecessary:
+    this->warning(pnode, problem, " when applied to '", *ctype, "' property '", pname, "' (declared as '", *ptype, "')");
+    break;
+  case MutateCheck::Success:
+  default:
+    break;
+  }
+  return true;
 }
 
 bool ModuleCompiler::checkStmtIndexMutate(ModuleNode& instance, ModuleNode& index, egg::ovum::ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context) {
@@ -2702,6 +2771,10 @@ bool ModuleCompiler::checkStmtIndexMutate(ModuleNode& instance, ModuleNode& inde
   }
   auto itype = this->deduceExprType(index, context);
   if (itype == nullptr) {
+    return false;
+  }
+  auto vtype = this->deduceExprType(value, context);
+  if (vtype == nullptr) {
     return false;
   }
   auto& forge = this->vm.getTypeForge();
@@ -2731,7 +2804,19 @@ bool ModuleCompiler::checkStmtIndexMutate(ModuleNode& instance, ModuleNode& inde
     return false;
   }
   auto rtype = rbuilder->build();
-  return this->checkTargetMutate(rtype, op, value, pnode, context);
+  egg::ovum::String problem;
+  switch (this->checkTargetMutate(rtype, op, vtype, problem)) {
+  case MutateCheck::Failure:
+    this->error(pnode, "'", *ctype, "' indexed value (declared as '", *rtype, "') ", problem);
+    return false;
+  case MutateCheck::Unnecessary:
+    this->warning(pnode, problem, " when applied to '", *ctype, "' indexed value (declared as '", *rtype, "')");
+    break;
+  case MutateCheck::Success:
+  default:
+    break;
+  }
+  return true;
 }
 
 bool ModuleCompiler::checkStmtPointeeMutate(ModuleNode& instance, egg::ovum::ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context) {
@@ -2739,7 +2824,11 @@ bool ModuleCompiler::checkStmtPointeeMutate(ModuleNode& instance, egg::ovum::Val
   if (ctype == nullptr) {
     return false;
   }
- auto& forge = this->vm.getTypeForge();
+  auto vtype = this->deduceExprType(value, context);
+  if (vtype == nullptr) {
+    return false;
+  }
+  auto& forge = this->vm.getTypeForge();
   auto foundAny = false;
   auto foundMut = false;
   auto rbuilder = forge.createComplexBuilder();
@@ -2765,16 +2854,43 @@ bool ModuleCompiler::checkStmtPointeeMutate(ModuleNode& instance, egg::ovum::Val
     return false;
   }
   auto rtype = rbuilder->build();
-  return this->checkTargetMutate(rtype, op, value, pnode, context);
-}
-
-bool ModuleCompiler::checkTargetMutate(const egg::ovum::Type& target, egg::ovum::ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context) {
-  (void)(target); (void)(op); (void)(pnode); // WIBBLE
-  auto vtype = this->deduceExprType(value, context);
-  if (vtype == nullptr) {
+  egg::ovum::String problem;
+  switch (this->checkTargetMutate(rtype, op, vtype, problem)) {
+  case MutateCheck::Failure:
+    this->error(pnode, "Dereferenced value (declared as '", *rtype, "') ", problem);
     return false;
+  case MutateCheck::Unnecessary:
+    this->warning(pnode, problem, " when applied to dereferenced value (declared as '", *rtype, "')");
+    break;
+  case MutateCheck::Success:
+  default:
+    break;
   }
   return true;
+}
+
+ModuleCompiler::MutateCheck ModuleCompiler::checkTargetMutate(const egg::ovum::Type& target, egg::ovum::ValueMutationOp op, const egg::ovum::Type& value, egg::ovum::String& problem) {
+  auto& forge = this->vm.getTypeForge();
+  auto mutatability = forge.isTypeMutatable(target, op, value);
+  switch (mutatability) {
+  case egg::ovum::Mutatability::Sometimes:
+  case egg::ovum::Mutatability::Always:
+    break;
+  case egg::ovum::Mutatability::NeverLeft:
+    if (op == egg::ovum::ValueMutationOp::Assign) {
+      problem = this->concat("cannot be assigned a value of type '", *value, "'");
+    } else {
+      problem = this->concat("cannot have operator '", op, "' applied");
+    }
+    return MutateCheck::Failure;
+  case egg::ovum::Mutatability::NeverRight:
+    problem = this->concat("cannot have operator '", op, "' applied with a right-hand side of type '", *value, "'");
+    return MutateCheck::Failure;
+  case egg::ovum::Mutatability::Unnecessary:
+    problem = this->concat("Operator '", op, "' has no effect");
+    return MutateCheck::Unnecessary;
+  }
+  return MutateCheck::Success;
 }
 
 std::string ModuleCompiler::toString(const ParserNode& pnode) {

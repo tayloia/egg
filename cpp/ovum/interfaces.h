@@ -25,6 +25,14 @@ namespace egg::ovum {
     Always
   };
 
+  enum class Mutatability {
+    NeverLeft,
+    NeverRight,
+    Sometimes,
+    Always,
+    Unnecessary
+  };
+
   enum class Accessability {
     None = 0,
     Get = 1 << 0,
@@ -462,6 +470,7 @@ namespace egg::ovum {
     virtual Type forgePointerType(const Type& pointee, Modifiability modifiability) = 0;
     virtual Type forgeShapeType(const TypeShape& shape, IVMTypeSpecification* specification = nullptr) = 0;
     virtual Assignability isTypeAssignable(const Type& dst, const Type& src) = 0;
+    virtual Mutatability isTypeMutatable(const Type& dst, ValueMutationOp op, const Type& src) = 0;
     virtual Assignability isFunctionSignatureAssignable(const IFunctionSignature& dst, const IFunctionSignature& src) = 0;
     virtual size_t foreachDotable(const Type& type, const std::function<bool(const IPropertySignature&)>& callback) = 0;
     virtual size_t foreachIndexable(const Type& type, const std::function<bool(const IIndexSignature&)>& callback) = 0;

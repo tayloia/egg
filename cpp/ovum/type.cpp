@@ -993,6 +993,9 @@ namespace egg::internal {
     virtual Assignability isTypeAssignable(const Type& dst, const Type& src) override {
       return this->computeTypeAssignability(dst, src);
     }
+    virtual Mutatability isTypeMutatable(const Type& dst, ValueMutationOp op, const Type& src) override {
+      return this->computeTypeMutatability(dst, op, src);
+    }
     virtual Assignability isFunctionSignatureAssignable(const IFunctionSignature& dst, const IFunctionSignature& src) override {
       return this->computeFunctionSignatureAssignability(&dst, &src);
     }
@@ -1431,6 +1434,117 @@ namespace egg::internal {
     Assignability computeTaggableSignatureAssignability(const ITaggableSignature*, const ITaggableSignature*) {
       // TODO more compatability checks
       return Assignability::Always;
+    }
+    Mutatability computeTypeMutatability(const Type& dst, ValueMutationOp op, const Type& src) {
+      auto fdst = dst->getPrimitiveFlags();
+      auto fsrc = src->getPrimitiveFlags();
+      switch (op) {
+      case ValueMutationOp::Assign: // dst = src
+        switch (this->computeTypeAssignability(dst, src)) {
+        case Assignability::Always:
+          return Mutatability::Always;
+        case Assignability::Sometimes:
+          return Mutatability::Sometimes;
+        case Assignability::Never:
+        default:
+          break;
+        }
+        return Mutatability::NeverLeft;
+      case ValueMutationOp::Decrement: // --dst
+      case ValueMutationOp::Increment: // ++dst
+        if (Bits::hasNoneSet(fdst, ValueFlags::Int)) {
+          return Mutatability::NeverLeft;
+        }
+        if (fsrc != ValueFlags::Void) {
+          return Mutatability::NeverRight;
+        }
+        if (fdst != ValueFlags::Int) {
+          return Mutatability::Sometimes;
+        }
+        return Mutatability::Always;
+      case ValueMutationOp::Add: // dst += src
+      case ValueMutationOp::Subtract: // dst -= src
+      case ValueMutationOp::Multiply: // dst *= src
+      case ValueMutationOp::Divide: // dst /= src
+      case ValueMutationOp::Remainder: // dst %= src
+      case ValueMutationOp::Minimum: // dst <|= src
+      case ValueMutationOp::Maximum: // dst >|= src
+        if (Bits::hasAnySet(fdst, ValueFlags::Float)) {
+          // Support int-to-float promotion
+          if (Bits::hasNoneSet(fsrc, ValueFlags::Arithmetic)) {
+            return Mutatability::NeverRight;
+          }
+          if (Bits::hasAnySet(Bits::clear(fsrc, ValueFlags::Arithmetic)) || Bits::hasAnySet(Bits::clear(fdst, ValueFlags::Arithmetic))) {
+            return Mutatability::Sometimes;
+          }
+          return Mutatability::Always;
+        }
+        if (Bits::hasAnySet(fdst, ValueFlags::Int)) {
+          if (Bits::hasNoneSet(fsrc, ValueFlags::Int)) {
+            return Mutatability::NeverRight;
+          }
+          if ((fsrc != ValueFlags::Int) || (fdst != ValueFlags::Int)) {
+            return Mutatability::Sometimes;
+          }
+          return Mutatability::Always;
+        }
+        return Mutatability::NeverLeft;
+      case ValueMutationOp::BitwiseAnd: // dst &= src
+      case ValueMutationOp::BitwiseOr: // dst |= src
+      case ValueMutationOp::BitwiseXor: // dst ^= src
+        if (Bits::hasAnySet(fdst, ValueFlags::Bool) && Bits::hasAnySet(fsrc, ValueFlags::Bool)) {
+          if ((fsrc != ValueFlags::Bool) || (fdst != ValueFlags::Bool)) {
+            return Mutatability::Sometimes;
+          }
+          return Mutatability::Always;
+        }
+        if (Bits::hasAnySet(fdst, ValueFlags::Int) && Bits::hasAnySet(fsrc, ValueFlags::Int)) {
+          if ((fsrc != ValueFlags::Int) || (fdst != ValueFlags::Int)) {
+            return Mutatability::Sometimes;
+          }
+          return Mutatability::Always;
+        }
+        if (!Bits::hasAnySet(fdst, ValueFlags::Bool | ValueFlags::Int)) {
+          return Mutatability::NeverLeft;
+        }
+        return Mutatability::NeverRight;
+      case ValueMutationOp::ShiftLeft: // dst <<= src
+      case ValueMutationOp::ShiftRight: // dst >>= src
+      case ValueMutationOp::ShiftRightUnsigned: // dst >>>= src
+        if (Bits::hasAnySet(fdst, ValueFlags::Int)) {
+          if (Bits::hasNoneSet(fsrc, ValueFlags::Int)) {
+            return Mutatability::NeverRight;
+          }
+          if ((fsrc != ValueFlags::Int) || (fdst != ValueFlags::Int)) {
+            return Mutatability::Sometimes;
+          }
+          return Mutatability::Always;
+        }
+        return Mutatability::NeverLeft;
+      case ValueMutationOp::IfVoid: // dst !!= src
+        // We can always be uninitialized
+        return Mutatability::Always;
+      case ValueMutationOp::IfNull: // dst ??= src
+        if (!Bits::hasAnySet(fdst, ValueFlags::Null)) {
+          return Mutatability::Unnecessary;
+        }
+        return Mutatability::Always;
+      case ValueMutationOp::IfFalse: // dst ||= src
+      case ValueMutationOp::IfTrue: // dst &&= src
+        if (!Bits::hasAnySet(fdst, ValueFlags::Bool)) {
+          return Mutatability::NeverLeft;
+        }
+        if (!Bits::hasAnySet(fsrc, ValueFlags::Bool)) {
+          return Mutatability::NeverRight;
+        }
+        if (fsrc != ValueFlags::Bool) {
+          return Mutatability::Sometimes;
+        }
+        return Mutatability::Always;
+      case ValueMutationOp::Noop:
+        break;
+      }
+      return Mutatability::Unnecessary;
     }
     String typeSuffix(const Type& type, const char* suffix) const {
       assert(type.validate());
