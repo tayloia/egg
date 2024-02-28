@@ -928,13 +928,13 @@ namespace egg::internal {
         if (this->flags == ValueFlags::Int) {
           return this->createBeforeInt(this->ivalue.add(-1));
         }
-        return this->createRuntimeError("TODO: Mutation decrement is only supported for values of type 'int'");
+        return this->createRuntimeError("Decrement operator '--' is only supported for values of type 'int'");
       case ValueMutationOp::Increment:
         assert(rhs.getPrimitiveFlag() == ValueFlags::Void);
         if (this->flags == ValueFlags::Int) {
           return this->createBeforeInt(this->ivalue.add(+1));
         }
-        return this->createRuntimeError("TODO: Mutation increment is only supported for values of type 'int'");
+        return this->createRuntimeError("Increment operator '++' is only supported for values of type 'int'");
       case ValueMutationOp::Add:
         return this->createArithmetic(rhs,
                                       [this](Int rvalue) { return this->ivalue.add(rvalue); },
