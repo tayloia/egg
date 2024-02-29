@@ -1270,13 +1270,24 @@ bool egg::ovum::HardValue::validate() const {
 }
 
 egg::ovum::SoftKey::SoftKey(const SoftKey& value)
-  : ptr(&value.get()) {
+  : ptr(value.ptr) {
   assert(this->validate());
 }
 
 egg::ovum::SoftKey::SoftKey(IVM& vm, const HardValue& value)
   : ptr(&vm.createSoftOwned(value)) {
   assert(this->validate());
+}
+
+egg::ovum::SoftKey::SoftKey(SoftKey&& value) noexcept
+  : ptr(std::move(value.ptr)) {
+  assert(this->validate());
+}
+
+egg::ovum::SoftKey& egg::ovum::SoftKey::operator=(SoftKey&& value) noexcept {
+  this->ptr = std::move(value.ptr);
+  assert(this->validate());
+  return *this;
 }
 
 bool egg::ovum::SoftKey::validate() const {

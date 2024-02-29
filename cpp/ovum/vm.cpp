@@ -1472,10 +1472,10 @@ namespace {
         }
         switch (parameter->parameterFlags) {
         case IFunctionSignatureParameter::Flags::None:
-          fb->addOptionalParameter(ptype, pname);
+          fb->addOptionalParameter(pname, ptype);
           break;
         case IFunctionSignatureParameter::Flags::Required:
-          fb->addRequiredParameter(ptype, pname);
+          fb->addRequiredParameter(pname, ptype);
           break;
         case IFunctionSignatureParameter::Flags::Variadic:
         case IFunctionSignatureParameter::Flags::Predicate:

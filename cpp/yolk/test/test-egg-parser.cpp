@@ -1079,3 +1079,27 @@ TEST(TestEggParser, StatementTypeModifiabilityUnknown) {
   std::string expected = "<ERROR>: (2,10-12): Expected 'get', 'set', 'mut', 'ref' or 'del' in access clause of declaration of member 'i', but instead got 'foo'\n";
   ASSERT_EQ(expected, actual);
 }
+
+TEST(TestEggParser, AmbiguousFunctionCall) {
+  std::string actual = outputFromLines({
+    "a.b(c.d);"
+    });
+  std::string expected = "(expr-call (expr-property (variable 'a') \"b\") (expr-property (variable 'c') \"d\"))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, AmbiguousFunctionDeclaration) {
+  std::string actual = outputFromLines({
+    "a.b f(c.d e) {}"
+    });
+  std::string expected = "(stmt-define-function 'f' (type-signature 'f' (expr-property (variable 'a') \"b\") (type-parameter 'required' 'e' (expr-property (variable 'c') \"d\"))) (stmt-block))\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestEggParser, AmbiguousObjectAll) {
+  std::string actual = outputFromLines({
+    "object.del(a, \"b\");"
+    });
+  std::string expected = "(expr-call (expr-property (type-object) \"del\") (variable 'a') \"b\")\n";
+  ASSERT_EQ(expected, actual);
+}

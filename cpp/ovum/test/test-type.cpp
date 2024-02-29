@@ -22,7 +22,7 @@ namespace {
       return this->forge->forgePrimitiveType(flags);
     }
     String makeName(const char* name) {
-      return this->allocator.concat(name);
+      return String::fromUTF8(this->allocator, name);
     }
     String toTypeString(const IFunctionSignature& value) {
       StringBuilder sb;
@@ -83,13 +83,13 @@ TEST(TestType, ForgeFunctionSignatureAssignableAlways) {
   auto fb = forge->createFunctionBuilder();
   fb->setReturnType(Type::Void);
   fb->setFunctionName(forge.makeName("f"));
-  fb->addRequiredParameter(Type::Int, forge.makeName("a"));
+  fb->addRequiredParameter(forge.makeName("a"), Type::Int);
   auto& built1 = fb->build();
   ASSERT_STRING("void f(int a)", forge.toTypeString(built1));
   fb = forge->createFunctionBuilder();
   fb->setReturnType(Type::Void);
   fb->setFunctionName(forge.makeName("f"));
-  fb->addRequiredParameter(Type::Int, forge.makeName("b"));
+  fb->addRequiredParameter(forge.makeName("b"), Type::Int);
   auto& built2 = fb->build();
   ASSERT_STRING("void f(int b)", forge.toTypeString(built2));
   ASSERT_NE(&built1, &built2);
@@ -102,13 +102,13 @@ TEST(TestType, ForgeFunctionSignatureAssignableSometimes) {
   auto fb = forge->createFunctionBuilder();
   fb->setReturnType(Type::Void);
   fb->setFunctionName(forge.makeName("f"));
-  fb->addRequiredParameter(Type::Int, forge.makeName("a"));
+  fb->addRequiredParameter(forge.makeName("a"), Type::Int);
   auto& built1 = fb->build();
   ASSERT_STRING("void f(int a)", forge.toTypeString(built1));
   fb = forge->createFunctionBuilder();
   fb->setReturnType(Type::Void);
   fb->setFunctionName(forge.makeName("f"));
-  fb->addRequiredParameter(Type::Arithmetic, forge.makeName("b"));
+  fb->addRequiredParameter(forge.makeName("b"), Type::Arithmetic);
   auto& built2 = fb->build();
   ASSERT_STRING("void f(float|int b)", forge.toTypeString(built2));
   ASSERT_NE(&built1, &built2);
@@ -121,13 +121,13 @@ TEST(TestType, ForgeFunctionSignatureAssignableNever) {
   auto fb = forge->createFunctionBuilder();
   fb->setReturnType(Type::Void);
   fb->setFunctionName(forge.makeName("f"));
-  fb->addRequiredParameter(Type::Int, forge.makeName("a"));
+  fb->addRequiredParameter(forge.makeName("a"), Type::Int);
   auto& built1 = fb->build();
   ASSERT_STRING("void f(int a)", forge.toTypeString(built1));
   fb = forge->createFunctionBuilder();
   fb->setReturnType(Type::Void);
   fb->setFunctionName(forge.makeName("f"));
-  fb->addRequiredParameter(Type::String, forge.makeName("b"));
+  fb->addRequiredParameter(forge.makeName("b"), Type::String);
   auto& built2 = fb->build();
   ASSERT_STRING("void f(string b)", forge.toTypeString(built2));
   ASSERT_NE(&built1, &built2);
@@ -140,8 +140,8 @@ TEST(TestType, ForgeFunctionSignature) {
   auto fb = forge->createFunctionBuilder();
   fb->setReturnType(Type::Void);
   fb->setFunctionName(forge.makeName("f"));
-  fb->addRequiredParameter(forge.makePrimitive(ValueFlags::Int), forge.makeName("a"));
-  fb->addOptionalParameter(forge.makePrimitive(ValueFlags::String | ValueFlags::Null), forge.makeName("b"));
+  fb->addRequiredParameter(forge.makeName("a"), forge.makePrimitive(ValueFlags::Int));
+  fb->addOptionalParameter(forge.makeName("b"), forge.makePrimitive(ValueFlags::String | ValueFlags::Null));
   auto& built = fb->build();
   ASSERT_STRING("void f(int a, string? b = null)", forge.toTypeString(built));
 }

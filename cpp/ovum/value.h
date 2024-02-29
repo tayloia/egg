@@ -87,6 +87,8 @@ namespace egg::ovum {
     // Construction
     explicit SoftKey(const SoftKey& value);
     SoftKey(IVM& vm, const HardValue& value);
+    SoftKey(SoftKey&& value) noexcept;
+    SoftKey& operator=(SoftKey&& value) noexcept;
     // Atomic access
     const IValue& get() const {
       auto* p = this->ptr;

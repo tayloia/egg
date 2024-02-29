@@ -751,7 +751,7 @@ namespace {
         }
         auto& name = type.after(0);
         if (name.kind != EggTokenizerKind::Identifier) {
-          // Note we don't allow keywords
+          // Note we DON'T allow keywords
           return context.expected(type.tokensAfter, "identifier after type 'catch' statement");
         }
         if (!type.after(1).isOperator(EggTokenizerOperator::ParenthesisRight)) {
@@ -1159,6 +1159,7 @@ namespace {
         return lhs;
       }
       if (lhs.after(0).isOperator(EggTokenizerOperator::Bar)) {
+        // Type union
         auto rhs = this->parseTypeExpression(lhs.tokensAfter + 1);
         if (rhs.succeeded()) {
           lhs.wrap(Node::Kind::TypeBinary);
@@ -1170,6 +1171,20 @@ namespace {
           return lhs;
         }
         return rhs;
+      }
+      if (lhs.after(0).isOperator(EggTokenizerOperator::Dot)) {
+        // Type property access
+        auto& property = lhs.after(1);
+        if (!property.isPropertyName()) {
+          return context.expected(lhs.tokensAfter + 1, "type property name after '.'");
+        }
+        auto rhs = this->makeNodeString(Node::Kind::Literal, property);
+        lhs.wrap(Node::Kind::ExprProperty);
+        lhs.node->children.emplace_back(std::move(rhs));
+        lhs.node->range.end = { property.line, property.column + property.width };
+        lhs.tokensAfter += 2;
+        lhs.ambiguous = true;
+        return lhs;
       }
       return lhs;
     }
@@ -1985,17 +2000,7 @@ namespace {
       if (next->isOperator(EggTokenizerOperator::Dot)) {
         // Property access
         auto& property = partial.after(1);
-        switch (property.kind) {
-        case EggTokenizerKind::Identifier:
-        case EggTokenizerKind::Keyword:
-          // Note we allow identifiers and keywords
-          break;
-        case EggTokenizerKind::Integer:
-        case EggTokenizerKind::Float:
-        case EggTokenizerKind::String:
-        case EggTokenizerKind::Operator:
-        case EggTokenizerKind::Attribute:
-        case EggTokenizerKind::EndOfFile:
+        if (!property.isPropertyName()) {
           partial.fail("Expected property name after '.', but instead got ", property.toString());
           return false;
         }

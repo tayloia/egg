@@ -139,6 +139,10 @@ namespace egg::yolk {
     bool isOperator(EggTokenizerOperator op) const {
       return (this->kind == EggTokenizerKind::Operator) && (this->value.o == op);
     }
+    bool isPropertyName() const {
+      // Note we allow identifiers AND keywords
+      return (this->kind == EggTokenizerKind::Identifier) || (this->kind == EggTokenizerKind::Keyword);
+    }
     std::string toString() const;
   };
 

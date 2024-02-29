@@ -577,7 +577,16 @@ namespace {
         return this->raisePrefixError(execution, " does not permit deleting property '", property, "'");
       }
       VMObjectVanillaMutex::WriteLock lock{ this->mutex };
-      return this->raisePrefixError(execution, " does not yet support deleting property '", property, "'"); // TODO
+      auto pfound = this->properties.find(property);
+      if (pfound == this->properties.end()) {
+        // Didn't exist
+        return HardValue::Void;
+      }
+      auto& needle = pfound->first.get();
+      std::erase_if(this->keys, [&needle](const SoftKey& key) { return SoftKey::compare(key.get(), needle) == 0; });
+      auto result = execution.getSoftValue(pfound->second);
+      this->properties.erase(pfound);
+      return result;
     }
   protected:
     std::map<SoftKey, SoftValue, SoftComparator>::iterator propertyCreate(const HardValue& pkey) {
@@ -1835,13 +1844,28 @@ namespace {
     }
   };
 
-  class VMManifestionObject : public VMManifestionBase {
+  class VMManifestionObject : public VMManifestionWithProperties<VMManifestionObject> {
     VMManifestionObject(const VMManifestionObject&) = delete;
     VMManifestionObject& operator=(const VMManifestionObject&) = delete;
   public:
     explicit VMManifestionObject(IVM& vm)
-      : VMManifestionBase(vm) {
+      : VMManifestionWithProperties(vm) {
       this->type = Type::Object; // TODO
+      this->addMemberHandler("del", &VMManifestionObject::vmCallObjectDel);
+    }
+    HardValue vmCallObjectDel(IVMExecution& execution, const ICallArguments& arguments) {
+      if (arguments.getArgumentCount() != 2) {
+        return this->raiseRuntimeError(execution, "'object.del()' expects exactly two arguments");
+      }
+      HardValue argument;
+      HardObject instance;
+      if (!arguments.getArgumentValueByIndex(0, argument) || !argument->getHardObject(instance)) {
+        return this->raiseRuntimeError(execution, "'object.del()' expects its first argument to be an object instance"); // TODO
+      }
+      if (!arguments.getArgumentValueByIndex(1, argument)) {
+        return this->raiseRuntimeError(execution, "'object.del()' expects its second argument to be a property name"); // TODO
+      }
+      return instance->vmPropertyDel(execution, argument);
     }
     virtual const char* getManifestationName() const override {
       return "object";

@@ -7,4 +7,6 @@ print(a);
 a.i = "hello";
 print(a);
 ///>{p:123,i:"hello"}
-// TODO delete map elements
+assert(object.del(a, "p") == 123);
+print(a);
+///>{i:"hello"}

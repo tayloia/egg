@@ -391,8 +391,8 @@ namespace egg::ovum {
   public:
     virtual void setFunctionName(const String& name) = 0;
     virtual void setReturnType(const Type& type) = 0;
-    virtual void addRequiredParameter(const Type& type, const String& name) = 0;
-    virtual void addOptionalParameter(const Type& type, const String& name) = 0;
+    virtual void addRequiredParameter(const String& name, const Type& type) = 0;
+    virtual void addOptionalParameter(const String& name, const Type& type) = 0;
     virtual const IFunctionSignature& build() = 0;
   };
 
