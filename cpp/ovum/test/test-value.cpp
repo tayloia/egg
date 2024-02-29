@@ -129,7 +129,7 @@ TEST(TestValue, MutateIntAssign) {
   auto b = egg::ovum::ValueFactory::createInt(allocator, 54321);
   ASSERT_VALUE(12345, a->mutate(egg::ovum::ValueMutationOp::Assign, b.get()));
   ASSERT_VALUE(54321, a);
-  ASSERT_THROWN("Invalid right-hand value for mutation assignment to integer: 'false'", a->mutate(egg::ovum::ValueMutationOp::Assign, egg::ovum::HardValue::False.get()));
+  ASSERT_THROWN("Invalid right-hand value for integer mutation assignment '=': 'false'", a->mutate(egg::ovum::ValueMutationOp::Assign, egg::ovum::HardValue::False.get()));
 }
 
 TEST(TestValue, MutateIntDecrement) {
@@ -177,7 +177,7 @@ TEST(TestValue, MutateIntDivide) {
   ASSERT_VALUE(12345, a->mutate(egg::ovum::ValueMutationOp::Divide, b.get()));
   ASSERT_VALUE(1234, a);
   b = egg::ovum::ValueFactory::createInt(allocator, 0);
-  ASSERT_THROWN("Division by zero in mutation divide", a->mutate(egg::ovum::ValueMutationOp::Divide, b.get()));
+  ASSERT_THROWN("Division by zero in integer mutation divide '/='", a->mutate(egg::ovum::ValueMutationOp::Divide, b.get()));
 }
 
 TEST(TestValue, MutateIntRemainder) {
@@ -187,7 +187,7 @@ TEST(TestValue, MutateIntRemainder) {
   ASSERT_VALUE(12345, a->mutate(egg::ovum::ValueMutationOp::Remainder, b.get()));
   ASSERT_VALUE(5, a);
   b = egg::ovum::ValueFactory::createInt(allocator, 0);
-  ASSERT_THROWN("Division by zero in mutation remainder", a->mutate(egg::ovum::ValueMutationOp::Remainder, b.get()));
+  ASSERT_THROWN("Division by zero in integer mutation remainder '%='", a->mutate(egg::ovum::ValueMutationOp::Remainder, b.get()));
 }
 
 TEST(TestValue, MutateIntBitwiseAnd) {
@@ -251,7 +251,7 @@ TEST(TestValue, MutateFloatAssign) {
   auto b = egg::ovum::ValueFactory::createFloat(allocator, 1.25);
   ASSERT_VALUE(123.5, a->mutate(egg::ovum::ValueMutationOp::Assign, b.get()));
   ASSERT_VALUE(1.25, a);
-  ASSERT_THROWN("Invalid right-hand value for mutation assignment to float: 'true'", a->mutate(egg::ovum::ValueMutationOp::Assign, egg::ovum::HardValue::True.get()));
+  ASSERT_THROWN("Invalid right-hand value for float mutation assignment '=': 'true'", a->mutate(egg::ovum::ValueMutationOp::Assign, egg::ovum::HardValue::True.get()));
   auto i = egg::ovum::ValueFactory::createInt(allocator, 10);
   ASSERT_VALUE(1.25, a->mutate(egg::ovum::ValueMutationOp::Assign, i.get()));
   ASSERT_VALUE(10.0, a);

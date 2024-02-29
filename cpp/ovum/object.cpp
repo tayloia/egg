@@ -14,6 +14,81 @@ namespace {
     return ss.str();
   }
 
+  ValueMutationOp toMutationOp(const String& value) {
+    // OPTIMIZE
+    if (value.equals("=")) {
+      return ValueMutationOp::Assign;
+    }
+    if (value.equals("--")) {
+      return ValueMutationOp::Decrement;
+    }
+    if (value.equals("++")) {
+      return ValueMutationOp::Increment;
+    }
+    if (value.equals("+=")) {
+      return ValueMutationOp::Add;
+    }
+    if (value.equals("-=")) {
+      return ValueMutationOp::Subtract;
+    }
+    if (value.equals("*=")) {
+      return ValueMutationOp::Multiply;
+    }
+    if (value.equals("/=")) {
+      return ValueMutationOp::Divide;
+    }
+    if (value.equals("%=")) {
+      return ValueMutationOp::Remainder;
+    }
+    if (value.equals("&=")) {
+      return ValueMutationOp::BitwiseAnd;
+    }
+    if (value.equals("|=")) {
+      return ValueMutationOp::BitwiseOr;
+    }
+    if (value.equals("^=")) {
+      return ValueMutationOp::BitwiseXor;
+    }
+    if (value.equals("<<=")) {
+      return ValueMutationOp::ShiftLeft;
+    }
+    if (value.equals(">>=")) {
+      return ValueMutationOp::ShiftRight;
+    }
+    if (value.equals(">>>=")) {
+      return ValueMutationOp::ShiftRightUnsigned;
+    }
+    if (value.equals("<|=")) {
+      return ValueMutationOp::Minimum;
+    }
+    if (value.equals(">|=")) {
+      return ValueMutationOp::Maximum;
+    }
+    if (value.equals("!!=")) {
+      return ValueMutationOp::IfVoid;
+    }
+    if (value.equals("??=")) {
+      return ValueMutationOp::IfNull;
+    }
+    if (value.equals("||=")) {
+      return ValueMutationOp::IfFalse;
+    }
+    if (value.equals("&&=")) {
+      return ValueMutationOp::IfTrue;
+    }
+    return ValueMutationOp::Noop;
+  }
+
+  bool parseMutationOp(const HardValue& value, ValueMutationOp& mutation, size_t& operands) {
+    String text;
+    if (value->getString(text)) {
+      mutation = toMutationOp(text);
+      operands = ((mutation == ValueMutationOp::Decrement) || (mutation == ValueMutationOp::Increment)) ? 1u : 2u;
+      return mutation != ValueMutationOp::Noop;
+    }
+    return false;
+  }
+
   template<typename T, typename RETTYPE = HardObject, typename... ARGS>
   RETTYPE makeHardObject(IVM& vm, ARGS&&... args) {
     // Use perfect forwarding
@@ -554,7 +629,8 @@ namespace {
       VMObjectVanillaMutex::WriteLock lock{ this->mutex };
       auto pfound = this->properties.find(property);
       if (pfound == this->properties.end()) {
-        if (mutation != ValueMutationOp::Assign) {
+        // Unknown property
+        if ((mutation != ValueMutationOp::Assign) && (mutation != ValueMutationOp::IfVoid)) {
           return this->raisePrefixError(execution, " does not contain property '", property, "'");
         }
         if (this->unknownType == Type::Void) {
@@ -1717,7 +1793,7 @@ namespace {
       }
       auto found = this->handlers.find(name);
       if (found == this->handlers.end()) {
-        return this->raiseRuntimeError(execution, "Unknown property: '", this->getManifestationName(), ".", name, "'");
+        return this->raiseRuntimeError(execution, "Unknown type property: '", this->getManifestationName(), ".", name, "'");
       }
       auto instance = makeHardObject<VMManifestationMemberHandler<T>>(this->vm, *static_cast<T*>(this), found->second);
       return this->vm.createHardValueObject(instance);
@@ -1851,24 +1927,92 @@ namespace {
     explicit VMManifestionObject(IVM& vm)
       : VMManifestionWithProperties(vm) {
       this->type = Type::Object; // TODO
+      this->addMemberHandler("get", &VMManifestionObject::vmCallObjectGet);
+      this->addMemberHandler("set", &VMManifestionObject::vmCallObjectSet);
+      this->addMemberHandler("mut", &VMManifestionObject::vmCallObjectMut);
       this->addMemberHandler("del", &VMManifestionObject::vmCallObjectDel);
+    }
+    HardValue vmCallObjectGet(IVMExecution& execution, const ICallArguments& arguments) {
+      if (arguments.getArgumentCount() != 2) {
+        return this->raiseRuntimeError(execution, "'object.get()' expects exactly two arguments");
+      }
+      HardObject instance;
+      auto property = this->checkArguments(execution, arguments, "get", instance);
+      if (property.hasFlowControl()) {
+        return property;
+      }
+      return instance->vmPropertyGet(execution, property);
+    }
+    HardValue vmCallObjectSet(IVMExecution& execution, const ICallArguments& arguments) {
+      if (arguments.getArgumentCount() != 3) {
+        return this->raiseRuntimeError(execution, "'object.set()' expects exactly three arguments");
+      }
+      HardObject instance;
+      auto property = this->checkArguments(execution, arguments, "set", instance);
+      if (property.hasFlowControl()) {
+        return property;
+      }
+      HardValue value;
+      if (!arguments.getArgumentValueByIndex(2, value)) {
+        return this->raiseRuntimeError(execution, "'object.set()' expects its third argument to be a value");
+      }
+      return instance->vmPropertySet(execution, property, value);
+    }
+    HardValue vmCallObjectMut(IVMExecution& execution, const ICallArguments& arguments) {
+      if ((arguments.getArgumentCount() < 3) || (arguments.getArgumentCount() > 4)) {
+        return this->raiseRuntimeError(execution, "'object.mut()' expects three or four arguments");
+      }
+      HardObject instance;
+      auto property = this->checkArguments(execution, arguments, "mut", instance);
+      if (property.hasFlowControl()) {
+        return property;
+      }
+      HardValue value;
+      ValueMutationOp mutation;
+      size_t operands;
+      if (!arguments.getArgumentValueByIndex(2, value) || !parseMutationOp(value, mutation, operands)) {
+        return this->raiseRuntimeError(execution, "'object.mut()' expects its third argument to be a mutation string");
+      }
+      if (operands == 1) {
+        // Decrement/increment don't take a value
+        if (arguments.getArgumentCount() != 3) {
+          return this->raiseRuntimeError(execution, "'object.mut()' expects three arguments for mutation '", mutation, "'");
+        }
+        return instance->vmPropertyMut(execution, property, mutation, HardValue::Void);
+      }
+      if (arguments.getArgumentCount() != 4) {
+        return this->raiseRuntimeError(execution, "'object.mut()' expects four arguments for mutation '", mutation, "'");
+      }
+      if (!arguments.getArgumentValueByIndex(3, value)) {
+        return this->raiseRuntimeError(execution, "'object.mut()' expects its fourth argument to be a value");
+      }
+      return instance->vmPropertyMut(execution, property, mutation, value);
     }
     HardValue vmCallObjectDel(IVMExecution& execution, const ICallArguments& arguments) {
       if (arguments.getArgumentCount() != 2) {
         return this->raiseRuntimeError(execution, "'object.del()' expects exactly two arguments");
       }
-      HardValue argument;
       HardObject instance;
-      if (!arguments.getArgumentValueByIndex(0, argument) || !argument->getHardObject(instance)) {
-        return this->raiseRuntimeError(execution, "'object.del()' expects its first argument to be an object instance"); // TODO
+      auto property = this->checkArguments(execution, arguments, "del", instance);
+      if (property.hasFlowControl()) {
+        return property;
       }
-      if (!arguments.getArgumentValueByIndex(1, argument)) {
-        return this->raiseRuntimeError(execution, "'object.del()' expects its second argument to be a property name"); // TODO
-      }
-      return instance->vmPropertyDel(execution, argument);
+      return instance->vmPropertyDel(execution, property);
     }
     virtual const char* getManifestationName() const override {
       return "object";
+    }
+  private:
+    HardValue checkArguments(IVMExecution& execution, const ICallArguments& arguments, const char* member, HardObject& instance) {
+      HardValue argument;
+      if (!arguments.getArgumentValueByIndex(0, argument) || !argument->getHardObject(instance)) {
+        return this->raiseRuntimeError(execution, "'object.", member, "()' expects its first argument to be an object instance");
+      }
+      String name;
+      if (!arguments.getArgumentValueByIndex(1, argument) || !argument->getString(name)) {
+        return this->raiseRuntimeError(execution, "'object.", member, "()' expects its second argument to be a property name");
+      }
+      return argument;
     }
   };
 

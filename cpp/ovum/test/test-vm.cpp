@@ -1110,7 +1110,7 @@ TEST(TestVM, MutateAdd) {
   ADD_STATEMENT_MUTATE(Add, 123, "bad");
   buildAndRunFailed(vm, *pbuilder, *mbuilder);
   ASSERT_EQ("12345\n12345.0\n12468\n12468.5\n12468.5\n136.75\n"
-            "<ERROR>test: Mutation addition is only supported for values of type 'int' or 'float'\n",
+            "<ERROR>test: Mutation add '+=' is only supported for values of type 'int' or 'float', but right-hand side is a value of type 'string'\n",
             vm.logger.logged.str());
 }
 
@@ -1127,7 +1127,7 @@ TEST(TestVM, MutateSubtract) {
   ADD_STATEMENT_MUTATE(Subtract, 123, "bad");
   buildAndRunFailed(vm, *pbuilder, *mbuilder);
   ASSERT_EQ("12345\n12345.0\n12222\n12221.5\n-12221.5\n110.25\n"
-            "<ERROR>test: Mutation subtract is only supported for values of type 'int' or 'float'\n",
+            "<ERROR>test: Mutation subtract '-=' is only supported for values of type 'int' or 'float', but right-hand side is a value of type 'string'\n",
             vm.logger.logged.str());
 }
 
@@ -1144,7 +1144,7 @@ TEST(TestVM, MutateMultiply) {
   ADD_STATEMENT_MUTATE(Multiply, 123, "bad");
   buildAndRunFailed(vm, *pbuilder, *mbuilder);
   ASSERT_EQ("0\n0.0\n1518435\n1524607.5\n1524607.5\n1636.375\n"
-            "<ERROR>test: Mutation multiply is only supported for values of type 'int' or 'float'\n",
+            "<ERROR>test: Mutation multiply '*=' is only supported for values of type 'int' or 'float', but right-hand side is a value of type 'string'\n",
             vm.logger.logged.str());
 }
 
@@ -1160,7 +1160,7 @@ TEST(TestVM, MutateDivide) {
   ADD_STATEMENT_MUTATE(Divide, 12345, 0);
   buildAndRunFailed(vm, *pbuilder, *mbuilder);
   ASSERT_EQ("#+INF\n4938.0\n4938.0\n61.75\n49.4\n"
-            "<ERROR>test: Division by zero in mutation divide\n",
+            "<ERROR>test: Division by zero in mutation divide '/='\n",
             vm.logger.logged.str());
 }
 
@@ -1176,7 +1176,7 @@ TEST(TestVM, MutateRemainder) {
   ADD_STATEMENT_MUTATE(Remainder, 12345, 0);
   buildAndRunFailed(vm, *pbuilder, *mbuilder);
   ASSERT_EQ("#NAN\n0.5\n0.5\n1.5\n0.5\n"
-            "<ERROR>test: Division by zero in mutation remainder\n",
+            "<ERROR>test: Division by zero in mutation remainder '%='\n",
             vm.logger.logged.str());
 }
 
@@ -1192,7 +1192,7 @@ TEST(TestVM, MutateBitwiseAnd) {
   ADD_STATEMENT_MUTATE(BitwiseAnd, 12345, false);
   buildAndRunFailed(vm, *pbuilder, *mbuilder);
   ASSERT_EQ("false\nfalse\nfalse\ntrue\n8\n"
-            "<ERROR>test: Mutation bitwise-and is only supported for values of type 'bool' or 'int'\n",
+            "<ERROR>test: Mutation bitwise-and '&=' is only supported for matching values of type 'bool' or 'int', but left- and right-hand sides have different types\n",
             vm.logger.logged.str());
 }
 
@@ -1208,7 +1208,7 @@ TEST(TestVM, MutateBitwiseOr) {
   ADD_STATEMENT_MUTATE(BitwiseOr, 12345, false);
   buildAndRunFailed(vm, *pbuilder, *mbuilder);
   ASSERT_EQ("false\ntrue\ntrue\ntrue\n12347\n"
-            "<ERROR>test: Mutation bitwise-or is only supported for values of type 'bool' or 'int'\n",
+            "<ERROR>test: Mutation bitwise-or '|=' is only supported for matching values of type 'bool' or 'int', but left- and right-hand sides have different types\n",
             vm.logger.logged.str());
 }
 
@@ -1224,7 +1224,7 @@ TEST(TestVM, MutateBitwiseXor) {
   ADD_STATEMENT_MUTATE(BitwiseXor, 12345, false);
   buildAndRunFailed(vm, *pbuilder, *mbuilder);
   ASSERT_EQ("false\ntrue\ntrue\nfalse\n12339\n"
-            "<ERROR>test: Mutation bitwise-xor is only supported for values of type 'bool' or 'int'\n",
+            "<ERROR>test: Mutation bitwise-xor '^=' is only supported for matching values of type 'bool' or 'int', but left- and right-hand sides have different types\n",
             vm.logger.logged.str());
 }
 
@@ -1239,7 +1239,7 @@ TEST(TestVM, MutateShiftLeft) {
   ADD_STATEMENT_MUTATE(ShiftLeft, 12345, false);
   buildAndRunFailed(vm, *pbuilder, *mbuilder);
   ASSERT_EQ("12641280\n12\n-12641280\n-13\n"
-            "<ERROR>test: Mutation shift left is only supported for values of type 'int'\n",
+            "<ERROR>test: Mutation shift left '<<=' is only supported for values of type 'int', but right-hand side is 'false'\n",
             vm.logger.logged.str());
 }
 
@@ -1254,7 +1254,7 @@ TEST(TestVM, MutateShiftRight) {
   ADD_STATEMENT_MUTATE(ShiftRight, 12345, false);
   buildAndRunFailed(vm, *pbuilder, *mbuilder);
   ASSERT_EQ("12\n12641280\n-13\n-12641280\n"
-            "<ERROR>test: Mutation shift right is only supported for values of type 'int'\n",
+            "<ERROR>test: Mutation shift right '>>=' is only supported for values of type 'int', but right-hand side is 'false'\n",
             vm.logger.logged.str());
 }
 
@@ -1269,7 +1269,7 @@ TEST(TestVM, MutateShiftRightUnsigned) {
   ADD_STATEMENT_MUTATE(ShiftRightUnsigned, 12345, false);
   buildAndRunFailed(vm, *pbuilder, *mbuilder);
   ASSERT_EQ("12\n12641280\n18014398509481971\n-12641280\n"
-            "<ERROR>test: Mutation unsigned shift right is only supported for values of type 'int'\n",
+            "<ERROR>test: Mutation unsigned shift right '>>>=' is only supported for values of type 'int', but right-hand side is 'false'\n",
             vm.logger.logged.str());
 }
 

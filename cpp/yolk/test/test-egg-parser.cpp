@@ -962,7 +962,7 @@ TEST(TestEggParser, StatementTypeStaticFunctionError) {
     " static int f();",
     "};"
     });
-  std::string expected = "<ERROR>: (2,2-16): Forward declaration of static member function 'f' not yet supported\n";
+  std::string expected = "<ERROR>: (2,2-16): Forward declaration of static function 'f' not yet supported\n";
   ASSERT_EQ(expected, actual);
 }
 
@@ -972,7 +972,7 @@ TEST(TestEggParser, StatementTypeNonStaticDataError) {
     " int i = 123;",
     "};"
     });
-  std::string expected = "<ERROR>: (2,2-8): Expected ';' after identifier 'i' in declaration of non-static member, but instead got operator '='\n";
+  std::string expected = "<ERROR>: (2,2-8): Expected ';' after identifier 'i' in declaration of property, but instead got operator '='\n";
   ASSERT_EQ(expected, actual);
 }
 
@@ -982,7 +982,7 @@ TEST(TestEggParser, StatementTypeStaticDataError) {
     " static int i;",
     "};"
     });
-  std::string expected = "<ERROR>: (2,2-14): Forward declaration of static member 'i' not yet supported\n";
+  std::string expected = "<ERROR>: (2,2-14): Forward declaration of static property 'i' not yet supported\n";
   ASSERT_EQ(expected, actual);
 }
 
@@ -992,7 +992,7 @@ TEST(TestEggParser, StatementTypeNonStaticFunctionError) {
     " int f() { return 123; }",
     "};"
     });
-  std::string expected = "<ERROR>: (2,2-10): Expected ';' after ')' in declaration of non-static member function 'f', but instead got operator '{'\n";
+  std::string expected = "<ERROR>: (2,2-10): Expected ';' after ')' in declaration of non-static function 'f', but instead got operator '{'\n";
   ASSERT_EQ(expected, actual);
 }
 
@@ -1056,7 +1056,7 @@ TEST(TestEggParser, StatementTypeModifiabilityEmpty) {
     " int i {}",
     "};"
     });
-  std::string expected = "<ERROR>: (2,8-9): Expected at least one 'get', 'set', 'mut', 'ref' or 'del' in access clause of declaration of member 'i'\n";
+  std::string expected = "<ERROR>: (2,8-9): Expected at least one 'get', 'set', 'mut', 'ref' or 'del' in access clause of declaration of property 'i'\n";
   ASSERT_EQ(expected, actual);
 }
 
@@ -1076,7 +1076,7 @@ TEST(TestEggParser, StatementTypeModifiabilityUnknown) {
     " int i { foo; }",
     "};"
     });
-  std::string expected = "<ERROR>: (2,10-12): Expected 'get', 'set', 'mut', 'ref' or 'del' in access clause of declaration of member 'i', but instead got 'foo'\n";
+  std::string expected = "<ERROR>: (2,10-12): Expected 'get', 'set', 'mut', 'ref' or 'del' in access clause of declaration of property 'i', but instead got 'foo'\n";
   ASSERT_EQ(expected, actual);
 }
 

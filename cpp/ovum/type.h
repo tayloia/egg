@@ -33,6 +33,7 @@ namespace egg::ovum {
     Arithmetic = Int | Float,
     Any = Bool | Int | Float | String | Object,
     AnyQ = Null | Any,
+    AnyQV = Void | AnyQ,
     FlowControl = Break | Continue | Return | Yield | Throw
   };
   inline constexpr ValueFlags operator|(ValueFlags lhs, ValueFlags rhs) {
@@ -185,6 +186,7 @@ namespace egg::ovum {
     static const Type Object;
     static const Type Any;
     static const Type AnyQ;
+    static const Type AnyQV;
     static const Type Type_;
 
     // Helpers

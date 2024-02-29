@@ -1386,7 +1386,7 @@ namespace {
       if (next.isOperator(EggTokenizerOperator::Semicolon)) {
         // [static] <type> <identifier> ;
         if (isstatic) {
-          return context.failed(type.tokensAfter + 1, "Forward declaration of static member '", identifier.value.s, "' not yet supported");
+          return context.failed(type.tokensAfter + 1, "Forward declaration of static property '", identifier.value.s, "' not yet supported");
         }
         return this->parseTypeSpecificationAccess(type, identifier);
       }
@@ -1403,7 +1403,7 @@ namespace {
         if (signature.after(0).isOperator(EggTokenizerOperator::Semicolon)) {
           if (isstatic) {
             // static <type> <identifier> ( ... ) ;
-            return context.failed(signature.tokensAfter, "Forward declaration of static member function '", identifier.value.s, "' not yet supported");
+            return context.failed(signature.tokensAfter, "Forward declaration of static function '", identifier.value.s, "' not yet supported");
           }
           // <type> <identifier> ( ... ) ;
           auto stmt = this->makeNodeString(Node::Kind::TypeSpecificationInstanceFunction, identifier);
@@ -1412,10 +1412,10 @@ namespace {
         }
         if (!isstatic) {
           // <type> <identifier> ( ... ) ...
-          return context.expected(signature.tokensAfter, "';' after ')' in declaration of non-static member function '", identifier.value.s, "'");
+          return context.expected(signature.tokensAfter, "';' after ')' in declaration of non-static function '", identifier.value.s, "'");
         }
         if (!signature.after(0).isOperator(EggTokenizerOperator::CurlyLeft)) {
-          return context.expected(signature.tokensAfter, "'{' after ')' in definition of static member function '", identifier.value.s, "'");
+          return context.expected(signature.tokensAfter, "'{' after ')' in definition of static function '", identifier.value.s, "'");
         }
         // static <type> <identifier> ( ... ) {
         auto block = this->parseStatementBlock(signature.tokensAfter);
@@ -1429,7 +1429,7 @@ namespace {
       }
       if (!isstatic) {
         // <type> <identifier>
-        return context.expected(type.tokensAfter + 1, "';' after identifier '", identifier.value.s, "' in declaration of non-static member");
+        return context.expected(type.tokensAfter + 1, "';' after identifier '", identifier.value.s, "' in declaration of property");
       }
       // static <type> <identifier>
       if (next.isOperator(EggTokenizerOperator::Equal)) {
@@ -1439,14 +1439,14 @@ namespace {
           return expr;
         }
         if (!expr.after(0).isOperator(EggTokenizerOperator::Semicolon)) {
-          return context.expected(expr.tokensAfter, "';' after value of static member '", identifier.value.s, "'");
+          return context.expected(expr.tokensAfter, "';' after value of static property '", identifier.value.s, "'");
         }
         auto stmt = this->makeNodeString(Node::Kind::TypeSpecificationStaticData, identifier);
         stmt->children.emplace_back(std::move(type.node));
         stmt->children.emplace_back(std::move(expr.node));
         return context.success(std::move(stmt), expr.tokensAfter + 1);
       }
-      return context.expected(type.tokensAfter + 1, "'=' after identifier '", identifier.value.s, "' in definition of static member");
+      return context.expected(type.tokensAfter + 1, "'=' after identifier '", identifier.value.s, "' in definition of static property");
     }
     Partial parseTypeSpecificationAccess(Partial& partial, const EggTokenizerItem& identifier) {
       // 'partial' is the successful parsing of <type> before the <identifier>
@@ -1481,7 +1481,7 @@ namespace {
               stmt->children.emplace_back(std::move(access));
               if (!this->getAbsolute(nxtidx + 1).isOperator(EggTokenizerOperator::Semicolon)) {
                 context.tokensBefore = nxtidx;
-                return context.expected(nxtidx + 1, "';' after '", next->value.s, "' in access clause of declaration of member '", identifier.value.s, "'");
+                return context.expected(nxtidx + 1, "';' after '", next->value.s, "' in access clause of declaration of property '", identifier.value.s, "'");
               }
               nxtidx += 2;
               next = &this->getAbsolute(nxtidx);
@@ -1490,11 +1490,11 @@ namespace {
             }
           }
           context.tokensBefore = nxtidx;
-          return context.expected(nxtidx, "'get', 'set', 'mut', 'ref' or 'del' in access clause of declaration of member '", identifier.value.s, "'");
+          return context.expected(nxtidx, "'get', 'set', 'mut', 'ref' or 'del' in access clause of declaration of property '", identifier.value.s, "'");
         }
         if (empty) {
           context.tokensBefore = curly;
-          return context.failed(nxtidx, "Expected at least one 'get', 'set', 'mut', 'ref' or 'del' in access clause of declaration of member '", identifier.value.s, "'");
+          return context.failed(nxtidx, "Expected at least one 'get', 'set', 'mut', 'ref' or 'del' in access clause of declaration of property '", identifier.value.s, "'");
         }
         ++nxtidx;
       }
@@ -2210,7 +2210,7 @@ namespace {
           return expr;
         }
         if (!expr.after(0).isOperator(EggTokenizerOperator::Semicolon)) {
-          return context.expected(expr.tokensAfter, "';' after value of static member '", identifier.value.s, "'");
+          return context.expected(expr.tokensAfter, "';' after value of static property '", identifier.value.s, "'");
         }
         auto stmt = this->makeNodeString(Node::Kind::ObjectSpecificationData, identifier);
         stmt->children.emplace_back(std::move(type.node));

@@ -1640,7 +1640,7 @@ namespace egg::internal {
     TypeShape addMetashapeType() {
       MetashapeBuilder mb{ this };
       mb.addPropertyFunction(this->function("of", Type::String)
-        .addRequiredParameter("value", Type::AnyQ));
+        .addRequiredParameter("value", Type::AnyQV));
       return mb.build(Type::Type_);
     }
     TypeShape addMetashapeObject() {
@@ -1648,19 +1648,19 @@ namespace egg::internal {
       mb.addPropertyFunction(this->function("get", Type::AnyQ)
         .addRequiredParameter("instance", Type::Object)
         .addRequiredParameter("property", Type::String));
-      mb.addPropertyFunction(this->function("set", Type::AnyQ)
+      mb.addPropertyFunction(this->function("set", Type::Void)
         .addRequiredParameter("instance", Type::Object)
         .addRequiredParameter("property", Type::String)
         .addRequiredParameter("value", Type::AnyQ));
-      mb.addPropertyFunction(this->function("mut", Type::AnyQ)
+      mb.addPropertyFunction(this->function("mut", Type::AnyQV)
         .addRequiredParameter("instance", Type::Object)
         .addRequiredParameter("property", Type::String)
-        .addRequiredParameter("value", Type::AnyQ)
+        .addRequiredParameter("value", Type::AnyQV)
         .addRequiredParameter("mutation", Type::String));
       mb.addPropertyFunction(this->function("ref", Type::Object)
         .addRequiredParameter("instance", Type::Object)
         .addRequiredParameter("property", Type::String));
-      mb.addPropertyFunction(this->function("del", Type::AnyQ) // WIBBLE AnyQV
+      mb.addPropertyFunction(this->function("del", Type::AnyQV)
         .addRequiredParameter("instance", Type::Object)
         .addRequiredParameter("property", Type::String));
       return mb.build(Type::Object);
@@ -1831,6 +1831,7 @@ const Type Type::Arithmetic{ TypeForgePrimitive::forge(ValueFlags::Arithmetic) }
 const Type Type::Object{ TypeForgePrimitive::forge(ValueFlags::Object) };
 const Type Type::Any{ TypeForgePrimitive::forge(ValueFlags::Any) };
 const Type Type::AnyQ{ TypeForgePrimitive::forge(ValueFlags::AnyQ) };
+const Type Type::AnyQV{ TypeForgePrimitive::forge(ValueFlags::AnyQV) };
 const Type Type::Type_{ TypeForgePrimitive::forge(ValueFlags::Type) };
 
 int egg::ovum::Type::print(Printer& printer) const {
