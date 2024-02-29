@@ -1657,7 +1657,7 @@ namespace egg::internal {
         .addRequiredParameter("property", Type::String)
         .addRequiredParameter("value", Type::AnyQV)
         .addRequiredParameter("mutation", Type::String));
-      mb.addPropertyFunction(this->function("ref", Type::Object)
+      mb.addPropertyFunction(this->function("ref", this->forgePointerType(Type::AnyQ, Modifiability::All))
         .addRequiredParameter("instance", Type::Object)
         .addRequiredParameter("property", Type::String));
       mb.addPropertyFunction(this->function("del", Type::AnyQV)

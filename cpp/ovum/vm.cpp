@@ -465,8 +465,11 @@ namespace {
     virtual bool setSoftValue(SoftValue& lhs, const HardValue& rhs) override {
       return this->vm.setSoftValue(lhs, rhs);
     }
-    virtual HardValue mutateSoftValue(SoftValue& lhs, ValueMutationOp mutation, const HardValue& rhs) override {
-      return this->vm.mutateSoftValue(lhs, mutation, rhs);
+    virtual HardValue mutSoftValue(SoftValue& lhs, ValueMutationOp mutation, const HardValue& rhs) override {
+      return this->vm.mutSoftValue(lhs, mutation, rhs);
+    }
+    virtual HardValue refSoftValue(const SoftValue& soft, Modifiability modifiability) override {
+      return this->vm.refSoftValue(soft, modifiability);
     }
     virtual HardValue evaluateValueUnaryOp(ValueUnaryOp op, const HardValue& arg) override {
       return this->augment(this->unary(op, arg));
@@ -1268,18 +1271,15 @@ namespace {
         return { IVMTypeResolver::Kind::Value, itype };
       }
       Type ptype = nullptr;
-      auto count = itype->getShapeCount();
-      for (size_t index = 0; index < count; ++index) {
-        auto* shape = itype->getShape(index);
-        if ((shape != nullptr) && (shape->pointable != nullptr)) {
-          auto type = shape->pointable->getPointeeType();
-          if (ptype == nullptr) {
-            ptype = type;
-          } else {
-            ptype = this->forge.forgeUnionType(ptype, type);
-          }
+      forge.foreachPointable(itype, [&](const egg::ovum::IPointerSignature& pointable) {
+        auto type = pointable.getPointeeType();
+        if (ptype == nullptr) {
+          ptype = type;
+        } else {
+          ptype = this->forge.forgeUnionType(ptype, type);
         }
-      }
+        return false;
+      });
       if (ptype == nullptr) {
         return this->fail(range, "Values of type '", *itype, "' do not support pointer operator '*'");
       }
@@ -2543,7 +2543,7 @@ namespace {
       if (value.hasFlowControl()) {
         return value;
       }
-      auto pointer = ObjectFactory::createPointerToValue(this->vm, value, Modifiability::Read);
+      auto pointer = ObjectFactory::createPointerToValue(this->vm, value);
       assert(pointer != nullptr);
       return this->createHardValueObject(pointer);
     }
@@ -2584,7 +2584,7 @@ namespace {
       if (value.hasFlowControl()) {
         return value;
       }
-      auto pointer = ObjectFactory::createPointerToValue(this->vm, value, Modifiability::Read);
+      auto pointer = ObjectFactory::createPointerToValue(this->vm, value);
       assert(pointer != nullptr);
       return this->createHardValueObject(pointer);
     }
@@ -2928,9 +2928,9 @@ namespace {
         target = nullptr;
       }
     }
-    virtual IValue* softHarden(const IValue* soft) override {
+    virtual HardValue softHarden(const IValue& soft) override {
       // TODO: thread safety
-      return const_cast<IValue*>(soft);
+      return HardValue(const_cast<IValue&>(soft));
     }
     virtual IValue* softCreateValue(const IValue* init) override {
       // TODO: thread safety
@@ -2968,11 +2968,18 @@ namespace {
       assert(target != nullptr);
       return target->set(value);
     }
-    virtual HardValue softMutateValue(IValue*& target, ValueMutationOp mutation, const IValue& value) override {
+    virtual HardValue softMutValue(IValue*& target, ValueMutationOp mutation, const IValue& value) override {
       // TODO: thread safety
       // Note we do not currently update the target pointer but may do later for optimization reasons
       assert(target != nullptr);
       return target->mutate(mutation, value);
+    }
+    virtual HardValue softRefValue(const IValue& pointee, Modifiability modifiability) override {
+      auto* alias = this->softCreateAlias(pointee);
+      assert(alias != nullptr);
+      auto object = ObjectFactory::createPointerToAlias(*this, *alias, modifiability);
+      assert(object != nullptr);
+      return this->createHardValueObject(object);
     }
   };
 }
@@ -4114,8 +4121,7 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
         return this->raise("Unknown identifier: '", symbol, "'");
       }
       auto modifiability = (extant->kind == VMSymbolTable::Kind::Builtin) ? Modifiability::Read : Modifiability::All;
-      HardValue pointee{ *extant->soft };
-      auto pointer = ObjectFactory::createPointerToValue(this->vm, pointee, modifiability);
+      auto pointer = ObjectFactory::createPointerToAlias(this->vm, *extant->soft, modifiability);
       assert(pointer != nullptr);
       return this->pop(this->createHardValueObject(pointer));
     }

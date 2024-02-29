@@ -388,7 +388,7 @@ namespace {
       if (uvalue > this->elements.size()) {
         return this->raiseRuntimeError(execution, "Array index ", ivalue, " is out of range for an array of length ", this->elements.size());
       }
-      return execution.mutateSoftValue(this->elements[uvalue], mutation, value);
+      return execution.mutSoftValue(this->elements[uvalue], mutation, value);
     }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue& property) override {
       VMObjectVanillaMutex::ReadLock lock{ this->mutex };
@@ -564,7 +564,7 @@ namespace {
       return this->propertyMut(execution, index, mutation, value);
     }
     virtual HardValue vmIndexRef(IVMExecution& execution, const HardValue& index) override {
-      return this->propertyRef(execution, index);
+      return this->propertyRef(execution, index, Modifiability::All);
     }
     virtual HardValue vmIndexDel(IVMExecution& execution, const HardValue& index) override {
       return this->propertyDel(execution, index);
@@ -579,7 +579,7 @@ namespace {
       return this->propertyMut(execution, property, mutation, value);
     }
     virtual HardValue vmPropertyRef(IVMExecution& execution, const HardValue& property) override {
-      return this->propertyRef(execution, property);
+      return this->propertyRef(execution, property, Modifiability::All);
     }
     virtual HardValue vmPropertyDel(IVMExecution& execution, const HardValue& property) override {
       return this->propertyDel(execution, property);
@@ -639,14 +639,18 @@ namespace {
         pfound = this->propertyCreate(property);
       }
       // TODO type check
-      return execution.mutateSoftValue(pfound->second, mutation, value);
+      return execution.mutSoftValue(pfound->second, mutation, value);
     }
-    HardValue propertyRef(IVMExecution& execution, const HardValue& property) {
+    HardValue propertyRef(IVMExecution& execution, const HardValue& property, Modifiability modifiability) {
       if (!this->hasAccessability(property, Accessability::Ref)) {
         return this->raisePrefixError(execution, " does not permit referencing property '", property, "'");
       }
       VMObjectVanillaMutex::WriteLock lock{ this->mutex };
-      return this->raisePrefixError(execution, " does not yet support referencing property '", property, "'"); // TODO
+      auto pfound = this->properties.find(property);
+      if (pfound == this->properties.end()) {
+        return this->raisePrefixError(execution, " does not contain property '", property, "'");
+      }
+      return execution.refSoftValue(pfound->second, modifiability);
     }
     HardValue propertyDel(IVMExecution& execution, const HardValue& property) {
       if (!this->hasAccessability(property, Accessability::Del)) {
@@ -1184,35 +1188,34 @@ namespace {
     virtual HardValue pointeeMut(IVMExecution& execution, ValueMutationOp mutation, const HardValue& value) = 0;
   };
 
-  class VMObjectPointerToValue : public VMObjectPointerBase {
-    VMObjectPointerToValue(const VMObjectPointerToValue&) = delete;
-    VMObjectPointerToValue& operator=(const VMObjectPointerToValue&) = delete;
+  class VMObjectPointerToAlias : public VMObjectPointerBase {
+    VMObjectPointerToAlias(const VMObjectPointerToAlias&) = delete;
+    VMObjectPointerToAlias& operator=(const VMObjectPointerToAlias&) = delete;
   private:
-    IValue* alias;
+    IValue& alias;
   public:
-    VMObjectPointerToValue(IVM& vm, const HardValue& instance, Modifiability modifiability)
+    VMObjectPointerToAlias(IVM& vm, IValue& alias, Modifiability modifiability)
       : VMObjectPointerBase(vm, modifiability),
-        alias(&vm.createSoftAlias(instance)) {
-      assert(this->alias != nullptr);
+        alias(alias) {
     }
     virtual void softVisit(ICollectable::IVisitor& visitor) const override {
-      visitor.visit(*this->alias);
+      visitor.visit(this->alias);
     }
     virtual Type vmRuntimeType() override {
-      return this->vm.getTypeForge().forgePointerType(this->alias->getRuntimeType(), this->modifiability);
+      return this->vm.getTypeForge().forgePointerType(this->alias.getRuntimeType(), this->modifiability);
     }
   protected:
     virtual HardValue pointeeGet(IVMExecution&) override {
-      return HardValue(*this->alias);
+      return HardValue(this->alias);
     }
     virtual HardValue pointeeSet(IVMExecution& execution, const HardValue& value) {
-      if (this->alias->set(value.get())) {
+      if (this->alias.set(value.get())) {
         return this->raiseRuntimeError(execution, "Cannot assign value via pointer");
       }
       return HardValue::Void;
     }
     virtual HardValue pointeeMut(IVMExecution&, ValueMutationOp mutation, const HardValue& value) {
-      return this->alias->mutate(mutation, value.get());
+      return this->alias.mutate(mutation, value.get());
     }
   };
 
@@ -1756,7 +1759,7 @@ namespace {
   protected:
     Type type;
     virtual void printPrefix(Printer& printer) const override {
-      printer << "'" << this->getManifestationName() << "'";
+      printer << "Type '" << this->getManifestationName() << "'";
     }
   public:
     explicit VMManifestionBase(IVM& vm)
@@ -1789,20 +1792,20 @@ namespace {
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue& property) override {
       String name;
       if (!property->getString(name)) {
-        return this->raiseRuntimeError(execution, "Expected '", this->getManifestationName(), "' property name to be a 'string', but instead got ", describe(property.get()));
+        return this->raiseRuntimeError(execution, "Expected '", this->getManifestationName(), "' static property name to be a 'string', but instead got ", describe(property.get()));
       }
       auto found = this->handlers.find(name);
       if (found == this->handlers.end()) {
-        return this->raiseRuntimeError(execution, "Unknown type property: '", this->getManifestationName(), ".", name, "'");
+        return this->raisePrefixError(execution, " does not have a static property named '", name, "'");
       }
       auto instance = makeHardObject<VMManifestationMemberHandler<T>>(this->vm, *static_cast<T*>(this), found->second);
       return this->vm.createHardValueObject(instance);
     }
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return this->raisePrefixError(execution, " does not support property modification");
+      return this->raisePrefixError(execution, " does not support static property modification");
     }
     virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raisePrefixError(execution, " does not support property modification");
+      return this->raisePrefixError(execution, " does not support static property modification");
     }
   protected:
     void addMemberHandler(const char* name, MemberHandler handler) {
@@ -1930,6 +1933,7 @@ namespace {
       this->addMemberHandler("get", &VMManifestionObject::vmCallObjectGet);
       this->addMemberHandler("set", &VMManifestionObject::vmCallObjectSet);
       this->addMemberHandler("mut", &VMManifestionObject::vmCallObjectMut);
+      this->addMemberHandler("ref", &VMManifestionObject::vmCallObjectRef);
       this->addMemberHandler("del", &VMManifestionObject::vmCallObjectDel);
     }
     HardValue vmCallObjectGet(IVMExecution& execution, const ICallArguments& arguments) {
@@ -1987,6 +1991,17 @@ namespace {
         return this->raiseRuntimeError(execution, "'object.mut()' expects its fourth argument to be a value");
       }
       return instance->vmPropertyMut(execution, property, mutation, value);
+    }
+    HardValue vmCallObjectRef(IVMExecution& execution, const ICallArguments& arguments) {
+      if (arguments.getArgumentCount() != 2) {
+        return this->raiseRuntimeError(execution, "'object.ref()' expects exactly two arguments");
+      }
+      HardObject instance;
+      auto property = this->checkArguments(execution, arguments, "ref", instance);
+      if (property.hasFlowControl()) {
+        return property;
+      }
+      return instance->vmPropertyRef(execution, property);
     }
     HardValue vmCallObjectDel(IVMExecution& execution, const ICallArguments& arguments) {
       if (arguments.getArgumentCount() != 2) {
@@ -2168,8 +2183,13 @@ egg::ovum::HardObject egg::ovum::ObjectFactory::createVanillaManifestation(IVM& 
   return makeHardObject<VMObjectVanillaManifestation>(vm, infratype, metatype);
 }
 
-egg::ovum::HardObject egg::ovum::ObjectFactory::createPointerToValue(IVM& vm, const HardValue& value, Modifiability modifiability) {
-  return makeHardObject<VMObjectPointerToValue>(vm, value, modifiability);
+egg::ovum::HardObject egg::ovum::ObjectFactory::createPointerToValue(IVM& vm, const HardValue& value) {
+  // We can only read from a pointer-to-value
+  return makeHardObject<VMObjectPointerToAlias>(vm, vm.createSoftAlias(value), Modifiability::Read);
+}
+
+egg::ovum::HardObject egg::ovum::ObjectFactory::createPointerToAlias(IVM& vm, IValue& alias, Modifiability modifiability) {
+  return makeHardObject<VMObjectPointerToAlias>(vm, alias, modifiability);
 }
 
 egg::ovum::HardObject egg::ovum::ObjectFactory::createPointerToIndex(IVM& vm, const HardObject& instance, const HardValue& index, Modifiability modifiability, const Type& pointerType) {

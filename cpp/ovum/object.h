@@ -68,7 +68,8 @@ namespace egg::ovum {
     static HardObject createVanillaKeyValue(IVM& vm, const HardValue& key, const HardValue& value, Accessability accessability);
     static HardObject createVanillaManifestation(IVM& vm, const Type& infratype, const Type& metatype);
     // Pointer factories
-    static HardObject createPointerToValue(IVM& vm, const HardValue& value, Modifiability modifiability);
+    static HardObject createPointerToValue(IVM& vm, const HardValue& value);
+    static HardObject createPointerToAlias(IVM& vm, IValue& alias, Modifiability modifiability);
     static HardObject createPointerToIndex(IVM& vm, const HardObject& instance, const HardValue& index, Modifiability modifiability, const Type& pointerType);
     static HardObject createPointerToProperty(IVM& vm, const HardObject& instance, const HardValue& property, Modifiability modifiability, const Type& pointerType);
     // String proxy factories

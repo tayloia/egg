@@ -25,18 +25,16 @@ print(object.mut(v, "a", "=", "text"));
 print(v);
 ///>{i:123,a:"text"}
 
-/* WIBBLE
-  var p = object.ref(v, "i");
-  print(type.of(p));
-  ///>int*
-  print(*p);
-  ///>123
-  *p = 321;
-  print(v);
-  ///>{i:321,a:"text"}
-*/
+var p = object.ref(v, "i");
+print(type.of(p));
+///>int*
+print(*p);
+///>123
+*p = 321;
+print(v);
+///>{i:321,a:"text"}
 
 print(object.del(v, "i"));
-///>123
+///>321
 print(v);
 ///>{a:"text"}
