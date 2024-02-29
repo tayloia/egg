@@ -27,7 +27,7 @@ print(v);
 
 var p = object.ref(v, "i");
 print(type.of(p));
-///>int*
+///>any?*
 print(*p);
 ///>123
 *p = 321;

@@ -149,6 +149,7 @@
     <None Include="..\yolk\test\scripts\test-0077.egg" />
     <None Include="..\yolk\test\scripts\test-0078.egg" />
     <None Include="..\yolk\test\scripts\test-0079.egg" />
+    <None Include="..\yolk\test\scripts\test-0080.egg" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\yolk\test\data\utf-8-demo.bom.txt" />

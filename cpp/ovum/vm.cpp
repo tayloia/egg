@@ -471,6 +471,12 @@ namespace {
     virtual HardValue refSoftValue(const SoftValue& soft, Modifiability modifiability) override {
       return this->vm.refSoftValue(soft, modifiability);
     }
+    virtual HardValue refProperty(const HardObject& instance, const HardValue& property, Modifiability modifiability, const Type& pointeeType) override {
+      auto pointerType = this->vm.getTypeForge().forgePointerType(pointeeType, modifiability);
+      auto pointer = ObjectFactory::createPointerToProperty(this->vm, instance, property, modifiability, pointerType);
+      assert(pointer != nullptr);
+      return this->createHardValueObject(pointer);
+    }
     virtual HardValue evaluateValueUnaryOp(ValueUnaryOp op, const HardValue& arg) override {
       return this->augment(this->unary(op, arg));
     }

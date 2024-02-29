@@ -1,0 +1,20 @@
+object v = {};
+print(v);
+///>{}
+
+var p = object.ref(v, "i");
+print(type.of(p));
+///>any?*
+print(v);
+///>{}
+
+*p = "hello";
+print(v);
+///>{i:"hello"}
+
+v.i = "goodbye";
+print(v);
+///>{i:"goodbye"}
+
+print(*p);
+///>goodbye

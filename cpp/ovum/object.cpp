@@ -642,15 +642,23 @@ namespace {
       return execution.mutSoftValue(pfound->second, mutation, value);
     }
     HardValue propertyRef(IVMExecution& execution, const HardValue& property, Modifiability modifiability) {
+      // WIBBLE differentiate 'symbolic' and 'pointer' references?
       if (!this->hasAccessability(property, Accessability::Ref)) {
         return this->raisePrefixError(execution, " does not permit referencing property '", property, "'");
       }
       VMObjectVanillaMutex::WriteLock lock{ this->mutex };
+      /*
       auto pfound = this->properties.find(property);
       if (pfound == this->properties.end()) {
         return this->raisePrefixError(execution, " does not contain property '", property, "'");
       }
       return execution.refSoftValue(pfound->second, modifiability);
+      */
+      auto ptype = this->propertyType(property);
+      if (ptype == nullptr) {
+        return this->raisePrefixError(execution, " does not contain property '", property, "'");
+      }
+      return execution.refProperty(HardObject{ this }, property, modifiability, ptype);
     }
     HardValue propertyDel(IVMExecution& execution, const HardValue& property) {
       if (!this->hasAccessability(property, Accessability::Del)) {

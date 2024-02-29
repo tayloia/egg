@@ -157,6 +157,8 @@ namespace egg::ovum {
     virtual bool setSoftValue(SoftValue& lhs, const HardValue& rhs) = 0;
     virtual HardValue mutSoftValue(SoftValue& lhs, ValueMutationOp mutation, const HardValue& rhs) = 0;
     virtual HardValue refSoftValue(const SoftValue& soft, Modifiability modifiability) = 0;
+    // References
+    virtual HardValue refProperty(const HardObject& instance, const HardValue& property, Modifiability modifiability, const Type& pointeeType) = 0;
     // Operations
     virtual HardValue evaluateValueUnaryOp(ValueUnaryOp op, const HardValue& arg) = 0;
     virtual HardValue evaluateValueBinaryOp(ValueBinaryOp op, const HardValue& lhs, const HardValue& rhs) = 0;
@@ -371,7 +373,7 @@ namespace egg::ovum {
     virtual HardValue softHarden(const IValue& soft) = 0;
     virtual bool softSetValue(IValue*& soft, const IValue& value) = 0;
     virtual HardValue softMutValue(IValue*& soft, ValueMutationOp mutation, const IValue& value) = 0;
-    virtual HardValue softRefValue(const IValue& soft, Modifiability modifiability) = 0;
+    virtual HardValue softRefValue(const IValue& pointee, Modifiability modifiability) = 0;
   };
 
   class VMFactory {
