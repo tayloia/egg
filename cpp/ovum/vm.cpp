@@ -2800,9 +2800,8 @@ namespace {
     String buildMetatypeName(const Type& infratype) const {
       // TODO
       StringBuilder sb;
-      sb << "[";
       infratype.print(sb);
-      sb << " manifestation]";
+      sb << ".Manifestation";
       return sb.build(this->getAllocator());
     }
   };

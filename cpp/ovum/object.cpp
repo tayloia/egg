@@ -1746,23 +1746,26 @@ namespace {
     typedef HardValue (T::*Handler)(IVMExecution& execution, const ICallArguments& arguments);
   private:
     T& manifestation; // manifestation lifetime is directly controlled by the VM instance
+    const char* name;
     Handler handler;
   protected:
     virtual void printPrefix(Printer& printer) const override {
-      printer << "'" << this->manifestation.getManifestationName() << "' member handler";
+      printer << "'" << this->manifestation.getManifestationName() << '.' << this->name << "' member handler";
     }
   public:
-    VMManifestationMemberHandler(IVM& vm, T& manifestation, Handler handler)
+    VMManifestationMemberHandler(IVM& vm, T& manifestation, const char* name, Handler handler)
       : VMObjectBase(vm),
         manifestation(manifestation),
+        name(name),
         handler(handler) {
+      assert(this->name != nullptr);
       assert(this->handler != nullptr);
     }
     virtual void softVisit(ICollectable::IVisitor&) const override {
       // Nothing to visit
     }
     virtual int print(Printer& printer) const override {
-      printer << "[manifestation member handler]";
+      printer << '[' << this->manifestation.getManifestationName() << '.' << this->name << ']';
       return 0;
     }
     virtual Type vmRuntimeType() override {
@@ -1781,19 +1784,22 @@ namespace {
   protected:
     Type type;
     virtual void printPrefix(Printer& printer) const override {
-      printer << "Type '" << this->getManifestationName() << "'";
+      if (this->type->isPrimitive()) {
+        printer << "Type ";
+      }
+      printer << "'" << this->getManifestationName() << "'";
     }
   public:
     VMManifestionBase(IVM& vm, const Type& typeParent, const char* typeName)
       : VMObjectBase(vm),
-        type(getNamedType(vm, typeParent, typeName)) {
+      type(getNamedType(vm, typeParent, typeName)) {
       assert(this->type.validate());
     }
     virtual void softVisit(ICollectable::IVisitor&) const override {
       // No soft links
     }
     virtual int print(Printer& printer) const override {
-      printer << "[manifestation " << this->getManifestationName() <<"]";
+      printer << '[' << this->getManifestationName() << ']';
       return 0;
     }
     virtual Type vmRuntimeType() override {
@@ -1841,7 +1847,7 @@ namespace {
   protected:
     typedef HardValue (T::*MemberHandler)(IVMExecution& execution, const ICallArguments& arguments);
     void addMemberHandler(const char* pname, MemberHandler phandler) {
-      auto instance = makeHardObject<VMManifestationMemberHandler<T>>(this->vm, *static_cast<T*>(this), phandler);
+      auto instance = makeHardObject<VMManifestationMemberHandler<T>>(this->vm, *static_cast<T*>(this), pname, phandler);
       this->addProperty(pname, this->vm.createHardValueObject(instance));
     }
     void addProperty(const char* pname, const HardValue& pvalue) {
