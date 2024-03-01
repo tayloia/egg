@@ -384,7 +384,6 @@ namespace egg::ovum {
     virtual ValueFlags getPrimitiveFlags() const = 0;
     virtual size_t getShapeCount() const = 0;
     virtual const Shape* getShape(size_t index) const = 0;
-    // WIBBLE virtual const IType getNamedType(const String& name) const = 0;
     virtual HardPtr<IVMTypeSpecification> getSpecification() const = 0;
   };
 
@@ -486,6 +485,7 @@ namespace egg::ovum {
     virtual size_t foreachIndexable(const Type& type, const std::function<bool(const IIndexSignature&)>& callback) = 0;
     virtual size_t foreachPointable(const Type& type, const std::function<bool(const IPointerSignature&)>& callback) = 0;
     virtual const IType::Shape* getMetashape(const Type& type) = 0;
+    virtual Type getNamedType(const Type& parent, const String& name) = 0;
     virtual HardPtr<ITypeForgeFunctionBuilder> createFunctionBuilder() = 0;
     virtual HardPtr<ITypeForgePropertyBuilder> createPropertyBuilder() = 0;
     virtual HardPtr<ITypeForgeIndexBuilder> createIndexBuilder() = 0;

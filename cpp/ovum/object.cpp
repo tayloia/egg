@@ -1784,8 +1784,10 @@ namespace {
       printer << "Type '" << this->getManifestationName() << "'";
     }
   public:
-    explicit VMManifestionBase(IVM& vm)
-      : VMObjectBase(vm) {
+    VMManifestionBase(IVM& vm, const Type& typeParent, const char* typeName)
+      : VMObjectBase(vm),
+        type(getNamedType(vm, typeParent, typeName)) {
+      assert(this->type.validate());
     }
     virtual void softVisit(ICollectable::IVisitor&) const override {
       // No soft links
@@ -1798,6 +1800,10 @@ namespace {
       return this->type;
     }
     virtual const char* getManifestationName() const = 0;
+  private:
+    static Type getNamedType(IVM& vm, const Type& typeParent, const char* typeName) {
+      return vm.getTypeForge().getNamedType(typeParent, vm.createString(typeName));
+    }
   };
 
   template<typename T>
@@ -1808,8 +1814,8 @@ namespace {
     // Manifestation lifetime is directly controlled by the VM instance, so these can be hard references
     std::map<String, HardValue> properties;
   public:
-    explicit VMManifestionWithProperties(IVM& vm)
-      : VMManifestionBase(vm) {
+    VMManifestionWithProperties(IVM& vm, const Type& typeParent, const char* typeName)
+      : VMManifestionBase(vm, typeParent, typeName) {
     }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue& property) override {
       String name;
@@ -1844,8 +1850,7 @@ namespace {
     VMManifestionType& operator=(const VMManifestionType&) = delete;
   public:
     explicit VMManifestionType(IVM& vm)
-      : VMManifestionWithProperties(vm) {
-      this->type = Type::Object; // TODO
+      : VMManifestionWithProperties(vm, Type::Type_, "Type") {
       this->addMemberHandler("of", &VMManifestionType::vmCallTypeOf);
     }
     HardValue vmCallTypeOf(IVMExecution& execution, const ICallArguments& arguments) {
@@ -1872,8 +1877,7 @@ namespace {
     VMManifestionVoid& operator=(const VMManifestionVoid&) = delete;
   public:
     explicit VMManifestionVoid(IVM& vm)
-      : VMManifestionBase(vm) {
-      this->type = Type::Object; // TODO
+      : VMManifestionBase(vm, Type::Void, "Void") {
     }
     virtual HardValue vmCall(IVMExecution&, const ICallArguments&) override {
       // Just discard the values
@@ -1889,8 +1893,7 @@ namespace {
     VMManifestionBool& operator=(const VMManifestionBool&) = delete;
   public:
     explicit VMManifestionBool(IVM& vm)
-      : VMManifestionBase(vm) {
-      this->type = Type::Object; // TODO
+      : VMManifestionBase(vm, Type::Bool, "Bool") {
     }
     virtual const char* getManifestationName() const override {
       return "bool";
@@ -1902,8 +1905,7 @@ namespace {
     VMManifestionInt& operator=(const VMManifestionInt&) = delete;
   public:
     explicit VMManifestionInt(IVM& vm)
-      : VMManifestionBase(vm) {
-      this->type = Type::Object; // TODO
+      : VMManifestionBase(vm, Type::Int, "Int") {
     }
     virtual const char* getManifestationName() const override {
       return "int";
@@ -1915,8 +1917,7 @@ namespace {
     VMManifestionFloat& operator=(const VMManifestionFloat&) = delete;
   public:
     explicit VMManifestionFloat(IVM& vm)
-      : VMManifestionBase(vm) {
-      this->type = Type::Object; // TODO
+      : VMManifestionBase(vm, Type::Float, "Float") {
     }
     virtual const char* getManifestationName() const override {
       return "float";
@@ -1928,7 +1929,7 @@ namespace {
     VMManifestionString& operator=(const VMManifestionString&) = delete;
   public:
     explicit VMManifestionString(IVM& vm)
-      : VMManifestionBase(vm) {
+      : VMManifestionBase(vm, Type::String, "String") {
       auto& forge = vm.getTypeForge();
       this->type = forge.forgeShapeType(forge.forgeStringShape());
     }
@@ -1954,8 +1955,7 @@ namespace {
     VMManifestionObjectIndex& operator=(const VMManifestionObjectIndex&) = delete;
   public:
     explicit VMManifestionObjectIndex(IVM& vm)
-      : VMManifestionWithProperties(vm) {
-      this->type = Type::Object; // WIBBLE
+      : VMManifestionWithProperties(vm, Type::Object, "Index") {
       this->addMemberHandler("get", &VMManifestionObjectIndex::vmCallObjectGet);
       this->addMemberHandler("set", &VMManifestionObjectIndex::vmCallObjectSet);
       this->addMemberHandler("mut", &VMManifestionObjectIndex::vmCallObjectMut);
@@ -2061,8 +2061,7 @@ namespace {
     VMManifestionObjectProperty& operator=(const VMManifestionObjectProperty&) = delete;
   public:
     explicit VMManifestionObjectProperty(IVM& vm)
-      : VMManifestionWithProperties(vm) {
-      this->type = Type::Object; // WIBBLE
+      : VMManifestionWithProperties(vm, Type::Object, "Property") {
       this->addMemberHandler("get", &VMManifestionObjectProperty::vmCallObjectGet);
       this->addMemberHandler("set", &VMManifestionObjectProperty::vmCallObjectSet);
       this->addMemberHandler("mut", &VMManifestionObjectProperty::vmCallObjectMut);
@@ -2169,8 +2168,7 @@ namespace {
     VMManifestionObject& operator=(const VMManifestionObject&) = delete;
   public:
     explicit VMManifestionObject(IVM& vm)
-      : VMManifestionWithProperties(vm) {
-      this->type = Type::Object; // TODO
+      : VMManifestionWithProperties(vm, Type::Object, "Object") {
       this->addMemberValue("index", this->createValueIndex());
       this->addMemberValue("property", this->createValueProperty());
     }
@@ -2193,8 +2191,7 @@ namespace {
     VMManifestionAny& operator=(const VMManifestionAny&) = delete;
   public:
     explicit VMManifestionAny(IVM& vm)
-      : VMManifestionBase(vm) {
-      this->type = Type::Object; // TODO
+      : VMManifestionBase(vm, Type::Any, "Any") {
     }
     virtual const char* getManifestationName() const override {
       return "any";

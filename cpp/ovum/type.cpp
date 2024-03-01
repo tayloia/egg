@@ -86,18 +86,18 @@ namespace egg::internal {
       size_t operator()(const IType* key) const {
         return Hasher<size_t>::hash(key);
       }
-      template<typename K>
-      size_t operator()(const K* key) const {
-        return key->cacheHash();
+      template<typename T1, typename T2>
+      size_t operator()(const std::pair<T1, T2>& key) const {
+        return Hasher<size_t>::combine(key.first, key.second);
       }
     };
     struct Equals {
       bool operator()(const IType* lhs, const IType* rhs) const {
         return lhs == rhs;
       }
-      template<typename K>
-      bool operator()(const K* lhs, const K* rhs) const {
-        return K::cacheEquals(*lhs, *rhs);
+      template<typename T1, typename T2>
+      bool operator()(const std::pair<T1, T2>& lhs, const std::pair<T1, T2>& rhs) const {
+        return (lhs.first == rhs.first) && (lhs.second == rhs.second);
       }
     };
   };
@@ -107,29 +107,21 @@ namespace egg::internal {
     TypeForgeCacheMap(const TypeForgeCacheMap&) = delete;
     TypeForgeCacheMap& operator=(const TypeForgeCacheMap&) = delete;
   private:
-    std::unordered_map<const K*, V*, TypeForgeCacheHelper::Hash, TypeForgeCacheHelper::Equals> cache;
-    std::mutex mutex;
+    std::unordered_map<K, V, TypeForgeCacheHelper::Hash, TypeForgeCacheHelper::Equals> cache;
+    ReadWriteMutex mutex;
   public:
     TypeForgeCacheMap() {}
-    V& add(const K& key, V& value) {
-      return *this->cache.emplace(&key, &value).first->second;
+    V& add(const K& key, const V& value) {
+      WriteLock lock{ this->mutex };
+      return this->cache.emplace(key, value).first->second;
     }
     V* find(const K& key) {
-      std::lock_guard<std::mutex> lock{ this->mutex };
-      auto found = this->cache.find(&key);
+      ReadLock lock{ this->mutex };
+      auto found = this->cache.find(key);
       if (found != this->cache.end()) {
-        return found->second;
+        return &found->second;
       }
       return nullptr;
-    }
-    const V& fetch(K&& key, const std::function<V*(K&&)>& factory) {
-      std::lock_guard<std::mutex> lock{ this->mutex };
-      auto found = this->cache.find(&key);
-      if (found != this->cache.end()) {
-        return *found->second;
-      }
-      auto* value = factory(std::move(key));
-      return *this->cache.emplace_hint(found, value->cacheKey(), value)->second;
     }
   };
 
@@ -217,6 +209,35 @@ namespace egg::internal {
           }
         }
         return false;
+      }
+    };
+    struct Cache {
+      Cache(const Cache&) = delete;
+      Cache& operator=(const Cache&) = delete;
+      struct Hash {
+        size_t operator()(const Detail* key) const {
+          return key->cacheHash();
+        }
+      };
+      struct Equals {
+        bool operator()(const Detail* lhs, const Detail* rhs) const {
+          return Detail::cacheEquals(*lhs, *rhs);
+        }
+      };
+      std::unordered_map<const Detail*, const TypeForgeComplex*, Hash, Equals> cache;
+      ReadWriteMutex mutex;
+      Cache() {}
+      const TypeForgeComplex* find(const Detail& key) {
+        // Caller must obtain a read or write lock before calling
+        auto found = this->cache.find(&key);
+        if (found != this->cache.end()) {
+          return found->second;
+        }
+        return nullptr;
+      }
+      bool insert(const TypeForgeComplex& value) {
+        // Caller must obtain a write lock before calling
+        return this->cache.emplace(std::piecewise_construct, std::forward_as_tuple(value.cacheKey()), std::forward_as_tuple(&value)).second;
       }
     };
   private:
@@ -801,13 +822,19 @@ namespace egg::internal {
     TypeForgeCacheSet<TypeForgeIteratorSignature> cacheIteratorSignature;
     TypeForgeCacheSet<TypeForgePointerSignature> cachePointerSignature;
     TypeForgeCacheSet<TypeForgeTaggableSignature> cacheTaggableSignature;
-    TypeForgeCacheMap<TypeForgeComplex::Detail, TypeForgeComplex> cacheComplex;
-    TypeForgeCacheMap<IType, const IType::Shape> cacheMetashape;
+    TypeForgeCacheMap<Type, const IType::Shape*> cacheMetashape;
+    TypeForgeCacheMap<std::pair<Type, String>, Type> cacheNamedType;
+    TypeForgeComplex::Cache cacheComplex;
     TypeShape infrashapeObject;
     TypeShape infrashapeString;
     TypeShape metashapeType;
-    TypeShape metashapeObject;
+    TypeShape metashapeVoid;
+    TypeShape metashapeBool;
+    TypeShape metashapeInt;
+    TypeShape metashapeFloat;
     TypeShape metashapeString;
+    TypeShape metashapeObject;
+    TypeShape metashapeAny;
   public:
     TypeForgeDefault(IAllocator& allocator, IBasket& basket)
       : HardReferenceCountedAllocator(allocator),
@@ -815,8 +842,13 @@ namespace egg::internal {
         infrashapeObject(makeInfrashapeObject()),
         infrashapeString(makeInfrashapeString()),
         metashapeType(makeMetashapeType()),
+        metashapeVoid(makeMetashapeVoid()),
+        metashapeBool(makeMetashapeBool()),
+        metashapeInt(makeMetashapeInt()),
+        metashapeFloat(makeMetashapeFloat()),
+        metashapeString(makeMetashapeString()),
         metashapeObject(makeMetashapeObject()),
-        metashapeString(makeMetashapeString()) {
+        metashapeAny(makeMetashapeAny()) {
     }
     IAllocator& getAllocator() const {
       return this->allocator;
@@ -1094,7 +1126,12 @@ namespace egg::internal {
       return visited;
     }
     virtual const IType::Shape* getMetashape(const Type& infratype) override {
-      return this->cacheMetashape.find(*infratype);
+      auto found = this->cacheMetashape.find(infratype);
+      return (found == nullptr) ? nullptr : *found;
+    }
+    virtual Type getNamedType(const Type& parent, const String& name) override {
+      auto found = this->cacheNamedType.find(std::make_pair(parent, name));
+      return (found == nullptr) ? nullptr : *found;
     }
     virtual HardPtr<ITypeForgeFunctionBuilder> createFunctionBuilder() override {
       return this->createBuilder<TypeForgeFunctionBuilder>();
@@ -1124,11 +1161,14 @@ namespace egg::internal {
       return TypeShape(this->cacheShape.fetch(std::move(shape)));
     }
     Type forgeComplex(TypeForgeComplex::Detail&& detail) {
-      auto factory = [this](TypeForgeComplex::Detail&& detail) {
-        // TODO unroll this lambda and 'owned' update
-        return this->createOwned<TypeForgeComplex>(this->allocator, std::move(detail));
-      };
-      return Type(&this->cacheComplex.fetch(std::move(detail), factory));
+      WriteLock lock{ this->cacheComplex.mutex };
+      auto found = this->cacheComplex.find(detail);
+      if (found != nullptr) {
+        return Type{ found };
+      }
+      auto& created = this->createOwned<TypeForgeComplex>(this->allocator, std::move(detail));
+      this->cacheComplex.insert(created);
+      return Type{ &created };
     }
     Type forgeFlags(const Type& type, ValueFlags flags, bool required) {
       auto before = type->getPrimitiveFlags();
@@ -1175,17 +1215,21 @@ namespace egg::internal {
       if (infratype == nullptr) {
         return TypeShape(forged);
       }
-      return TypeShape(this->cacheMetashape.add(*infratype, forged));
+      return TypeShape(*this->cacheMetashape.add(infratype, &forged));
+    }
+    void forgeNamedType(const Type& parent, const String& name, const Type& child) {
+      this->cacheNamedType.add(std::make_pair(parent, name), child);
     }
     template<typename T, typename... ARGS>
     HardPtr<T> createBuilder(ARGS&&... args) {
       return HardPtr(this->allocator.makeRaw<T>(*this, std::forward<ARGS>(args)...));
     }
     template<typename T, typename... ARGS>
-    T* createOwned(ARGS&&... args) {
+    T& createOwned(ARGS&&... args) {
       auto* instance = this->allocator.makeRaw<T>(std::forward<ARGS>(args)...);
+      assert(instance != nullptr);
       this->owned.insert(instance);
-      return instance;
+      return *instance;
     }
     template<typename T>
     void destroy(T* instance) {
@@ -1598,10 +1642,12 @@ namespace egg::internal {
     struct FunctionBuilder {
       TypeForgeDefault* forge;
       HardPtr<ITypeForgeFunctionBuilder> builder;
-      FunctionBuilder(TypeForgeDefault* forge, const char* fname, const Type& rtype)
+      FunctionBuilder(TypeForgeDefault* forge, const Type& rtype, const char* fname = nullptr)
         : forge(forge),
           builder(forge->createFunctionBuilder()) {
-        this->builder->setFunctionName(this->forge->makeASCII(fname));
+        if (fname != nullptr) {
+          this->builder->setFunctionName(this->forge->makeASCII(fname));
+        }
         this->builder->setReturnType(rtype);
       }
       FunctionBuilder& addOptionalParameter(const char* pname, const Type& ptype) {
@@ -1652,12 +1698,26 @@ namespace egg::internal {
       }
     };
     struct MetashapeBuilder : public BaseBuilder {
+      std::map<String, Type> namedTypes;
       explicit MetashapeBuilder(TypeForgeDefault* forge)
         : BaseBuilder(forge) {
       }
-      TypeShape build(const Type& infratype) {
+      Type addNamedType(const char* name, const Type& type) {
+        assert(name != nullptr);
+        assert(type.validate());
+        this->namedTypes.emplace(this->forge->makeASCII(name), type);
+        return type;
+      }
+      TypeShape build(const Type& infratype, const char* metaname) {
         assert(infratype.validate());
-        return this->builder->build(infratype);
+        assert(metaname != nullptr);
+        for (const auto& named : this->namedTypes) {
+          this->forge->forgeNamedType(infratype, named.first, named.second);
+        }
+        auto metashape = this->builder->build(infratype);
+        auto metatype = this->forge->forgeShapeType(metashape);
+        this->forge->forgeNamedType(infratype, this->forge->makeASCII(metaname), metatype);
+        return metashape;
       }
     };
     struct TypeBuilder : public BaseBuilder {
@@ -1671,13 +1731,16 @@ namespace egg::internal {
         return this->forge->forgeShapeType(shape);
       }
     };
+    FunctionBuilder callable(const Type& rtype) {
+      return FunctionBuilder{ this, rtype };
+    }
     FunctionBuilder function(const char* fname, const Type& rtype) {
-      return FunctionBuilder{ this, fname, rtype };
+      return FunctionBuilder{ this, rtype, fname };
     }
     TypeShape makeInfrashapeObject() {
       InfrashapeBuilder ib{ this };
       // TODO add variadic parameters
-      ib.setCallable(this->function("WIBBLE", Type::AnyQV));
+      ib.setCallable(this->callable(Type::AnyQV));
       ib.setIndexable(Type::AnyQ, Type::AnyQ, Accessability::All);
       ib.setPointable(Type::AnyQ, Modifiability::All);
       ib.setUnknownProperty(Type::AnyQ, Accessability::All);
@@ -1693,13 +1756,35 @@ namespace egg::internal {
       MetashapeBuilder mb{ this };
       mb.addPropertyFunction(this->function("of", Type::String)
         .addRequiredParameter("value", Type::AnyQV));
-      return mb.build(Type::Type_);
+      return mb.build(Type::Type_, "Type");
+    }
+    TypeShape makeMetashapeVoid() {
+      MetashapeBuilder mb{ this };
+      return mb.build(Type::Void, "Void");
+    }
+    TypeShape makeMetashapeBool() {
+      MetashapeBuilder mb{ this };
+      return mb.build(Type::Bool, "Bool");
+    }
+    TypeShape makeMetashapeInt() {
+      MetashapeBuilder mb{ this };
+      return mb.build(Type::Int, "Int");
+    }
+    TypeShape makeMetashapeFloat() {
+      MetashapeBuilder mb{ this };
+      return mb.build(Type::Float, "Float");
+    }
+    TypeShape makeMetashapeString() {
+      MetashapeBuilder mb{ this };
+      mb.addPropertyFunction(this->function("fromCodePoints", Type::String)
+        .addOptionalParameter("codepoint", Type::Int));
+      return mb.build(Type::String, "String");
     }
     TypeShape makeMetashapeObject() {
       MetashapeBuilder mb{ this };
-      mb.addPropertyData("index", this->makeTypeObjectIndex()); // WIBBLE
-      mb.addPropertyData("property", this->makeTypeObjectProperty()); // WIBBLE
-      return mb.build(Type::Object);
+      mb.addPropertyData("index", mb.addNamedType("Index", this->makeTypeObjectIndex()));
+      mb.addPropertyData("property", mb.addNamedType("Property", this->makeTypeObjectProperty()));
+      return mb.build(Type::Object, "Object");
     }
     Type makeTypeObjectIndex() {
       TypeBuilder tb{ this };
@@ -1745,12 +1830,9 @@ namespace egg::internal {
         .addRequiredParameter("property", Type::String));
       return tb.build("object.Property");
     }
-    TypeShape makeMetashapeString() {
-      // TODO
+    TypeShape makeMetashapeAny() {
       MetashapeBuilder mb{ this };
-      mb.addPropertyFunction(this->function("fromCodePoints", Type::String)
-        .addOptionalParameter("codepoint", Type::Int));
-      return mb.build(Type::String);
+      return mb.build(Type::Any, "Any");
     }
     String makeASCII(const char* ascii) const {
       assert(ascii != nullptr);

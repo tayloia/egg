@@ -1,6 +1,5 @@
 print(type.of(object.property));
-///>object
-/// WIBBLE >object.Property
+///>object.Property
 
 var v = {};
 print(v);

@@ -1,6 +1,5 @@
 print(type.of(object.index));
-/// WIBBLE >object.Index
-///>object
+///>object.Index
 
 var v = ["one", "two", "three"];
 print(v);
