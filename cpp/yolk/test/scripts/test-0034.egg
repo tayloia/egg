@@ -1,2 +1,2 @@
 print(string.unknown(123));
-///<COMPILER><ERROR><RESOURCE>(1,7-20): Type 'string' does not support the static member 'unknown'
+///<COMPILER><ERROR><RESOURCE>(1,7-20): Type 'string' does not have a static property named 'unknown'

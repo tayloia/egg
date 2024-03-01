@@ -384,6 +384,7 @@ namespace egg::ovum {
     virtual ValueFlags getPrimitiveFlags() const = 0;
     virtual size_t getShapeCount() const = 0;
     virtual const Shape* getShape(size_t index) const = 0;
+    // WIBBLE virtual const IType getNamedType(const String& name) const = 0;
     virtual HardPtr<IVMTypeSpecification> getSpecification() const = 0;
   };
 
@@ -443,10 +444,18 @@ namespace egg::ovum {
 
   class ITypeForgeMetashapeBuilder : public IHardAcquireRelease {
   public:
+    // Taggable
     virtual void setDescription(const String& description, int precedence) = 0;
+    // // Callable
+    virtual void setCallable(const IFunctionSignature& signature) = 0;
+    // Indexable
+    virtual void setIndexable(const Type& rtype, const Type& itype, Accessability accessability) = 0;
+    // Pointable
+    virtual void setPointable(const Type& ptype, Modifiability modifiability) = 0;
+    // Dotable
     virtual void setUnknownProperty(const Type& type, Accessability accessability) = 0;
     virtual void addProperty(const String& name, const Type& type, Accessability accessability) = 0;
-    virtual void addIndex(const Type& rtype, const Type& itype, Accessability accessability) = 0;
+    // Build
     virtual TypeShape build(const Type& infratype) = 0;
   };
 
@@ -472,6 +481,7 @@ namespace egg::ovum {
     virtual Assignability isTypeAssignable(const Type& dst, const Type& src) = 0;
     virtual Mutatability isTypeMutatable(const Type& dst, ValueMutationOp op, const Type& src) = 0;
     virtual Assignability isFunctionSignatureAssignable(const IFunctionSignature& dst, const IFunctionSignature& src) = 0;
+    virtual size_t foreachCallable(const Type& type, const std::function<bool(const IFunctionSignature&)>& callback) = 0;
     virtual size_t foreachDotable(const Type& type, const std::function<bool(const IPropertySignature&)>& callback) = 0;
     virtual size_t foreachIndexable(const Type& type, const std::function<bool(const IIndexSignature&)>& callback) = 0;
     virtual size_t foreachPointable(const Type& type, const std::function<bool(const IPointerSignature&)>& callback) = 0;

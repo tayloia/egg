@@ -52,7 +52,7 @@ namespace {
   private:
     static const std::string directory;
     static const size_t lbound = 1;
-    static const size_t ubound = 80; // Set to zero to perform directory search
+    static const size_t ubound = 81; // Set to zero to perform directory search
   public:
     void run() {
       // Actually perform the testing

@@ -471,6 +471,12 @@ namespace {
     virtual HardValue refSoftValue(const SoftValue& soft, Modifiability modifiability) override {
       return this->vm.refSoftValue(soft, modifiability);
     }
+    virtual HardValue refIndex(const HardObject& instance, const HardValue& index, Modifiability modifiability, const Type& pointeeType) override {
+      auto pointerType = this->vm.getTypeForge().forgePointerType(pointeeType, modifiability);
+      auto pointer = ObjectFactory::createPointerToIndex(this->vm, instance, index, modifiability, pointerType);
+      assert(pointer != nullptr);
+      return this->createHardValueObject(pointer);
+    }
     virtual HardValue refProperty(const HardObject& instance, const HardValue& property, Modifiability modifiability, const Type& pointeeType) override {
       auto pointerType = this->vm.getTypeForge().forgePointerType(pointeeType, modifiability);
       auto pointer = ObjectFactory::createPointerToProperty(this->vm, instance, property, modifiability, pointerType);
@@ -1188,17 +1194,17 @@ namespace {
               if ((metashape == nullptr) || (metashape->dotable == nullptr)) {
                 auto description = describe(*infratype);
                 if (infratype.hasProperties()) {
-                  return this->fail(range, "Type '", description, "' does not support static member (though values of type '", description, "' support properties)");
+                  return this->fail(range, "Type '", description, "' does not support static properties (though values of type '", description, "' support properties)");
                 }
-                return this->fail(range, "Type '", description, "' does not support static members");
+                return this->fail(range, "Type '", description, "' does not support static properties");
               }
               auto ptype = metashape->dotable->getType(pname);
               if (ptype == nullptr) {
                 auto description = describe(*infratype);
                 if (infratype.hasProperty(pname)) {
-                  return this->fail(range, "Type '", description, "' does not support the static member '", pname, "' (though values of type '", description, "' support a property with that name)");
+                  return this->fail(range, "Type '", description, "' does not have a static property named '", pname, "' (though values of type '", description, "' support a property with that name)");
                 }
-                return this->fail(range, "Type '", description, "' does not support the static member '", pname, "'");
+                return this->fail(range, "Type '", description, "' does not have a static property named '", pname, "'");
               }
               return { hint, ptype };
             }
@@ -1384,19 +1390,16 @@ namespace {
         return { IVMTypeResolver::Kind::Value, nullptr };
       }
       Type rtype = nullptr;
-      auto count = ftype->getShapeCount();
-      for (size_t index = 0; index < count; ++index) {
-        auto* shape = ftype->getShape(index);
-        if ((shape != nullptr) && (shape->callable != nullptr)) {
-          // TODO: Match arity of call (number of arguments)
-          auto type = shape->callable->getReturnType();
-          if (rtype == nullptr) {
-            rtype = type;
-          } else {
-            rtype = this->forge.forgeUnionType(rtype, type);
-          }
+      forge.foreachCallable(ftype, [&](const egg::ovum::IFunctionSignature& callable) {
+        // TODO: Match arity of call (number of arguments)
+        auto type = callable.getReturnType();
+        if (rtype == nullptr) {
+          rtype = type;
+        } else {
+          rtype = this->forge.forgeUnionType(rtype, type);
         }
-      }
+        return false;
+      });
       if (rtype == nullptr) {
         return this->fail(range, "Values of type '", *ftype,"' do not support function call semantics");
       }
@@ -1933,7 +1936,7 @@ namespace {
           break;
         case Node::Kind::TypeSpecificationStaticMember:
           if (!clause->literal->getString(name)) {
-            reporter.report(clause->range, this->createString("Missing name of type specification static member"));
+            reporter.report(clause->range, this->createString("Missing name of type specification static property"));
             return nullptr;
           } else {
             assert(!clause->children.empty());
@@ -1948,7 +1951,7 @@ namespace {
           break;
         case Node::Kind::TypeSpecificationInstanceMember:
           if (!clause->literal->getString(name)) {
-            reporter.report(clause->range, this->createString("Missing name of type specification instance member"));
+            reporter.report(clause->range, this->createString("Missing name of type specification instance property"));
             return nullptr;
           } else {
             assert(!clause->children.empty());

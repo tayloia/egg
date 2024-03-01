@@ -2,30 +2,30 @@ object v = {};
 print(v);
 ///>{}
 
-print(object.set(v, "i", 123));
+print(object.property.set(v, "i", 123));
 ///>void
 print(v);
 ///>{i:123}
 
-print(object.get(v, "i"));
+print(object.property.get(v, "i"));
 ///>123
 
-print(object.mut(v, "a", "!!=", 10));
+print(object.property.mut(v, "a", "!!=", 10));
 ///>void
 print(v);
 ///>{i:123,a:10}
 
-print(object.mut(v, "a", "--"));
+print(object.property.mut(v, "a", "--"));
 ///>10
 print(v);
 ///>{i:123,a:9}
 
-print(object.mut(v, "a", "=", "text"));
+print(object.property.mut(v, "a", "=", "text"));
 ///>9
 print(v);
 ///>{i:123,a:"text"}
 
-var p = object.ref(v, "i");
+var p = object.property.ref(v, "i");
 print(type.of(p));
 ///>any?*
 print(*p);
@@ -34,7 +34,7 @@ print(*p);
 print(v);
 ///>{i:321,a:"text"}
 
-print(object.del(v, "i"));
+print(object.property.del(v, "i"));
 ///>321
 print(v);
 ///>{a:"text"}

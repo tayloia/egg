@@ -375,9 +375,11 @@ namespace egg::internal {
       Type type = nullptr;
       Accessability accessability = Accessability::None;
       size_t hash() const {
+        // Used by 'TypeForgePropertySignature::cacheHash()'
         return Hash::combine(this->type.get(), this->accessability);
       }
       bool operator==(const Entry& rhs) const {
+        // Used by 'TypeForgePropertySignature::cacheEquals()'
         return (this->type == rhs.type) && (this->accessability == rhs.accessability);
       }
     };
@@ -743,23 +745,23 @@ namespace egg::internal {
     TypeForgeMetashapeBuilder(const TypeForgeMetashapeBuilder&) = delete;
     TypeForgeMetashapeBuilder& operator=(const TypeForgeMetashapeBuilder&) = delete;
   private:
+    const IFunctionSignature* callableSignature;
     HardPtr<ITypeForgeIndexBuilder> indexBuilder;
+    HardPtr<ITypeForgePointerBuilder> pointerBuilder;
     HardPtr<ITypeForgePropertyBuilder> propertyBuilder;
     HardPtr<ITypeForgeTaggableBuilder> taggableBuilder;
   public:
     explicit TypeForgeMetashapeBuilder(TypeForgeDefault& forge)
-      : TypeForgeBaseBuilder(forge) {
+      : TypeForgeBaseBuilder(forge),
+        callableSignature(nullptr) {
     }
     virtual void setDescription(const String& description, int precedence) override {
       this->getTaggableBuilder().setDescription(description, precedence);
     }
-    virtual void setUnknownProperty(const Type& type, Accessability accessability) override {
-      this->getPropertyBuilder().setUnknownProperty(type, accessability);
+    virtual void setCallable(const IFunctionSignature& signature) override {
+      this->callableSignature = &signature;
     }
-    virtual void addProperty(const String& name, const Type& type, Accessability accessability) override {
-      this->getPropertyBuilder().addProperty(name, type, accessability);
-    }
-    virtual void addIndex(const Type& rtype, const Type& itype, Accessability accessability) override {
+    virtual void setIndexable(const Type& rtype, const Type& itype, Accessability accessability) override {
       auto& ib = this->getIndexBuilder();
       ib.setResultType(rtype);
       if (itype != nullptr) {
@@ -767,8 +769,20 @@ namespace egg::internal {
       }
       ib.setAccessability(accessability);
     }
+    virtual void setPointable(const Type& ptype, Modifiability modifiability) override {
+      auto& pb = this->getPointerBuilder();
+      pb.setPointeeType(ptype);
+      pb.setModifiability(modifiability);
+    }
+    virtual void setUnknownProperty(const Type& type, Accessability accessability) override {
+      this->getPropertyBuilder().setUnknownProperty(type, accessability);
+    }
+    virtual void addProperty(const String& name, const Type& type, Accessability accessability) override {
+      this->getPropertyBuilder().addProperty(name, type, accessability);
+    }
     virtual TypeShape build(const Type& infratype) override;
     ITypeForgeIndexBuilder& getIndexBuilder();
+    ITypeForgePointerBuilder& getPointerBuilder();
     ITypeForgePropertyBuilder& getPropertyBuilder();
     ITypeForgeTaggableBuilder& getTaggableBuilder();
   };
@@ -798,11 +812,11 @@ namespace egg::internal {
     TypeForgeDefault(IAllocator& allocator, IBasket& basket)
       : HardReferenceCountedAllocator(allocator),
         basket(&basket),
-        infrashapeObject(addInfrashapeObject()),
-        infrashapeString(addInfrashapeString()),
-        metashapeType(addMetashapeType()),
-        metashapeObject(addMetashapeObject()),
-        metashapeString(addMetashapeString()) {
+        infrashapeObject(makeInfrashapeObject()),
+        infrashapeString(makeInfrashapeString()),
+        metashapeType(makeMetashapeType()),
+        metashapeObject(makeMetashapeObject()),
+        metashapeString(makeMetashapeString()) {
     }
     IAllocator& getAllocator() const {
       return this->allocator;
@@ -999,6 +1013,24 @@ namespace egg::internal {
     virtual Assignability isFunctionSignatureAssignable(const IFunctionSignature& dst, const IFunctionSignature& src) override {
       return this->computeFunctionSignatureAssignability(&dst, &src);
     }
+    virtual size_t foreachCallable(const Type& type, const std::function<bool(const IFunctionSignature&)>& callback) override {
+      assert(type.validate());
+      size_t visited = 0;
+      bool completed = false;
+      auto flags = type->getPrimitiveFlags();
+      if (Bits::hasAnySet(flags, ValueFlags::Object)) {
+        ++visited;
+        completed = callback(*this->infrashapeObject->callable);
+      }
+      size_t index = 0;
+      for (auto* shape = type->getShape(index); !completed && (shape != nullptr); shape = type->getShape(++index)) {
+        if (shape->callable != nullptr) {
+          ++visited;
+          completed = callback(*shape->callable);
+        }
+      }
+      return visited;
+    }
     virtual size_t foreachDotable(const Type& type, const std::function<bool(const IPropertySignature&)>& callback) override {
       assert(type.validate());
       size_t visited = 0;
@@ -1047,6 +1079,11 @@ namespace egg::internal {
       assert(type.validate());
       size_t visited = 0;
       bool completed = false;
+      auto flags = type->getPrimitiveFlags();
+      if (Bits::hasAnySet(flags, ValueFlags::Object)) {
+        ++visited;
+        completed = callback(*this->infrashapeObject->pointable);
+      }
       size_t index = 0;
       for (auto* shape = type->getShape(index); !completed && (shape != nullptr); shape = type->getShape(++index)) {
         if (shape->pointable != nullptr) {
@@ -1563,7 +1600,7 @@ namespace egg::internal {
       HardPtr<ITypeForgeFunctionBuilder> builder;
       FunctionBuilder(TypeForgeDefault* forge, const char* fname, const Type& rtype)
         : forge(forge),
-        builder(forge->createFunctionBuilder()) {
+          builder(forge->createFunctionBuilder()) {
         this->builder->setFunctionName(this->forge->makeASCII(fname));
         this->builder->setReturnType(rtype);
       }
@@ -1575,97 +1612,140 @@ namespace egg::internal {
         this->builder->addRequiredParameter(this->forge->makeASCII(pname), ptype);
         return *this;
       }
-      void build(ITypeForgeMetashapeBuilder& target, Accessability paccessability) const {
-        auto& psignature = this->builder->build();
-        auto ptype = this->forge->forgeFunctionType(psignature);
-        target.addProperty(psignature.getName(), ptype, paccessability);
-      }
     };
-    struct InfrashapeBuilder {
+    struct BaseBuilder {
       TypeForgeDefault* forge;
       HardPtr<ITypeForgeMetashapeBuilder> builder;
-      explicit InfrashapeBuilder(TypeForgeDefault* forge)
+      explicit BaseBuilder(TypeForgeDefault* forge)
         : forge(forge),
           builder(forge->createMetashapeBuilder()) {
+        assert(this->forge != nullptr);
+        assert(this->builder != nullptr);
+      }
+      void addPropertyData(const char* pname, const Type& ptype, Accessability paccessability = Accessability::Get) {
+        this->builder->addProperty(this->forge->makeASCII(pname), ptype, paccessability);
+      }
+      void addPropertyFunction(const FunctionBuilder& fbuilder, Accessability paccessability = Accessability::Get) {
+        auto& psignature = fbuilder.builder->build();
+        auto ptype = this->forge->forgeFunctionType(psignature);
+        this->builder->addProperty(psignature.getName(), ptype, paccessability);
+      }
+    };
+    struct InfrashapeBuilder : public BaseBuilder {
+      explicit InfrashapeBuilder(TypeForgeDefault* forge)
+        : BaseBuilder(forge) {
       }
       void setUnknownProperty(const Type& ptype, Accessability paccessability) {
         this->builder->setUnknownProperty(ptype, paccessability);
       }
-      void addPropertyData(const char* pname, const Type& ptype, Accessability paccessability) {
-        this->builder->addProperty(this->forge->makeASCII(pname), ptype, paccessability);
+      void setCallable(const FunctionBuilder& fbuilder) {
+        this->builder->setCallable(fbuilder.builder->build());
       }
-      void addPropertyFunction(const IFunctionSignature& psignature, Accessability paccessability = Accessability::Get) {
-        auto ptype = this->forge->forgeFunctionType(psignature);
-        this->builder->addProperty(psignature.getName(), ptype, paccessability);
+      void setIndexable(const Type& rtype, const Type& itype, Accessability paccessability) {
+        this->builder->setIndexable(rtype, itype, paccessability);
       }
-      void addIndex(const Type& rtype, const Type& itype, Accessability paccessability) {
-        this->builder->addIndex(rtype, itype, paccessability);
+      void setPointable(const Type& ptype, Modifiability pmodifiability) {
+        this->builder->setPointable(ptype, pmodifiability);
       }
       TypeShape build() {
         return this->builder->build(nullptr);
       }
     };
-    struct MetashapeBuilder {
-      TypeForgeDefault* forge;
-      HardPtr<ITypeForgeMetashapeBuilder> builder;
+    struct MetashapeBuilder : public BaseBuilder {
       explicit MetashapeBuilder(TypeForgeDefault* forge)
-        : forge(forge),
-          builder(forge->createMetashapeBuilder()) {
-      }
-      void addPropertyData(const char* pname, const Type& ptype, Accessability paccessability) {
-        this->builder->addProperty(this->forge->makeASCII(pname), ptype, paccessability);
-      }
-      void addPropertyFunction(const FunctionBuilder& fbuilder, Accessability paccessability = Accessability::Get) {
-        fbuilder.build(*this->builder, paccessability);
+        : BaseBuilder(forge) {
       }
       TypeShape build(const Type& infratype) {
         assert(infratype.validate());
         return this->builder->build(infratype);
       }
     };
+    struct TypeBuilder : public BaseBuilder {
+      explicit TypeBuilder(TypeForgeDefault* forge)
+        : BaseBuilder(forge) {
+      }
+      Type build(const char* description, int precedence = 0) {
+        assert(description != nullptr);
+        this->builder->setDescription(this->forge->makeASCII(description), precedence);
+        auto shape = this->builder->build(nullptr);
+        return this->forge->forgeShapeType(shape);
+      }
+    };
     FunctionBuilder function(const char* fname, const Type& rtype) {
       return FunctionBuilder{ this, fname, rtype };
     }
-    TypeShape addInfrashapeObject() {
+    TypeShape makeInfrashapeObject() {
       InfrashapeBuilder ib{ this };
+      // TODO add variadic parameters
+      ib.setCallable(this->function("WIBBLE", Type::AnyQV));
+      ib.setIndexable(Type::AnyQ, Type::AnyQ, Accessability::All);
+      ib.setPointable(Type::AnyQ, Modifiability::All);
       ib.setUnknownProperty(Type::AnyQ, Accessability::All);
       return ib.build();
     }
-    TypeShape addInfrashapeString() {
+    TypeShape makeInfrashapeString() {
       InfrashapeBuilder ib{ this };
-      ib.addPropertyData("length", Type::Int, Accessability::Get);
-      ib.addIndex(Type::String, Type::Int, Accessability::Get);
+      ib.setIndexable(Type::String, Type::Int, Accessability::Get);
+      ib.addPropertyData("length", Type::Int);
       return ib.build();
     }
-    TypeShape addMetashapeType() {
+    TypeShape makeMetashapeType() {
       MetashapeBuilder mb{ this };
       mb.addPropertyFunction(this->function("of", Type::String)
         .addRequiredParameter("value", Type::AnyQV));
       return mb.build(Type::Type_);
     }
-    TypeShape addMetashapeObject() {
+    TypeShape makeMetashapeObject() {
       MetashapeBuilder mb{ this };
-      mb.addPropertyFunction(this->function("get", Type::AnyQ)
+      mb.addPropertyData("index", this->makeTypeObjectIndex()); // WIBBLE
+      mb.addPropertyData("property", this->makeTypeObjectProperty()); // WIBBLE
+      return mb.build(Type::Object);
+    }
+    Type makeTypeObjectIndex() {
+      TypeBuilder tb{ this };
+      tb.addPropertyFunction(this->function("get", Type::AnyQ)
+        .addRequiredParameter("instance", Type::Object)
+        .addRequiredParameter("index", Type::AnyQ));
+      tb.addPropertyFunction(this->function("set", Type::Void)
+        .addRequiredParameter("instance", Type::Object)
+        .addRequiredParameter("index", Type::AnyQ)
+        .addRequiredParameter("value", Type::AnyQ));
+      tb.addPropertyFunction(this->function("mut", Type::AnyQV)
+        .addRequiredParameter("instance", Type::Object)
+        .addRequiredParameter("index", Type::AnyQ)
+        .addRequiredParameter("value", Type::AnyQV)
+        .addRequiredParameter("mutation", Type::String));
+      tb.addPropertyFunction(this->function("ref", this->forgePointerType(Type::AnyQ, Modifiability::All))
+        .addRequiredParameter("instance", Type::Object)
+        .addRequiredParameter("index", Type::AnyQ));
+      tb.addPropertyFunction(this->function("del", Type::AnyQV)
+        .addRequiredParameter("instance", Type::Object)
+        .addRequiredParameter("index", Type::AnyQ));
+      return tb.build("object.Index");
+    }
+    Type makeTypeObjectProperty() {
+      TypeBuilder tb{ this };
+      tb.addPropertyFunction(this->function("get", Type::AnyQ)
         .addRequiredParameter("instance", Type::Object)
         .addRequiredParameter("property", Type::String));
-      mb.addPropertyFunction(this->function("set", Type::Void)
+      tb.addPropertyFunction(this->function("set", Type::Void)
         .addRequiredParameter("instance", Type::Object)
         .addRequiredParameter("property", Type::String)
         .addRequiredParameter("value", Type::AnyQ));
-      mb.addPropertyFunction(this->function("mut", Type::AnyQV)
+      tb.addPropertyFunction(this->function("mut", Type::AnyQV)
         .addRequiredParameter("instance", Type::Object)
         .addRequiredParameter("property", Type::String)
         .addRequiredParameter("value", Type::AnyQV)
         .addRequiredParameter("mutation", Type::String));
-      mb.addPropertyFunction(this->function("ref", this->forgePointerType(Type::AnyQ, Modifiability::All))
+      tb.addPropertyFunction(this->function("ref", this->forgePointerType(Type::AnyQ, Modifiability::All))
         .addRequiredParameter("instance", Type::Object)
         .addRequiredParameter("property", Type::String));
-      mb.addPropertyFunction(this->function("del", Type::AnyQV)
+      tb.addPropertyFunction(this->function("del", Type::AnyQV)
         .addRequiredParameter("instance", Type::Object)
         .addRequiredParameter("property", Type::String));
-      return mb.build(Type::Object);
+      return tb.build("object.Property");
     }
-    TypeShape addMetashapeString() {
+    TypeShape makeMetashapeString() {
       // TODO
       MetashapeBuilder mb{ this };
       mb.addPropertyFunction(this->function("fromCodePoints", Type::String)
@@ -1738,6 +1818,13 @@ namespace egg::internal {
     return *this->indexBuilder;
   }
 
+  ITypeForgePointerBuilder& TypeForgeMetashapeBuilder::getPointerBuilder() {
+    if (this->pointerBuilder == nullptr) {
+      this->pointerBuilder = this->forge.createPointerBuilder();
+    }
+    return *this->pointerBuilder;
+  }
+
   ITypeForgePropertyBuilder& TypeForgeMetashapeBuilder::getPropertyBuilder() {
     if (this->propertyBuilder == nullptr) {
       this->propertyBuilder = this->forge.createPropertyBuilder();
@@ -1756,12 +1843,16 @@ namespace egg::internal {
     if (infratype != nullptr) {
       StringBuilder sb;
       infratype->print(sb);
-      sb << "::manifestation";
+      sb << "::manifestation"; // WIBBLE
       this->getTaggableBuilder().setDescription(sb.build(this->forge.getAllocator()), 2);
     }
     TypeForgeShape metashape;
+    metashape.callable = this->callableSignature;
     if (this->indexBuilder != nullptr) {
       metashape.indexable = &this->indexBuilder->build();
+    }
+    if (this->pointerBuilder != nullptr) {
+      metashape.pointable = &this->pointerBuilder->build();
     }
     if (this->propertyBuilder != nullptr) {
       metashape.dotable = &this->propertyBuilder->build();

@@ -131,43 +131,43 @@ namespace {
       return this->raisePrefixError(execution, " does not support iteration");
     }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue&) override {
-      return this->raisePrefixError(execution, " does not support properties");
+      return this->raisePrefixError(execution, " does not support properties (get)");
     }
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return this->raisePrefixError(execution, " does not support properties");
+      return this->raisePrefixError(execution, " does not support properties (set)");
     }
     virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raisePrefixError(execution, " does not support properties");
+      return this->raisePrefixError(execution, " does not support properties (mut)");
     }
     virtual HardValue vmPropertyRef(IVMExecution& execution, const HardValue&) override {
-      return this->raisePrefixError(execution, " does not support properties");
+      return this->raisePrefixError(execution, " does not support properties (ref)");
     }
     virtual HardValue vmPropertyDel(IVMExecution& execution, const HardValue&) override {
-      return this->raisePrefixError(execution, " does not support properties");
+      return this->raisePrefixError(execution, " does not support properties (del)");
     }
     virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue&) override {
-      return this->raisePrefixError(execution, " does not support indexing");
+      return this->raisePrefixError(execution, " does not support indexing (get)");
     }
     virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return this->raisePrefixError(execution, " does not support indexing");
+      return this->raisePrefixError(execution, " does not support indexing (set)");
     }
     virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raisePrefixError(execution, " does not support indexing");
+      return this->raisePrefixError(execution, " does not support indexing (mut)");
     }
     virtual HardValue vmIndexRef(IVMExecution& execution, const HardValue&) override {
-      return this->raisePrefixError(execution, " does not support indexing");
+      return this->raisePrefixError(execution, " does not support indexing (ref)");
     }
     virtual HardValue vmIndexDel(IVMExecution& execution, const HardValue&) override {
-      return this->raisePrefixError(execution, " does not support indexing");
+      return this->raisePrefixError(execution, " does not support indexing (del)");
     }
     virtual HardValue vmPointeeGet(IVMExecution& execution) override {
-      return this->raisePrefixError(execution, " does not support pointer semantics");
+      return this->raisePrefixError(execution, " does not support pointer semantics (get)");
     }
     virtual HardValue vmPointeeSet(IVMExecution& execution, const HardValue&) override {
-      return this->raisePrefixError(execution, " does not support pointer semantics");
+      return this->raisePrefixError(execution, " does not support pointer semantics (set)");
     }
     virtual HardValue vmPointeeMut(IVMExecution& execution, ValueMutationOp, const HardValue&) override {
-      return this->raisePrefixError(execution, " does not support pointer semantics");
+      return this->raisePrefixError(execution, " does not support pointer semantics (mut)");
     }
   };
 
@@ -352,6 +352,9 @@ namespace {
     }
     virtual HardValue vmIterate(IVMExecution& execution) override;
     virtual HardValue vmIndexGet(IVMExecution& execution, const HardValue& index) override {
+      if (!this->hasAccessability(Accessability::Get)) {
+        return this->raisePrefixError(execution, " does not permit reading indexed values");
+      }
       VMObjectVanillaMutex::ReadLock lock{ this->mutex };
       Int ivalue;
       if (!index->getInt(ivalue)) {
@@ -364,6 +367,9 @@ namespace {
       return execution.getSoftValue(this->elements[uvalue]);
     }
     virtual HardValue vmIndexSet(IVMExecution& execution, const HardValue& index, const HardValue& value) override {
+      if (!this->hasAccessability(Accessability::Set)) {
+        return this->raisePrefixError(execution, " does not permit writing indexed values");
+      }
       VMObjectVanillaMutex::WriteLock lock{ this->mutex };
       Int ivalue;
       if (!index->getInt(ivalue)) {
@@ -379,6 +385,9 @@ namespace {
       return HardValue::Void;
     }
     virtual HardValue vmIndexMut(IVMExecution& execution, const HardValue& index, ValueMutationOp mutation, const HardValue& value) override {
+      if (!this->hasAccessability(Accessability::Mut)) {
+        return this->raisePrefixError(execution, " does not permit modifying indexed values");
+      }
       VMObjectVanillaMutex::WriteLock lock{ this->mutex };
       Int ivalue;
       if (!index->getInt(ivalue)) {
@@ -389,6 +398,16 @@ namespace {
         return this->raiseRuntimeError(execution, "Array index ", ivalue, " is out of range for an array of length ", this->elements.size());
       }
       return execution.mutSoftValue(this->elements[uvalue], mutation, value);
+    }
+    virtual HardValue vmIndexRef(IVMExecution& execution, const HardValue& index) override {
+      if (!this->hasAccessability(Accessability::Ref)) {
+        return this->raisePrefixError(execution, " does not permit referencing indexed values");
+      }
+      // TODO do we need to read or write lock here?
+      return execution.refIndex(HardObject{ this }, index, Modifiability::All, this->elementType);
+    }
+    virtual HardValue vmIndexDel(IVMExecution& execution, const HardValue&) override {
+      return this->raisePrefixError(execution, " does not permit deleting indexed values");
     }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue& property) override {
       VMObjectVanillaMutex::ReadLock lock{ this->mutex };
@@ -455,6 +474,9 @@ namespace {
         diff++;
       }
       return success;
+    }
+    bool hasAccessability(Accessability bits) const {
+      return Bits::hasAllSet(this->accessability, bits);
     }
     HardValue vmCallPush(IVMExecution&, const ICallArguments& arguments) {
       VMObjectVanillaMutex::WriteLock lock{ this->mutex };
@@ -642,18 +664,10 @@ namespace {
       return execution.mutSoftValue(pfound->second, mutation, value);
     }
     HardValue propertyRef(IVMExecution& execution, const HardValue& property, Modifiability modifiability) {
-      // WIBBLE differentiate 'symbolic' and 'pointer' references?
       if (!this->hasAccessability(property, Accessability::Ref)) {
         return this->raisePrefixError(execution, " does not permit referencing property '", property, "'");
       }
       VMObjectVanillaMutex::WriteLock lock{ this->mutex };
-      /*
-      auto pfound = this->properties.find(property);
-      if (pfound == this->properties.end()) {
-        return this->raisePrefixError(execution, " does not contain property '", property, "'");
-      }
-      return execution.refSoftValue(pfound->second, modifiability);
-      */
       auto ptype = this->propertyType(property);
       if (ptype == nullptr) {
         return this->raisePrefixError(execution, " does not contain property '", property, "'");
@@ -820,7 +834,7 @@ namespace {
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue& property, const HardValue& value) override {
       if (!Bits::hasAllSet(this->accessability, Accessability::Set)) {
         // We're frozen
-        return this->raisePrefixError(execution, " does not support property modification");
+        return this->raisePrefixError(execution, " does not support property modification (set)");
       }
       if (property->getNull()) {
         // Freeze the instance
@@ -1729,7 +1743,7 @@ namespace {
     VMManifestationMemberHandler(const VMManifestationMemberHandler&) = delete;
     VMManifestationMemberHandler& operator=(const VMManifestationMemberHandler&) = delete;
   public:
-    typedef HardValue(T::*Handler)(IVMExecution& execution, const ICallArguments& arguments);
+    typedef HardValue (T::*Handler)(IVMExecution& execution, const ICallArguments& arguments);
   private:
     T& manifestation; // manifestation lifetime is directly controlled by the VM instance
     Handler handler;
@@ -1791,8 +1805,8 @@ namespace {
     VMManifestionWithProperties(const VMManifestionWithProperties&) = delete;
     VMManifestionWithProperties& operator=(const VMManifestionWithProperties&) = delete;
   protected:
-    typedef HardValue(T::*MemberHandler)(IVMExecution& execution, const ICallArguments& arguments);
-    std::map<String, MemberHandler> handlers;
+    // Manifestation lifetime is directly controlled by the VM instance, so these can be hard references
+    std::map<String, HardValue> properties;
   public:
     explicit VMManifestionWithProperties(IVM& vm)
       : VMManifestionBase(vm) {
@@ -1802,22 +1816,26 @@ namespace {
       if (!property->getString(name)) {
         return this->raiseRuntimeError(execution, "Expected '", this->getManifestationName(), "' static property name to be a 'string', but instead got ", describe(property.get()));
       }
-      auto found = this->handlers.find(name);
-      if (found == this->handlers.end()) {
+      auto found = this->properties.find(name);
+      if (found == this->properties.end()) {
         return this->raisePrefixError(execution, " does not have a static property named '", name, "'");
       }
-      auto instance = makeHardObject<VMManifestationMemberHandler<T>>(this->vm, *static_cast<T*>(this), found->second);
-      return this->vm.createHardValueObject(instance);
+      return found->second;
     }
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
-      return this->raisePrefixError(execution, " does not support static property modification");
+      return this->raisePrefixError(execution, " does not support static property modification (set)");
     }
     virtual HardValue vmPropertyMut(IVMExecution& execution, const HardValue&, ValueMutationOp, const HardValue&) override {
-      return this->raisePrefixError(execution, " does not support static property modification");
+      return this->raisePrefixError(execution, " does not support static property modification (mut)");
     }
   protected:
-    void addMemberHandler(const char* name, MemberHandler handler) {
-      this->handlers.emplace(this->vm.createString(name), handler);
+    typedef HardValue (T::*MemberHandler)(IVMExecution& execution, const ICallArguments& arguments);
+    void addMemberHandler(const char* pname, MemberHandler phandler) {
+      auto instance = makeHardObject<VMManifestationMemberHandler<T>>(this->vm, *static_cast<T*>(this), phandler);
+      this->addMemberValue(pname, this->vm.createHardValueObject(instance));
+    }
+    void addMemberValue(const char* pname, const HardValue& pvalue) {
+      this->properties.emplace(this->vm.createString(pname), pvalue);
     }
   };
 
@@ -1931,22 +1949,129 @@ namespace {
     }
   };
 
-  class VMManifestionObject : public VMManifestionWithProperties<VMManifestionObject> {
-    VMManifestionObject(const VMManifestionObject&) = delete;
-    VMManifestionObject& operator=(const VMManifestionObject&) = delete;
+  class VMManifestionObjectIndex : public VMManifestionWithProperties<VMManifestionObjectIndex> {
+    VMManifestionObjectIndex(const VMManifestionObjectIndex&) = delete;
+    VMManifestionObjectIndex& operator=(const VMManifestionObjectIndex&) = delete;
   public:
-    explicit VMManifestionObject(IVM& vm)
+    explicit VMManifestionObjectIndex(IVM& vm)
       : VMManifestionWithProperties(vm) {
-      this->type = Type::Object; // TODO
-      this->addMemberHandler("get", &VMManifestionObject::vmCallObjectGet);
-      this->addMemberHandler("set", &VMManifestionObject::vmCallObjectSet);
-      this->addMemberHandler("mut", &VMManifestionObject::vmCallObjectMut);
-      this->addMemberHandler("ref", &VMManifestionObject::vmCallObjectRef);
-      this->addMemberHandler("del", &VMManifestionObject::vmCallObjectDel);
+      this->type = Type::Object; // WIBBLE
+      this->addMemberHandler("get", &VMManifestionObjectIndex::vmCallObjectGet);
+      this->addMemberHandler("set", &VMManifestionObjectIndex::vmCallObjectSet);
+      this->addMemberHandler("mut", &VMManifestionObjectIndex::vmCallObjectMut);
+      this->addMemberHandler("ref", &VMManifestionObjectIndex::vmCallObjectRef);
+      this->addMemberHandler("del", &VMManifestionObjectIndex::vmCallObjectDel);
     }
     HardValue vmCallObjectGet(IVMExecution& execution, const ICallArguments& arguments) {
       if (arguments.getArgumentCount() != 2) {
-        return this->raiseRuntimeError(execution, "'object.get()' expects exactly two arguments");
+        return this->raiseRuntimeError(execution, "'object.index.get()' expects exactly two arguments");
+      }
+      HardObject instance;
+      auto index = this->checkArguments(execution, arguments, "get", instance);
+      if (index.hasFlowControl()) {
+        return index;
+      }
+      return instance->vmIndexGet(execution, index);
+    }
+    HardValue vmCallObjectSet(IVMExecution& execution, const ICallArguments& arguments) {
+      if (arguments.getArgumentCount() != 3) {
+        return this->raiseRuntimeError(execution, "'object.index.set()' expects exactly three arguments");
+      }
+      HardObject instance;
+      auto index = this->checkArguments(execution, arguments, "set", instance);
+      if (index.hasFlowControl()) {
+        return index;
+      }
+      HardValue value;
+      if (!arguments.getArgumentValueByIndex(2, value)) {
+        return this->raiseRuntimeError(execution, "'object.index.set()' expects its third argument to be a value");
+      }
+      return instance->vmIndexSet(execution, index, value);
+    }
+    HardValue vmCallObjectMut(IVMExecution& execution, const ICallArguments& arguments) {
+      if ((arguments.getArgumentCount() < 3) || (arguments.getArgumentCount() > 4)) {
+        return this->raiseRuntimeError(execution, "'object.index.mut()' expects three or four arguments");
+      }
+      HardObject instance;
+      auto index = this->checkArguments(execution, arguments, "mut", instance);
+      if (index.hasFlowControl()) {
+        return index;
+      }
+      HardValue value;
+      ValueMutationOp mutation;
+      size_t operands;
+      if (!arguments.getArgumentValueByIndex(2, value) || !parseMutationOp(value, mutation, operands)) {
+        return this->raiseRuntimeError(execution, "'object.index.mut()' expects its third argument to be a mutation string");
+      }
+      if (operands == 1) {
+        // Decrement/increment don't take a value
+        if (arguments.getArgumentCount() != 3) {
+          return this->raiseRuntimeError(execution, "'object.index.mut()' expects three arguments for mutation '", mutation, "'");
+        }
+        return instance->vmIndexMut(execution, index, mutation, HardValue::Void);
+      }
+      if (arguments.getArgumentCount() != 4) {
+        return this->raiseRuntimeError(execution, "'object.index.mut()' expects four arguments for mutation '", mutation, "'");
+      }
+      if (!arguments.getArgumentValueByIndex(3, value)) {
+        return this->raiseRuntimeError(execution, "'object.index.mut()' expects its fourth argument to be a value");
+      }
+      return instance->vmIndexMut(execution, index, mutation, value);
+    }
+    HardValue vmCallObjectRef(IVMExecution& execution, const ICallArguments& arguments) {
+      if (arguments.getArgumentCount() != 2) {
+        return this->raiseRuntimeError(execution, "'object.index.ref()' expects exactly two arguments");
+      }
+      HardObject instance;
+      auto index = this->checkArguments(execution, arguments, "ref", instance);
+      if (index.hasFlowControl()) {
+        return index;
+      }
+      return instance->vmIndexRef(execution, index);
+    }
+    HardValue vmCallObjectDel(IVMExecution& execution, const ICallArguments& arguments) {
+      if (arguments.getArgumentCount() != 2) {
+        return this->raiseRuntimeError(execution, "'object.index.del()' expects exactly two arguments");
+      }
+      HardObject instance;
+      auto index = this->checkArguments(execution, arguments, "del", instance);
+      if (index.hasFlowControl()) {
+        return index;
+      }
+      return instance->vmIndexDel(execution, index);
+    }
+    virtual const char* getManifestationName() const override {
+      return "object.index";
+    }
+  private:
+    HardValue checkArguments(IVMExecution& execution, const ICallArguments& arguments, const char* member, HardObject& instance) {
+      HardValue argument;
+      if (!arguments.getArgumentValueByIndex(0, argument) || !argument->getHardObject(instance)) {
+        return this->raiseRuntimeError(execution, "'object.index.", member, "()' expects its first argument to be an object instance");
+      }
+      if (!arguments.getArgumentValueByIndex(1, argument)) {
+        return this->raiseRuntimeError(execution, "'object.index.", member, "()' expects its second argument to be an index");
+      }
+      return argument;
+    }
+  };
+
+  class VMManifestionObjectProperty : public VMManifestionWithProperties<VMManifestionObjectProperty> {
+    VMManifestionObjectProperty(const VMManifestionObjectProperty&) = delete;
+    VMManifestionObjectProperty& operator=(const VMManifestionObjectProperty&) = delete;
+  public:
+    explicit VMManifestionObjectProperty(IVM& vm)
+      : VMManifestionWithProperties(vm) {
+      this->type = Type::Object; // WIBBLE
+      this->addMemberHandler("get", &VMManifestionObjectProperty::vmCallObjectGet);
+      this->addMemberHandler("set", &VMManifestionObjectProperty::vmCallObjectSet);
+      this->addMemberHandler("mut", &VMManifestionObjectProperty::vmCallObjectMut);
+      this->addMemberHandler("ref", &VMManifestionObjectProperty::vmCallObjectRef);
+      this->addMemberHandler("del", &VMManifestionObjectProperty::vmCallObjectDel);
+    }
+    HardValue vmCallObjectGet(IVMExecution& execution, const ICallArguments& arguments) {
+      if (arguments.getArgumentCount() != 2) {
+        return this->raiseRuntimeError(execution, "'object.property.get()' expects exactly two arguments");
       }
       HardObject instance;
       auto property = this->checkArguments(execution, arguments, "get", instance);
@@ -1957,7 +2082,7 @@ namespace {
     }
     HardValue vmCallObjectSet(IVMExecution& execution, const ICallArguments& arguments) {
       if (arguments.getArgumentCount() != 3) {
-        return this->raiseRuntimeError(execution, "'object.set()' expects exactly three arguments");
+        return this->raiseRuntimeError(execution, "'object.property.set()' expects exactly three arguments");
       }
       HardObject instance;
       auto property = this->checkArguments(execution, arguments, "set", instance);
@@ -1966,13 +2091,13 @@ namespace {
       }
       HardValue value;
       if (!arguments.getArgumentValueByIndex(2, value)) {
-        return this->raiseRuntimeError(execution, "'object.set()' expects its third argument to be a value");
+        return this->raiseRuntimeError(execution, "'object.property.set()' expects its third argument to be a value");
       }
       return instance->vmPropertySet(execution, property, value);
     }
     HardValue vmCallObjectMut(IVMExecution& execution, const ICallArguments& arguments) {
       if ((arguments.getArgumentCount() < 3) || (arguments.getArgumentCount() > 4)) {
-        return this->raiseRuntimeError(execution, "'object.mut()' expects three or four arguments");
+        return this->raiseRuntimeError(execution, "'object.property.mut()' expects three or four arguments");
       }
       HardObject instance;
       auto property = this->checkArguments(execution, arguments, "mut", instance);
@@ -1983,26 +2108,26 @@ namespace {
       ValueMutationOp mutation;
       size_t operands;
       if (!arguments.getArgumentValueByIndex(2, value) || !parseMutationOp(value, mutation, operands)) {
-        return this->raiseRuntimeError(execution, "'object.mut()' expects its third argument to be a mutation string");
+        return this->raiseRuntimeError(execution, "'object.property.mut()' expects its third argument to be a mutation string");
       }
       if (operands == 1) {
         // Decrement/increment don't take a value
         if (arguments.getArgumentCount() != 3) {
-          return this->raiseRuntimeError(execution, "'object.mut()' expects three arguments for mutation '", mutation, "'");
+          return this->raiseRuntimeError(execution, "'object.property.mut()' expects three arguments for mutation '", mutation, "'");
         }
         return instance->vmPropertyMut(execution, property, mutation, HardValue::Void);
       }
       if (arguments.getArgumentCount() != 4) {
-        return this->raiseRuntimeError(execution, "'object.mut()' expects four arguments for mutation '", mutation, "'");
+        return this->raiseRuntimeError(execution, "'object.property.mut()' expects four arguments for mutation '", mutation, "'");
       }
       if (!arguments.getArgumentValueByIndex(3, value)) {
-        return this->raiseRuntimeError(execution, "'object.mut()' expects its fourth argument to be a value");
+        return this->raiseRuntimeError(execution, "'object.property.mut()' expects its fourth argument to be a value");
       }
       return instance->vmPropertyMut(execution, property, mutation, value);
     }
     HardValue vmCallObjectRef(IVMExecution& execution, const ICallArguments& arguments) {
       if (arguments.getArgumentCount() != 2) {
-        return this->raiseRuntimeError(execution, "'object.ref()' expects exactly two arguments");
+        return this->raiseRuntimeError(execution, "'object.property.ref()' expects exactly two arguments");
       }
       HardObject instance;
       auto property = this->checkArguments(execution, arguments, "ref", instance);
@@ -2013,7 +2138,7 @@ namespace {
     }
     HardValue vmCallObjectDel(IVMExecution& execution, const ICallArguments& arguments) {
       if (arguments.getArgumentCount() != 2) {
-        return this->raiseRuntimeError(execution, "'object.del()' expects exactly two arguments");
+        return this->raiseRuntimeError(execution, "'object.property.del()' expects exactly two arguments");
       }
       HardObject instance;
       auto property = this->checkArguments(execution, arguments, "del", instance);
@@ -2023,19 +2148,43 @@ namespace {
       return instance->vmPropertyDel(execution, property);
     }
     virtual const char* getManifestationName() const override {
-      return "object";
+      return "object.property";
     }
   private:
     HardValue checkArguments(IVMExecution& execution, const ICallArguments& arguments, const char* member, HardObject& instance) {
       HardValue argument;
       if (!arguments.getArgumentValueByIndex(0, argument) || !argument->getHardObject(instance)) {
-        return this->raiseRuntimeError(execution, "'object.", member, "()' expects its first argument to be an object instance");
+        return this->raiseRuntimeError(execution, "'object.property.", member, "()' expects its first argument to be an object instance");
       }
       String name;
       if (!arguments.getArgumentValueByIndex(1, argument) || !argument->getString(name)) {
-        return this->raiseRuntimeError(execution, "'object.", member, "()' expects its second argument to be a property name");
+        return this->raiseRuntimeError(execution, "'object.property.", member, "()' expects its second argument to be a property name");
       }
       return argument;
+    }
+  };
+
+  class VMManifestionObject : public VMManifestionWithProperties<VMManifestionObject> {
+    VMManifestionObject(const VMManifestionObject&) = delete;
+    VMManifestionObject& operator=(const VMManifestionObject&) = delete;
+  public:
+    explicit VMManifestionObject(IVM& vm)
+      : VMManifestionWithProperties(vm) {
+      this->type = Type::Object; // TODO
+      this->addMemberValue("index", this->createValueIndex());
+      this->addMemberValue("property", this->createValueProperty());
+    }
+    virtual const char* getManifestationName() const override {
+      return "object";
+    }
+  private:
+    HardValue createValueIndex() {
+      auto instance = makeHardObject<VMManifestionObjectIndex>(this->vm);
+      return this->vm.createHardValueObject(instance);
+    }
+    HardValue createValueProperty() {
+      auto instance = makeHardObject<VMManifestionObjectProperty>(this->vm);
+      return this->vm.createHardValueObject(instance);
     }
   };
 

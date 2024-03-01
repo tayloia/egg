@@ -158,6 +158,7 @@ namespace egg::ovum {
     virtual HardValue mutSoftValue(SoftValue& lhs, ValueMutationOp mutation, const HardValue& rhs) = 0;
     virtual HardValue refSoftValue(const SoftValue& soft, Modifiability modifiability) = 0;
     // References
+    virtual HardValue refIndex(const HardObject& instance, const HardValue& index, Modifiability modifiability, const Type& pointeeType) = 0;
     virtual HardValue refProperty(const HardObject& instance, const HardValue& property, Modifiability modifiability, const Type& pointeeType) = 0;
     // Operations
     virtual HardValue evaluateValueUnaryOp(ValueUnaryOp op, const HardValue& arg) = 0;

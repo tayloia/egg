@@ -7,6 +7,6 @@ print(a);
 a.i = "hello";
 print(a);
 ///>{p:123,i:"hello"}
-assert(object.del(a, "p") == 123);
+assert(object.property.del(a, "p") == 123);
 print(a);
 ///>{i:"hello"}

@@ -1,8 +1,14 @@
-object v = {};
+print(type.of(object.property));
+///>object
+/// WIBBLE >object.Property
+
+var v = {};
 print(v);
 ///>{}
+print(type.of(v));
+///>object
 
-var p = object.ref(v, "i");
+var p = object.property.ref(v, "i");
 print(type.of(p));
 ///>any?*
 print(v);
