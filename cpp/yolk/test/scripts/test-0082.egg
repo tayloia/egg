@@ -1,0 +1,3 @@
+assert(type.of(object.index) == "object.Index");
+var i = object.index;
+assert(type.of(i) == "object.Index");

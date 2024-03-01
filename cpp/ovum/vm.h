@@ -301,6 +301,7 @@ namespace egg::ovum {
     virtual IBasket& getBasket() const = 0;
     virtual ILogger& getLogger() const = 0;
     virtual ITypeForge& getTypeForge() const = 0;
+    virtual IBasket& shutdown() = 0;
     // Specification cache
     virtual void addTypeSpecification(IVMTypeSpecification& specification, const IVMModule::Node* node) = 0;
     virtual IVMTypeSpecification* findTypeSpecification(const IVMModule::Node& node) const = 0;

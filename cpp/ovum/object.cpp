@@ -1811,11 +1811,15 @@ namespace {
     VMManifestionWithProperties(const VMManifestionWithProperties&) = delete;
     VMManifestionWithProperties& operator=(const VMManifestionWithProperties&) = delete;
   protected:
-    // Manifestation lifetime is directly controlled by the VM instance, so these can be hard references
-    std::map<String, HardValue> properties;
+    std::map<String, SoftValue> properties;
   public:
     VMManifestionWithProperties(IVM& vm, const Type& typeParent, const char* typeName)
       : VMManifestionBase(vm, typeParent, typeName) {
+    }
+    virtual void softVisit(ICollectable::IVisitor& visitor) const override {
+      for (const auto& property : this->properties) {
+        property.second.visit(visitor);
+      }
     }
     virtual HardValue vmPropertyGet(IVMExecution& execution, const HardValue& property) override {
       String name;
@@ -1826,7 +1830,7 @@ namespace {
       if (found == this->properties.end()) {
         return this->raisePrefixError(execution, " does not have a static property named '", name, "'");
       }
-      return found->second;
+      return this->vm.getSoftValue(found->second);
     }
     virtual HardValue vmPropertySet(IVMExecution& execution, const HardValue&, const HardValue&) override {
       return this->raisePrefixError(execution, " does not support static property modification (set)");
@@ -1838,10 +1842,10 @@ namespace {
     typedef HardValue (T::*MemberHandler)(IVMExecution& execution, const ICallArguments& arguments);
     void addMemberHandler(const char* pname, MemberHandler phandler) {
       auto instance = makeHardObject<VMManifestationMemberHandler<T>>(this->vm, *static_cast<T*>(this), phandler);
-      this->addMemberValue(pname, this->vm.createHardValueObject(instance));
+      this->addProperty(pname, this->vm.createHardValueObject(instance));
     }
-    void addMemberValue(const char* pname, const HardValue& pvalue) {
-      this->properties.emplace(this->vm.createString(pname), pvalue);
+    void addProperty(const char* pname, const HardValue& pvalue) {
+      this->properties.emplace(std::piecewise_construct, std::forward_as_tuple(this->vm.createString(pname)), std::forward_as_tuple(this->vm, pvalue));
     }
   };
 
@@ -2169,8 +2173,8 @@ namespace {
   public:
     explicit VMManifestionObject(IVM& vm)
       : VMManifestionWithProperties(vm, Type::Object, "Object") {
-      this->addMemberValue("index", this->createValueIndex());
-      this->addMemberValue("property", this->createValueProperty());
+      this->addProperty("index", this->createValueIndex());
+      this->addProperty("property", this->createValueProperty());
     }
     virtual const char* getManifestationName() const override {
       return "object";

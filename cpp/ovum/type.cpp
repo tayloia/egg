@@ -1714,6 +1714,10 @@ namespace egg::internal {
         for (const auto& named : this->namedTypes) {
           this->forge->forgeNamedType(infratype, named.first, named.second);
         }
+        StringBuilder sb;
+        infratype.print(sb);
+        sb << '.' << metaname;
+        this->builder->setDescription(sb.build(this->forge->getAllocator()), 0);
         auto metashape = this->builder->build(infratype);
         auto metatype = this->forge->forgeShapeType(metashape);
         this->forge->forgeNamedType(infratype, this->forge->makeASCII(metaname), metatype);
@@ -1922,12 +1926,6 @@ namespace egg::internal {
   }
 
   TypeShape TypeForgeMetashapeBuilder::build(const Type& infratype) {
-    if (infratype != nullptr) {
-      StringBuilder sb;
-      infratype->print(sb);
-      sb << "::manifestation"; // WIBBLE
-      this->getTaggableBuilder().setDescription(sb.build(this->forge.getAllocator()), 2);
-    }
     TypeForgeShape metashape;
     metashape.callable = this->callableSignature;
     if (this->indexBuilder != nullptr) {

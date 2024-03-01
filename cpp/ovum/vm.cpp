@@ -2792,9 +2792,61 @@ namespace {
       auto& forge = this->vm.getTypeForge();
       auto infrashape = this->infrashaper->build(nullptr);
       auto infratype = forge.forgeShapeType(infrashape, specification.get());
+      this->metashaper->setDescription(this->buildMetatypeName(infratype), 0);
       this->metashaper->build(infratype);
       specification->setInfratype(infratype);
       return specification;
+    }
+    String buildMetatypeName(const Type& infratype) const {
+      // TODO
+      StringBuilder sb;
+      sb << "[";
+      infratype.print(sb);
+      sb << " manifestation]";
+      return sb.build(this->getAllocator());
+    }
+  };
+
+  class VMManifestations : public VMCollectable<IVMCollectable> {
+    VMManifestations(const VMManifestations&) = delete;
+    VMManifestations& operator=(const VMManifestations&) = delete;
+  private:
+    std::map<Type, HardObject> manifestations;
+  public:
+    explicit VMManifestations(IVM& vm)
+      : VMCollectable(vm) {
+      this->add(Type::Type_, ObjectFactory::createManifestationType(vm));
+      this->add(Type::Void, ObjectFactory::createManifestationVoid(vm));
+      this->add(Type::Bool, ObjectFactory::createManifestationBool(vm));
+      this->add(Type::Int, ObjectFactory::createManifestationInt(vm));
+      this->add(Type::Float, ObjectFactory::createManifestationFloat(vm));
+      this->add(Type::String, ObjectFactory::createManifestationString(vm));
+      this->add(Type::Object, ObjectFactory::createManifestationObject(vm));
+      this->add(Type::Any, ObjectFactory::createManifestationAny(vm));
+    }
+    virtual int print(Printer& printer) const override {
+      printer << "[VMManifestations]";
+      return 0;
+    }
+    virtual void softVisit(ICollectable::IVisitor& visitor) const override {
+      for (auto& manifestation : this->manifestations) {
+        manifestation.second->softVisit(visitor);
+      }
+    }
+    bool add(const Type& infratype, const HardObject& manifestation) {
+      assert(infratype.validate());
+      assert(manifestation.validate());
+      auto added = this->manifestations.emplace(infratype, manifestation).second;
+      assert(added);
+      return added;
+    }
+    HardObject find(const Type& infratype) const {
+      assert(infratype.validate());
+      auto found = this->manifestations.find(infratype.get());
+      if (found != this->manifestations.end()) {
+        return HardObject{ found->second.get() };
+      }
+      return HardObject{};
     }
   };
 
@@ -2805,7 +2857,7 @@ namespace {
     HardPtr<IBasket> basket;
     ILogger& logger;
     HardPtr<ITypeForge> forge;
-    std::map<Type, HardObject> manifestations;
+    HardPtr<VMManifestations> manifestations;
     std::map<const IVMModule::Node*, HardPtr<IVMTypeSpecification>> specifications;
   public:
     VMDefault(IAllocator& allocator, ILogger& logger)
@@ -2813,14 +2865,8 @@ namespace {
         basket(BasketFactory::createBasket(allocator)),
         logger(logger) {
       this->forge = TypeForgeFactory::createTypeForge(allocator, *this->basket);
-      this->manifestations.emplace(Type::Type_, ObjectFactory::createManifestationType(*this));
-      this->manifestations.emplace(Type::Void, ObjectFactory::createManifestationVoid(*this));
-      this->manifestations.emplace(Type::Bool, ObjectFactory::createManifestationBool(*this));
-      this->manifestations.emplace(Type::Int, ObjectFactory::createManifestationInt(*this));
-      this->manifestations.emplace(Type::Float, ObjectFactory::createManifestationFloat(*this));
-      this->manifestations.emplace(Type::String, ObjectFactory::createManifestationString(*this));
-      this->manifestations.emplace(Type::Object, ObjectFactory::createManifestationObject(*this));
-      this->manifestations.emplace(Type::Any, ObjectFactory::createManifestationAny(*this));
+      this->manifestations.set(allocator.makeRaw<VMManifestations>(*this));
+      this->basket->take(*this->manifestations);
     }
     virtual IAllocator& getAllocator() const override {
       return this->allocator;
@@ -2833,6 +2879,11 @@ namespace {
     }
     virtual ITypeForge& getTypeForge() const override {
       return *this->forge;
+    }
+    virtual IBasket& shutdown() override {
+      // Used by 'egg::test::VM' to partially purge soft entities so we can check for leaks
+      this->manifestations = nullptr;
+      return *this->basket;
     }
     virtual void addTypeSpecification(IVMTypeSpecification& specification, const IVMModule::Node* node) override {
       if (node != nullptr) {
@@ -2849,19 +2900,10 @@ namespace {
       return found->second.get();
     }
     virtual void addManifestation(const Type& infratype, const HardObject& manifestation) override {
-      assert(infratype.validate());
-      assert(manifestation.validate());
-      auto added = this->manifestations.emplace(infratype, manifestation).second;
-      assert(added);
-      (void)added;
+      this->manifestations->add(infratype, manifestation);
     }
     virtual HardObject findManifestation(const Type& infratype) override {
-      assert(infratype.validate());
-      auto found = this->manifestations.find(infratype.get());
-      if (found != this->manifestations.end()) {
-        return found->second;
-      }
-      return HardObject();
+      return this->manifestations->find(infratype);
     }
     virtual void finalizeManifestation(const Type& infratype, const HardObject& manifestation) override {
       assert(this->findManifestation(infratype) == nullptr);

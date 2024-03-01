@@ -99,7 +99,7 @@ namespace egg::test {
         vm(egg::ovum::VMFactory::createDefault(allocator, logger)) {
     }
     ~VM() {
-      this->vm->getBasket().verify(std::cout);
+      this->vm->shutdown().verify(std::cout);
     }
     egg::ovum::IVM& operator*() {
       return *this->vm;
