@@ -1,14 +1,14 @@
 #include "yolk/test.h"
 #include "ovum/lexer.h"
 #include "ovum/egg-tokenizer.h"
-#include "yolk/egg-parser.h"
+#include "ovum/egg-parser.h"
 #include "yolk/egg-compiler.h"
 
 TEST(TestEggCompiler, ExplicitSteps) {
   egg::test::VM vm;
   auto lexer = egg::ovum::LexerFactory::createFromPath("~/cpp/yolk/test/scripts/test-0001.egg");
   auto tokenizer = egg::ovum::EggTokenizerFactory::createFromLexer(vm->getAllocator(), lexer);
-  auto parser = egg::yolk::EggParserFactory::createFromTokenizer(vm->getAllocator(), tokenizer);
+  auto parser = egg::ovum::EggParserFactory::createFromTokenizer(vm->getAllocator(), tokenizer);
   auto pbuilder = vm->createProgramBuilder();
   pbuilder->addBuiltin(vm->createString("print"), egg::ovum::Type::Object); // TODO
   auto compiler = egg::yolk::EggCompilerFactory::createFromProgramBuilder(pbuilder);

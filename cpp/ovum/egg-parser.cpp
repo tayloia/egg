@@ -1,13 +1,13 @@
-#include "yolk/yolk.h"
+#include "ovum/ovum.h"
+#include "ovum/exception.h"
 #include "ovum/lexer.h"
 #include "ovum/egg-tokenizer.h"
-#include "yolk/egg-parser.h"
+#include "ovum/egg-parser.h"
 
 #include <deque>
 
 namespace {
   using namespace egg::ovum;
-  using namespace egg::yolk;
 
   const char* describe(IEggParser::Node::Kind flavour) {
     if (flavour == IEggParser::Node::Kind::TypeInfer) {

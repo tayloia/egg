@@ -109,7 +109,7 @@ namespace egg::ovum {
     }
   };
 
-  class TextStream : public egg::ovum::ITextStream {
+  class TextStream {
     TextStream(TextStream&) = delete;
     TextStream& operator=(TextStream&) = delete;
   private:
@@ -121,21 +121,21 @@ namespace egg::ovum {
     explicit TextStream(CharStream& chars)
       : chars(chars), upcoming(), line(1), column(1) {
     }
-    virtual int get() override;
-    virtual int peek(size_t index = 0) override {
+    int get();
+    int peek(size_t index = 0) {
       if (this->ensure(index + 1)) {
         return this->upcoming[index];
       }
       return -1;
     }
-    virtual size_t getCurrentLine() override {
+    size_t getCurrentLine() {
       this->ensure(1);
       return this->line;
     }
-    virtual size_t getCurrentColumn() override {
+    size_t getCurrentColumn() {
       return this->column;
     }
-    virtual const std::string& getResourceName() const override {
+    const std::string& getResourceName() const {
       return this->chars.getResourceName();
     }
     bool readline(std::string& text);

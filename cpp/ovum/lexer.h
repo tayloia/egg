@@ -2,7 +2,7 @@
 // It is usually necessary to wrap this in a tokenizer
 // to handle disambiguation such as "a--b"
 namespace egg::ovum {
-  class ITextStream;
+  class TextStream;
 
   enum class LexerKind {
     Whitespace,
@@ -40,6 +40,6 @@ namespace egg::ovum {
   public:
     static std::shared_ptr<ILexer> createFromPath(const std::string& path, bool swallowBOM = true);
     static std::shared_ptr<ILexer> createFromString(const std::string& text, const std::string& resource = std::string());
-    static std::shared_ptr<ILexer> createFromTextStream(ITextStream& stream);
+    static std::shared_ptr<ILexer> createFromTextStream(TextStream& stream);
   };
 }

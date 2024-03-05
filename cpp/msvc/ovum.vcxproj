@@ -21,6 +21,7 @@
   <ItemGroup>
     <ClCompile Include="..\ovum\arithmetic.cpp" />
     <ClCompile Include="..\ovum\basket.cpp" />
+    <ClCompile Include="..\ovum\egg-parser.cpp" />
     <ClCompile Include="..\ovum\egg-tokenizer.cpp" />
     <ClCompile Include="..\ovum\eon-tokenizer.cpp" />
     <ClCompile Include="..\ovum\exception.cpp" />
@@ -46,6 +47,7 @@
     <ClInclude Include="..\ovum\arithmetic.h" />
     <ClInclude Include="..\ovum\basket.h" />
     <ClInclude Include="..\ovum\dictionary.h" />
+    <ClInclude Include="..\ovum\egg-parser.h" />
     <ClInclude Include="..\ovum\egg-tokenizer.h" />
     <ClInclude Include="..\ovum\eon-tokenizer.h" />
     <ClInclude Include="..\ovum\exception.h" />

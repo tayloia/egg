@@ -1,11 +1,11 @@
 #include "yolk/test.h"
 #include "ovum/lexer.h"
 #include "ovum/egg-tokenizer.h"
-#include "yolk/egg-parser.h"
+#include "ovum/egg-parser.h"
 
-using Issue = egg::yolk::IEggParser::Issue;
-using Node = egg::yolk::IEggParser::Node;
-using Result = egg::yolk::IEggParser::Result;
+using Issue = egg::ovum::IEggParser::Issue;
+using Node = egg::ovum::IEggParser::Node;
+using Result = egg::ovum::IEggParser::Result;
 
 namespace {
   std::ostream& printNode(std::ostream& os, const Node& node, bool ranges);
@@ -254,7 +254,7 @@ namespace {
     std::copy(lines.begin(), lines.end(), std::ostream_iterator<std::string>(ss, "\n"));
     auto lexer = egg::ovum::LexerFactory::createFromString(ss.str());
     auto tokenizer = egg::ovum::EggTokenizerFactory::createFromLexer(allocator, lexer);
-    auto parser = egg::yolk::EggParserFactory::createFromTokenizer(allocator, tokenizer);
+    auto parser = egg::ovum::EggParserFactory::createFromTokenizer(allocator, tokenizer);
     ASSERT_STRING("", parser->resource());
     auto result = parser->parse();
     for (auto& issue : result.issues) {

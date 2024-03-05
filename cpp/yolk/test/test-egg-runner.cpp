@@ -1,7 +1,7 @@
 #include "yolk/test.h"
 #include "ovum/lexer.h"
 #include "ovum/egg-tokenizer.h"
-#include "yolk/egg-parser.h"
+#include "ovum/egg-parser.h"
 #include "yolk/egg-compiler.h"
 
 TEST(TestEggRunner, Succeeded) {

@@ -3,7 +3,7 @@
 #include "ovum/file.h"
 #include "ovum/stream.h"
 #include "ovum/egg-tokenizer.h"
-#include "yolk/egg-parser.h"
+#include "ovum/egg-parser.h"
 #include "yolk/egg-compiler.h"
 
 #include <stack>
@@ -16,7 +16,8 @@ using namespace egg::yolk;
 
 namespace {
   using ModuleNode = egg::ovum::IVMModule::Node;
-  using ParserNode = egg::yolk::IEggParser::Node;
+  using Parser = egg::ovum::IEggParser;
+  using ParserNode = Parser::Node;
   using ParserNodes = std::vector<std::unique_ptr<ParserNode>>;
 
   enum class Ambiguous {
@@ -384,7 +385,7 @@ namespace {
     explicit EggCompiler(const egg::ovum::HardPtr<egg::ovum::IVMProgramBuilder>& pbuilder)
       : pbuilder(pbuilder) {
     }
-    virtual egg::ovum::HardPtr<egg::ovum::IVMModule> compile(IEggParser& parser) override {
+    virtual egg::ovum::HardPtr<egg::ovum::IVMModule> compile(Parser& parser) override {
       // TODO warnings as errors?
       auto resource = parser.resource();
       auto parsed = parser.parse();
@@ -403,29 +404,29 @@ namespace {
       return nullptr;
     }
   private:
-    egg::ovum::ILogger::Severity parse(IEggParser& parser, IEggParser::Result& result) {
+    egg::ovum::ILogger::Severity parse(Parser& parser, Parser::Result& result) {
       result = parser.parse();
       return this->logIssues(parser.resource(), result.issues);
     }
-    egg::ovum::ILogger::Severity logIssues(const egg::ovum::String& resource, const std::vector<IEggParser::Issue>& issues) {
+    egg::ovum::ILogger::Severity logIssues(const egg::ovum::String& resource, const std::vector<Parser::Issue>& issues) {
       auto& logger = this->pbuilder->getVM().getLogger();
       auto worst = egg::ovum::ILogger::Severity::None;
       for (const auto& issue : issues) {
         egg::ovum::ILogger::Severity severity = egg::ovum::ILogger::Severity::Error;
         switch (issue.severity) {
-        case IEggParser::Issue::Severity::Information:
+        case Parser::Issue::Severity::Information:
           severity = egg::ovum::ILogger::Severity::Information;
           if (worst == egg::ovum::ILogger::Severity::None) {
             worst = egg::ovum::ILogger::Severity::Information;
           }
           break;
-        case IEggParser::Issue::Severity::Warning:
+        case Parser::Issue::Severity::Warning:
           severity = egg::ovum::ILogger::Severity::Warning;
           if (worst != egg::ovum::ILogger::Severity::Error) {
             worst = egg::ovum::ILogger::Severity::Warning;
           }
           break;
-        case IEggParser::Issue::Severity::Error:
+        case Parser::Issue::Severity::Error:
           severity = egg::ovum::ILogger::Severity::Error;
           worst = egg::ovum::ILogger::Severity::Error;
           break;
@@ -3049,10 +3050,10 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
   return "unknown node kind";
 }
 
-egg::ovum::HardPtr<egg::ovum::IVMProgram> egg::yolk::EggCompilerFactory::compileFromStream(egg::ovum::IVM& vm, egg::ovum::ITextStream& stream) {
+egg::ovum::HardPtr<egg::ovum::IVMProgram> egg::yolk::EggCompilerFactory::compileFromStream(egg::ovum::IVM& vm, egg::ovum::TextStream& stream) {
   auto lexer = egg::ovum::LexerFactory::createFromTextStream(stream);
   auto tokenizer = egg::ovum::EggTokenizerFactory::createFromLexer(vm.getAllocator(), lexer);
-  auto parser = EggParserFactory::createFromTokenizer(vm.getAllocator(), tokenizer);
+  auto parser = egg::ovum::EggParserFactory::createFromTokenizer(vm.getAllocator(), tokenizer);
   auto pbuilder = vm.createProgramBuilder();
   pbuilder->addBuiltin(vm.createString("assert"), egg::ovum::Type::Object); // TODO
   pbuilder->addBuiltin(vm.createString("print"), egg::ovum::Type::Object); // TODO

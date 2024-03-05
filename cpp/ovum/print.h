@@ -1,6 +1,7 @@
 namespace egg::ovum {
   class HardObject;
   class HardValue;
+  class IValue;
   enum class ValueUnaryOp;
   enum class ValueBinaryOp;
   enum class ValueTernaryOp;

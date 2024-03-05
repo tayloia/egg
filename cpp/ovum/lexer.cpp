@@ -40,9 +40,9 @@ namespace {
     Lexer(Lexer&) = delete;
     Lexer& operator=(Lexer&) = delete;
   private:
-    ITextStream& stream;
+    TextStream& stream;
   public:
-    explicit Lexer(ITextStream& stream)
+    explicit Lexer(TextStream& stream)
       : stream(stream) {
     }
     virtual LexerKind next(LexerItem& item) override {
@@ -396,6 +396,6 @@ std::shared_ptr<egg::ovum::ILexer> egg::ovum::LexerFactory::createFromString(con
   return std::make_shared<StringLexer>(text, resource);
 }
 
-std::shared_ptr<egg::ovum::ILexer> egg::ovum::LexerFactory::createFromTextStream(ITextStream& stream) {
+std::shared_ptr<egg::ovum::ILexer> egg::ovum::LexerFactory::createFromTextStream(TextStream& stream) {
   return std::make_shared<Lexer>(stream);
 }
