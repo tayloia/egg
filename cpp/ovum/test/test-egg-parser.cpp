@@ -1,4 +1,5 @@
-#include "yolk/test.h"
+#include "ovum/test.h"
+#include "ovum/exception.h"
 #include "ovum/lexer.h"
 #include "ovum/egg-tokenizer.h"
 #include "ovum/egg-parser.h"
@@ -8,18 +9,20 @@ using Node = egg::ovum::IEggParser::Node;
 using Result = egg::ovum::IEggParser::Result;
 
 namespace {
+  using namespace egg::ovum;
+
   std::ostream& printNode(std::ostream& os, const Node& node, bool ranges);
 
-  std::ostream& printValue(std::ostream& os, const egg::ovum::HardValue& value, char quote) {
-    egg::ovum::Print::Options options{};
+  std::ostream& printValue(std::ostream& os, const HardValue& value, char quote) {
+    Print::Options options{};
     options.quote = quote;
-    egg::ovum::Printer{ os, options } << value;
+    Printer{ os, options } << value;
     return os;
   }
 
-  std::ostream& printRange(std::ostream& os, const egg::ovum::SourceRange& value) {
+  std::ostream& printRange(std::ostream& os, const SourceRange& value) {
     os << '@';
-    egg::ovum::Print::write(os, value, egg::ovum::Print::Options::DEFAULT);
+    Print::write(os, value, Print::Options::DEFAULT);
     return os;
   }
 
@@ -30,7 +33,7 @@ namespace {
       printRange(os, node.range);
     }
     os << ' ' << '\'';
-    egg::ovum::Printer{ os, egg::ovum::Print::Options::DEFAULT } << extra;
+    Printer{ os, Print::Options::DEFAULT } << extra;
     os << '\'';
     for (auto& child : node.children) {
       os << ' ';
@@ -245,16 +248,16 @@ namespace {
     case Issue::Severity::Information:
       break;
     }
-    egg::ovum::Print::write(os, issue.range, egg::ovum::Print::Options::DEFAULT);
+    Print::write(os, issue.range, Print::Options::DEFAULT);
     return os << ": " << issue.message.toUTF8();
   }
 
   Result parseFromLines(egg::test::Allocator& allocator, std::initializer_list<std::string> lines) {
     std::ostringstream ss;
     std::copy(lines.begin(), lines.end(), std::ostream_iterator<std::string>(ss, "\n"));
-    auto lexer = egg::ovum::LexerFactory::createFromString(ss.str());
-    auto tokenizer = egg::ovum::EggTokenizerFactory::createFromLexer(allocator, lexer);
-    auto parser = egg::ovum::EggParserFactory::createFromTokenizer(allocator, tokenizer);
+    auto lexer = LexerFactory::createFromString(ss.str());
+    auto tokenizer = EggTokenizerFactory::createFromLexer(allocator, lexer);
+    auto parser = EggParserFactory::createFromTokenizer(allocator, tokenizer);
     ASSERT_STRING("", parser->resource());
     auto result = parser->parse();
     for (auto& issue : result.issues) {

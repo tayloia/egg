@@ -1,12 +1,13 @@
-#include "yolk/test.h"
+#include "ovum/test.h"
+#include "ovum/exception.h"
 #include "ovum/lexer.h"
 #include "ovum/egg-tokenizer.h"
 #include "ovum/egg-parser.h"
-#include "yolk/egg-compiler.h"
+#include "ovum/egg-compiler.h"
 
 TEST(TestEggRunner, Succeeded) {
   egg::test::VM vm;
-  auto program = egg::yolk::EggCompilerFactory::compileFromText(*vm, "print(\"Hello, World!\");");
+  auto program = egg::ovum::EggCompilerFactory::compileFromText(*vm, "print(\"Hello, World!\");");
   ASSERT_TRUE(program != nullptr);
   auto runner = program->createRunner();
   ASSERT_TRUE(runner != nullptr);
@@ -17,7 +18,7 @@ TEST(TestEggRunner, Succeeded) {
 
 TEST(TestEggRunner, Failed) {
   egg::test::VM vm;
-  auto program = egg::yolk::EggCompilerFactory::compileFromText(*vm, "// comment\n  print(\"Hello, World!\");", "greeting.egg");
+  auto program = egg::ovum::EggCompilerFactory::compileFromText(*vm, "// comment\n  print(\"Hello, World!\");", "greeting.egg");
   ASSERT_TRUE(program != nullptr);
   auto runner = program->createRunner();
   ASSERT_TRUE(runner != nullptr);

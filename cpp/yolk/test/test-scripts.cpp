@@ -1,12 +1,11 @@
 #include "yolk/test.h"
 #include "ovum/file.h"
 #include "ovum/stream.h"
-#include "yolk/egg-compiler.h"
-
-using namespace egg::ovum;
-using namespace egg::yolk;
+#include "ovum/egg-compiler.h"
 
 namespace {
+  using namespace egg::ovum;
+
   class TestScript {
   public:
     static void run(const std::string& resource) {

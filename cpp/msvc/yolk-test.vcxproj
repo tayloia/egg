@@ -38,9 +38,6 @@
       <DisableLanguageExtensions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</DisableLanguageExtensions>
       <DisableLanguageExtensions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</DisableLanguageExtensions>
     </ClCompile>
-    <ClCompile Include="..\yolk\test\test-egg-compiler.cpp" />
-    <ClCompile Include="..\yolk\test\test-egg-parser.cpp" />
-    <ClCompile Include="..\yolk\test\test-egg-runner.cpp" />
     <ClCompile Include="..\yolk\test\test-scripts.cpp" />
     <ClCompile Include="yolk-test.pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

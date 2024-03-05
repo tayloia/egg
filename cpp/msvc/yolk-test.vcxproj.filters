@@ -25,15 +25,6 @@
     <ClCompile Include="..\yolk\test\test-scripts.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\yolk\test\test-egg-compiler.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\yolk\test\test-egg-parser.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\yolk\test\test-egg-runner.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ovum\test\etest.h">

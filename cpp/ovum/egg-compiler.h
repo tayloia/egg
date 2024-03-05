@@ -1,8 +1,6 @@
-namespace egg::ovum { // WIBBLE
+namespace egg::ovum {
   class IEggParser;
-}
 
-namespace egg::yolk {
   class IEggCompiler {
   public:
     virtual ~IEggCompiler() {}

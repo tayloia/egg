@@ -35,6 +35,9 @@
       <DisableLanguageExtensions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</DisableLanguageExtensions>
       <DisableLanguageExtensions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</DisableLanguageExtensions>
     </ClCompile>
+    <ClCompile Include="..\ovum\test\test-egg-compiler.cpp" />
+    <ClCompile Include="..\ovum\test\test-egg-parser.cpp" />
+    <ClCompile Include="..\ovum\test\test-egg-runner.cpp" />
     <ClCompile Include="..\ovum\test\test-egg-tokenizer.cpp" />
     <ClCompile Include="..\ovum\test\test-eon-tokenizer.cpp" />
     <ClCompile Include="..\ovum\test\test-exception.cpp" />

@@ -19,7 +19,6 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\yolk\egg-compiler.cpp" />
     <ClCompile Include="yolk.pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
@@ -33,7 +32,6 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\yolk\egg-compiler.h" />
     <ClInclude Include="..\yolk\test.h" />
     <ClInclude Include="..\yolk\yolk.h" />
   </ItemGroup>

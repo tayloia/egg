@@ -1,10 +1,11 @@
-#include "yolk/yolk.h"
+#include "ovum/ovum.h"
+#include "ovum/exception.h"
 #include "ovum/lexer.h"
 #include "ovum/file.h"
 #include "ovum/stream.h"
 #include "ovum/egg-tokenizer.h"
 #include "ovum/egg-parser.h"
-#include "yolk/egg-compiler.h"
+#include "ovum/egg-compiler.h"
 
 #include <stack>
 
@@ -12,11 +13,11 @@
 #define EXPECT(node, condition) \
   if (condition) {} else return this->error(node, "Expection failure in egg-compiler.cpp line ", __LINE__, ": " #condition);
 
-using namespace egg::yolk;
-
 namespace {
-  using ModuleNode = egg::ovum::IVMModule::Node;
-  using Parser = egg::ovum::IEggParser;
+  using namespace egg::ovum;
+
+  using ModuleNode = IVMModule::Node;
+  using Parser = IEggParser;
   using ParserNode = Parser::Node;
   using ParserNodes = std::vector<std::unique_ptr<ParserNode>>;
 
@@ -25,36 +26,36 @@ namespace {
     Type
   };
 
-  egg::ovum::Accessability getAccessabilityUnion(const egg::ovum::IPropertySignature& dotable) {
+  Accessability getAccessabilityUnion(const IPropertySignature& dotable) {
     // Fix all accessibility bits for all properties (including unknowns for open sets)
     auto bits = dotable.getAccessability({});
     auto index = dotable.getNameCount();
     while (index-- > 0) {
-      bits = egg::ovum::Bits::set(bits, dotable.getAccessability(dotable.getName(index)));
+      bits = Bits::set(bits, dotable.getAccessability(dotable.getName(index)));
     }
     return bits;
   }
 
-  class ModuleCompiler final : public egg::ovum::IVMModuleBuilder::Reporter {
+  class ModuleCompiler final : public IVMModuleBuilder::Reporter {
     ModuleCompiler(const ModuleCompiler&) = delete;
     ModuleCompiler& operator=(const ModuleCompiler&) = delete;
   private:
-    egg::ovum::IVM& vm;
-    egg::ovum::String resource;
-    egg::ovum::IVMModuleBuilder& mbuilder;
+    IVM& vm;
+    String resource;
+    IVMModuleBuilder& mbuilder;
   public:
-    ModuleCompiler(egg::ovum::IVM& vm, const egg::ovum::String& resource, egg::ovum::IVMModuleBuilder& mbuilder)
+    ModuleCompiler(IVM& vm, const String& resource, IVMModuleBuilder& mbuilder)
       : vm(vm),
         resource(resource),
         mbuilder(mbuilder) {
     }
     class StmtContext;
-    egg::ovum::HardPtr<egg::ovum::IVMModule> compile(ParserNode& root, StmtContext& context);
-    virtual void report(const egg::ovum::SourceRange& range, const egg::ovum::String& problem) override {
-      this->log(egg::ovum::ILogger::Severity::Error, this->resource, range, ": ", problem);
+    HardPtr<IVMModule> compile(ParserNode& root, StmtContext& context);
+    virtual void report(const SourceRange& range, const String& problem) override {
+      this->log(ILogger::Severity::Error, this->resource, range, ": ", problem);
     }
     struct ExprContextData {
-      egg::ovum::Type arrayElementType = nullptr;
+      Type arrayElementType = nullptr;
     };
     class ExprContext : public ExprContextData {
       ExprContext() = delete;
@@ -69,21 +70,21 @@ namespace {
           Type
         };
         Kind kind;
-        egg::ovum::Type type;
-        egg::ovum::SourceRange range;
+        Type type;
+        SourceRange range;
       };
     protected:
-      std::map<egg::ovum::String, Symbol> symbols;
-      std::set<egg::ovum::String>* captures;
+      std::map<String, Symbol> symbols;
+      std::set<String>* captures;
       const ExprContext* chain;
     public:
-      explicit ExprContext(const ExprContext* parent, std::set<egg::ovum::String>* captures = nullptr)
+      explicit ExprContext(const ExprContext* parent, std::set<String>* captures = nullptr)
         : symbols(),
           captures(captures),
           chain(parent) {
       }
       // Symbol table
-      const Symbol* findSymbol(const egg::ovum::String& name) const {
+      const Symbol* findSymbol(const String& name) const {
         // Searches the entire chain from front to back
         // TODO optimize
         auto seenCaptures = false;
@@ -107,7 +108,7 @@ namespace {
     };
     struct StmtContextData {
       struct Count {
-        egg::ovum::Type type = nullptr;
+        Type type = nullptr;
         size_t count = 0;
       };
       bool canBreak : 1 = false;
@@ -121,14 +122,14 @@ namespace {
       StmtContext() = delete;
       StmtContext(const StmtContext& parent) = delete;
     public:
-      explicit StmtContext(const StmtContext* parent, std::set<egg::ovum::String>* captures = nullptr)
+      explicit StmtContext(const StmtContext* parent, std::set<String>* captures = nullptr)
         : ExprContext(parent, captures),
           StmtContextData() {
         if (parent != nullptr) {
           *static_cast<StmtContextData*>(this) = *parent;
         }
       }
-      StmtContext(const ExprContext& parent, std::set<egg::ovum::String>* captures, StmtContextData&& data)
+      StmtContext(const ExprContext& parent, std::set<String>* captures, StmtContextData&& data)
         : ExprContext(&parent, captures),
           StmtContextData(std::move(data)) {
       }
@@ -136,7 +137,7 @@ namespace {
         return this->chain == nullptr;
       }
       // Symbol table
-      const Symbol* addSymbol(Symbol::Kind kind, const egg::ovum::String& name, const egg::ovum::Type& type, const egg::ovum::SourceRange& range) {
+      const Symbol* addSymbol(Symbol::Kind kind, const String& name, const Type& type, const SourceRange& range) {
         // Return a pointer to the extant symbol else null if added
         assert(!name.empty());
         assert(type != nullptr);
@@ -145,7 +146,7 @@ namespace {
         auto iterator = this->symbols.emplace(name, Symbol{ kind, type, range });
         return iterator.second ? nullptr : &iterator.first->second;
       }
-      bool removeSymbol(const egg::ovum::String& name) {
+      bool removeSymbol(const String& name) {
         // Only removes from the base of the chain
         assert(!name.empty());
         auto count = this->symbols.erase(name);
@@ -195,8 +196,8 @@ namespace {
     ModuleNode* compileValueExprReference(ParserNode& ampersand, ParserNode& pexpr, const ExprContext& context);
     ModuleNode* compileValueExprDereference(ParserNode& star, ParserNode& pexpr, const ExprContext& context);
     ModuleNode* compileValueExprArray(ParserNode& pnode, const ExprContext& context);
-    ModuleNode* compileValueExprArrayHinted(ParserNode& pnode, const ExprContext& context, const egg::ovum::Type& elementType);
-    ModuleNode* compileValueExprArrayHintedElement(ParserNode& pnode, const ExprContext& context, const egg::ovum::Type& elementType);
+    ModuleNode* compileValueExprArrayHinted(ParserNode& pnode, const ExprContext& context, const Type& elementType);
+    ModuleNode* compileValueExprArrayHintedElement(ParserNode& pnode, const ExprContext& context, const Type& elementType);
     ModuleNode* compileValueExprArrayUnhinted(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileValueExprArrayUnhintedElement(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileValueExprEon(ParserNode& pnode, const ExprContext& context);
@@ -204,7 +205,7 @@ namespace {
     ModuleNode* compileValueExprObject(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileValueExprObjectElement(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileValueExprGuard(ParserNode& pnode, ParserNode& ptype, ParserNode& pexpr, const ExprContext& context);
-    ModuleNode* compileValueExprManifestation(ParserNode& pnode, const egg::ovum::Type& type, const ExprContext& context);
+    ModuleNode* compileValueExprManifestation(ParserNode& pnode, const Type& type, const ExprContext& context);
     ModuleNode* compileValueExprMissing(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileTypeExpr(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileTypeExprVariable(ParserNode& pnode, const ExprContext& context);
@@ -217,89 +218,89 @@ namespace {
     ModuleNode* compileTypeSpecificationStaticFunction(ParserNode& pnode, const ExprContext& context, ModuleNode*& inode);
     ModuleNode* compileTypeSpecificationInstanceData(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileTypeSpecificationInstanceFunction(ParserNode& pnode, const ExprContext& context);
-    ModuleNode* compileTypeGuard(ParserNode& pnode, const ExprContext& context, egg::ovum::Type& type, ModuleNode*& mcond);
-    ModuleNode* compileTypeInfer(ParserNode& pnode, ParserNode& ptype, ParserNode& pexpr, const ExprContext& context, egg::ovum::Type& type, ModuleNode*& mexpr);
-    ModuleNode* compileTypeInferVar(ParserNode& pnode, ParserNode& ptype, ParserNode& pexpr, const ExprContext& context, egg::ovum::Type& type, ModuleNode*& mexpr, bool nullable);
+    ModuleNode* compileTypeGuard(ParserNode& pnode, const ExprContext& context, Type& type, ModuleNode*& mcond);
+    ModuleNode* compileTypeInfer(ParserNode& pnode, ParserNode& ptype, ParserNode& pexpr, const ExprContext& context, Type& type, ModuleNode*& mexpr);
+    ModuleNode* compileTypeInferVar(ParserNode& pnode, ParserNode& ptype, ParserNode& pexpr, const ExprContext& context, Type& type, ModuleNode*& mexpr, bool nullable);
     ModuleNode* compileAmbiguousExpr(ParserNode& pnode, const ExprContext& context, Ambiguous& ambiguous);
     ModuleNode* compileAmbiguousVariable(ParserNode& pnode, const ExprContext& context, Ambiguous& ambiguous);
     ModuleNode* compileLiteral(ParserNode& pnode);
     ModuleNode* checkValueExpr(ModuleNode& mnode, const ExprContext& context);
-    bool checkValueExprOperand(const char* expected, ModuleNode& mnode, ParserNode& pnode, egg::ovum::ValueFlags required, const ExprContext& context);
-    bool checkValueExprOperand2(const char* expected, ModuleNode& lhs, ModuleNode& rhs, ParserNode& pnode, egg::ovum::ValueFlags required, const ExprContext& context);
-    bool checkValueExprUnary(egg::ovum::ValueUnaryOp op, ModuleNode& rhs, ParserNode& pnode, const ExprContext& context);
-    bool checkValueExprBinary(egg::ovum::ValueBinaryOp op, ModuleNode& lhs, ModuleNode& rhs, ParserNode& pnode, const ExprContext& context);
-    bool checkValueExprTernary(egg::ovum::ValueTernaryOp op, ModuleNode& lhs, ModuleNode& mid, ModuleNode& rhs, ParserNode& pnode, const ExprContext& context);
-    bool checkStmtVariableMutate(const egg::ovum::String& symbol, egg::ovum::ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context);
-    bool checkStmtPropertyMutate(ModuleNode& instance, ModuleNode& property, egg::ovum::ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context);
-    bool checkStmtIndexMutate(ModuleNode& instance, ModuleNode& index, egg::ovum::ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context);
-    bool checkStmtPointeeMutate(ModuleNode& instance, egg::ovum::ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context);
+    bool checkValueExprOperand(const char* expected, ModuleNode& mnode, ParserNode& pnode, ValueFlags required, const ExprContext& context);
+    bool checkValueExprOperand2(const char* expected, ModuleNode& lhs, ModuleNode& rhs, ParserNode& pnode, ValueFlags required, const ExprContext& context);
+    bool checkValueExprUnary(ValueUnaryOp op, ModuleNode& rhs, ParserNode& pnode, const ExprContext& context);
+    bool checkValueExprBinary(ValueBinaryOp op, ModuleNode& lhs, ModuleNode& rhs, ParserNode& pnode, const ExprContext& context);
+    bool checkValueExprTernary(ValueTernaryOp op, ModuleNode& lhs, ModuleNode& mid, ModuleNode& rhs, ParserNode& pnode, const ExprContext& context);
+    bool checkStmtVariableMutate(const String& symbol, ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context);
+    bool checkStmtPropertyMutate(ModuleNode& instance, ModuleNode& property, ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context);
+    bool checkStmtIndexMutate(ModuleNode& instance, ModuleNode& index, ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context);
+    bool checkStmtPointeeMutate(ModuleNode& instance, ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context);
     enum class MutateCheck { Success, Unnecessary, Failure };
-    MutateCheck checkTargetMutate(const egg::ovum::Type& target, egg::ovum::ValueMutationOp op, const egg::ovum::Type& value, egg::ovum::String& problem);
-    egg::ovum::Type literalType(ParserNode & pnode);
-    egg::ovum::String deduceString(ModuleNode& mnode, const ExprContext& context);
-    egg::ovum::Type deduceType(ModuleNode& mnode, const ExprContext& context, egg::ovum::IVMTypeResolver::Kind& deduced) {
-      class Resolver : public egg::ovum::IVMTypeResolver {
+    MutateCheck checkTargetMutate(const Type& target, ValueMutationOp op, const Type& value, String& problem);
+    Type literalType(ParserNode & pnode);
+    String deduceString(ModuleNode& mnode, const ExprContext& context);
+    Type deduceType(ModuleNode& mnode, const ExprContext& context, IVMTypeResolver::Kind& deduced) {
+      class Resolver : public IVMTypeResolver {
         Resolver(const Resolver&) = delete;
         Resolver& operator=(const Resolver&) = delete;
       private:
-        egg::ovum::IVMModuleBuilder& mbuilder;
+        IVMModuleBuilder& mbuilder;
         const ExprContext& context;
-        egg::ovum::IVMModuleBuilder::Reporter& reporter;
+        IVMModuleBuilder::Reporter& reporter;
       public:
-        Resolver(egg::ovum::IVMModuleBuilder& mbuilder, const ExprContext& context, egg::ovum::IVMModuleBuilder::Reporter& reporter)
+        Resolver(IVMModuleBuilder& mbuilder, const ExprContext& context, IVMModuleBuilder::Reporter& reporter)
           : mbuilder(mbuilder),
             context(context),
             reporter(reporter) {
         }
-        virtual egg::ovum::Type resolveSymbol(const egg::ovum::String& symbol, egg::ovum::IVMTypeResolver::Kind& kind) override {
+        virtual Type resolveSymbol(const String& symbol, IVMTypeResolver::Kind& kind) override {
           auto* entry = this->context.findSymbol(symbol);
           if (entry != nullptr) {
             switch (entry->kind) {
             case ExprContext::Symbol::Kind::Type:
-              kind = egg::ovum::IVMTypeResolver::Kind::Type;
+              kind = IVMTypeResolver::Kind::Type;
               break;
             case ExprContext::Symbol::Kind::Builtin:
             case ExprContext::Symbol::Kind::Parameter:
             case ExprContext::Symbol::Kind::Variable:
             case ExprContext::Symbol::Kind::Function:
             default:
-              kind = egg::ovum::IVMTypeResolver::Kind::Value;
+              kind = IVMTypeResolver::Kind::Value;
               break;
             }
             return entry->type;
           }
           return nullptr;
         }
-        virtual egg::ovum::IVMTypeSpecification* resolveTypeSpecification(const egg::ovum::IVMModule::Node& spec) override {
+        virtual IVMTypeSpecification* resolveTypeSpecification(const IVMModule::Node& spec) override {
           return this->mbuilder.registerTypeSpecification(spec, *this, this->reporter);
         }
       };
       Resolver resolver{ this->mbuilder, context, *this };
       return this->mbuilder.deduceType(mnode, resolver, this, deduced);
     }
-    egg::ovum::Type deduceTypeExpr(ModuleNode& mnode, const ExprContext& context) {
+    Type deduceTypeExpr(ModuleNode& mnode, const ExprContext& context) {
       // TODO: The split between 'deduceTypeExpr' and 'deduceExprType' needs revisiting
-      auto kind = egg::ovum::IVMTypeResolver::Kind::Type;
+      auto kind = IVMTypeResolver::Kind::Type;
       auto type = this->deduceType(mnode, context, kind);
-      if ((type != nullptr) && (kind != egg::ovum::IVMTypeResolver::Kind::Type)) {
+      if ((type != nullptr) && (kind != IVMTypeResolver::Kind::Type)) {
         throw std::logic_error("Cannot deduce type expression");
       }
       return type;
     }
-    egg::ovum::Type deduceExprType(ModuleNode& mnode, const ExprContext& context) {
-      auto kind = egg::ovum::IVMTypeResolver::Kind::Value;
+    Type deduceExprType(ModuleNode& mnode, const ExprContext& context) {
+      auto kind = IVMTypeResolver::Kind::Value;
       auto type = this->deduceType(mnode, context, kind);
-      if ((type != nullptr) && (kind != egg::ovum::IVMTypeResolver::Kind::Value)) {
+      if ((type != nullptr) && (kind != IVMTypeResolver::Kind::Value)) {
         throw std::logic_error("Cannot deduce type of expression");
       }
       return type;
     }
-    void forgeNullability(egg::ovum::Type& type, bool nullable) {
+    void forgeNullability(Type& type, bool nullable) {
       assert(type != nullptr);
       type = this->vm.getTypeForge().forgeNullableType(type, nullable);
       assert(type != nullptr);
     }
-    egg::ovum::Type forgeYieldability(const egg::ovum::Type& type) {
+    Type forgeYieldability(const Type& type) {
       if (type->getShapeCount() != 1) {
         return nullptr;
       }
@@ -309,12 +310,12 @@ namespace {
       }
       return shape->iterable->getIterationType();
     }
-    egg::ovum::Assignability isAssignable(const egg::ovum::Type& dst, const egg::ovum::Type& src) {
+    Assignability isAssignable(const Type& dst, const Type& src) {
       assert(dst != nullptr);
       assert(src != nullptr);
       return this->vm.getTypeForge().isTypeAssignable(dst, src);
     }
-    bool addSymbol(StmtContext& context, ParserNode& pnode, StmtContext::Symbol::Kind kind, const egg::ovum::String& name, const egg::ovum::Type& type) {
+    bool addSymbol(StmtContext& context, ParserNode& pnode, StmtContext::Symbol::Kind kind, const String& name, const Type& type) {
       auto* extant = context.addSymbol(kind, name, type, pnode.range);
       if (extant != nullptr) {
         const char* already = "";
@@ -341,21 +342,21 @@ namespace {
       return true;
     }
     template<typename... ARGS>
-    egg::ovum::String concat(ARGS&&... args) const {
-      return egg::ovum::StringBuilder::concat(this->vm.getAllocator(), std::forward<ARGS>(args)...);
+    String concat(ARGS&&... args) const {
+      return StringBuilder::concat(this->vm.getAllocator(), std::forward<ARGS>(args)...);
     }
     template<typename... ARGS>
-    void log(egg::ovum::ILogger::Severity severity, ARGS&&... args) const {
+    void log(ILogger::Severity severity, ARGS&&... args) const {
       auto message = this->concat(std::forward<ARGS>(args)...);
-      this->vm.getLogger().log(egg::ovum::ILogger::Source::Compiler, severity, message);
+      this->vm.getLogger().log(ILogger::Source::Compiler, severity, message);
     }
     template<typename... ARGS>
     void warning(ParserNode& pnode, ARGS&&... args) const {
-      this->log(egg::ovum::ILogger::Severity::Warning, this->resource, pnode.range, ": ", std::forward<ARGS>(args)...);
+      this->log(ILogger::Severity::Warning, this->resource, pnode.range, ": ", std::forward<ARGS>(args)...);
     }
     template<typename... ARGS>
     ModuleNode* error(ParserNode& pnode, ARGS&&... args) const {
-      this->log(egg::ovum::ILogger::Severity::Error, this->resource, pnode.range, ": ", std::forward<ARGS>(args)...);
+      this->log(ILogger::Severity::Error, this->resource, pnode.range, ": ", std::forward<ARGS>(args)...);
       return nullptr;
     }
     template<typename... ARGS>
@@ -380,12 +381,12 @@ namespace {
     EggCompiler(const EggCompiler&) = delete;
     EggCompiler& operator=(const EggCompiler&) = delete;
   private:
-    egg::ovum::HardPtr<egg::ovum::IVMProgramBuilder> pbuilder;
+    HardPtr<IVMProgramBuilder> pbuilder;
   public:
-    explicit EggCompiler(const egg::ovum::HardPtr<egg::ovum::IVMProgramBuilder>& pbuilder)
+    explicit EggCompiler(const HardPtr<IVMProgramBuilder>& pbuilder)
       : pbuilder(pbuilder) {
     }
-    virtual egg::ovum::HardPtr<egg::ovum::IVMModule> compile(Parser& parser) override {
+    virtual HardPtr<IVMModule> compile(Parser& parser) override {
       // TODO warnings as errors?
       auto resource = parser.resource();
       auto parsed = parser.parse();
@@ -395,7 +396,7 @@ namespace {
         assert(mbuilder != nullptr);
         ModuleCompiler compiler(this->pbuilder->getVM(), resource, *mbuilder);
         ModuleCompiler::StmtContext context{ nullptr };
-        this->pbuilder->visitBuiltins([&context](const egg::ovum::String& symbol, const egg::ovum::Type& type) {
+        this->pbuilder->visitBuiltins([&context](const String& symbol, const Type& type) {
           context.addSymbol(ModuleCompiler::StmtContext::Symbol::Kind::Builtin, symbol, type, {});
         });
         context.target = &mbuilder->getRoot();
@@ -404,42 +405,42 @@ namespace {
       return nullptr;
     }
   private:
-    egg::ovum::ILogger::Severity parse(Parser& parser, Parser::Result& result) {
+    ILogger::Severity parse(Parser& parser, Parser::Result& result) {
       result = parser.parse();
       return this->logIssues(parser.resource(), result.issues);
     }
-    egg::ovum::ILogger::Severity logIssues(const egg::ovum::String& resource, const std::vector<Parser::Issue>& issues) {
+    ILogger::Severity logIssues(const String& resource, const std::vector<Parser::Issue>& issues) {
       auto& logger = this->pbuilder->getVM().getLogger();
-      auto worst = egg::ovum::ILogger::Severity::None;
+      auto worst = ILogger::Severity::None;
       for (const auto& issue : issues) {
-        egg::ovum::ILogger::Severity severity = egg::ovum::ILogger::Severity::Error;
+        ILogger::Severity severity = ILogger::Severity::Error;
         switch (issue.severity) {
         case Parser::Issue::Severity::Information:
-          severity = egg::ovum::ILogger::Severity::Information;
-          if (worst == egg::ovum::ILogger::Severity::None) {
-            worst = egg::ovum::ILogger::Severity::Information;
+          severity = ILogger::Severity::Information;
+          if (worst == ILogger::Severity::None) {
+            worst = ILogger::Severity::Information;
           }
           break;
         case Parser::Issue::Severity::Warning:
-          severity = egg::ovum::ILogger::Severity::Warning;
-          if (worst != egg::ovum::ILogger::Severity::Error) {
-            worst = egg::ovum::ILogger::Severity::Warning;
+          severity = ILogger::Severity::Warning;
+          if (worst != ILogger::Severity::Error) {
+            worst = ILogger::Severity::Warning;
           }
           break;
         case Parser::Issue::Severity::Error:
-          severity = egg::ovum::ILogger::Severity::Error;
-          worst = egg::ovum::ILogger::Severity::Error;
+          severity = ILogger::Severity::Error;
+          worst = ILogger::Severity::Error;
           break;
         }
-        auto message = egg::ovum::StringBuilder::concat(this->pbuilder->getAllocator(), resource, issue.range, ": ", issue.message);
-        logger.log(egg::ovum::ILogger::Source::Compiler, severity, message);
+        auto message = StringBuilder::concat(this->pbuilder->getAllocator(), resource, issue.range, ": ", issue.message);
+        logger.log(ILogger::Source::Compiler, severity, message);
       }
       return worst;
     }
   };
 }
 
-egg::ovum::HardPtr<egg::ovum::IVMModule> ModuleCompiler::compile(ParserNode& root, StmtContext& context) {
+HardPtr<IVMModule> ModuleCompiler::compile(ParserNode& root, StmtContext& context) {
   assert(context.isModuleRoot());
   assert(context.target != nullptr);
   if (root.kind != ParserNode::Kind::ModuleRoot) {
@@ -583,7 +584,7 @@ ModuleNode* ModuleCompiler::compileStmtInto(ParserNode& pnode, StmtContext& cont
 }
 
 ModuleNode* ModuleCompiler::compileStmtVoid(ParserNode& pnode) {
-  return &this->mbuilder.exprLiteral(egg::ovum::HardValue::Void, pnode.range);
+  return &this->mbuilder.exprLiteral(HardValue::Void, pnode.range);
 }
 
 ModuleNode* ModuleCompiler::compileStmtBlock(ParserNode& pnode, StmtContext& context) {
@@ -612,7 +613,7 @@ ModuleNode* ModuleCompiler::compileStmtBlockInto(ParserNodes& pnodes, StmtContex
 
 ModuleNode* ModuleCompiler::compileStmtDeclareVariable(ParserNode& pnode, StmtContext& context) {
   assert(pnode.kind == ParserNode::Kind::StmtDeclareVariable);
-  egg::ovum::String symbol;
+  String symbol;
   EXPECT(pnode, pnode.value->getString(symbol));
   EXPECT(pnode, pnode.children.size() == 1);
   auto& ptype = *pnode.children.front();
@@ -636,9 +637,9 @@ ModuleNode* ModuleCompiler::compileStmtDeclareVariable(ParserNode& pnode, StmtCo
 ModuleNode* ModuleCompiler::compileStmtDefineVariable(ParserNode& pnode, StmtContext& context) {
   assert(pnode.kind == ParserNode::Kind::StmtDefineVariable);
   EXPECT(pnode, pnode.children.size() == 2);
-  egg::ovum::String symbol;
+  String symbol;
   EXPECT(pnode, pnode.value->getString(symbol));
-  egg::ovum::Type ltype;
+  Type ltype;
   ModuleNode* rnode;
   auto lnode = this->compileTypeInfer(pnode, *pnode.children.front(), *pnode.children.back(), context, ltype, rnode);
   if (lnode == nullptr) {
@@ -648,7 +649,7 @@ ModuleNode* ModuleCompiler::compileStmtDefineVariable(ParserNode& pnode, StmtCon
   auto rtype = this->deduceExprType(*rnode, context);
   assert(rtype != nullptr);
   auto assignable = this->isAssignable(ltype, rtype);
-  if (assignable == egg::ovum::Assignability::Never) {
+  if (assignable == Assignability::Never) {
     return this->error(*pnode.children.back(), "Cannot initialize '", symbol, "' of type '", ltype, "' with a value of type '", rtype, "'");
   }
   assert(ltype != nullptr);
@@ -663,7 +664,7 @@ ModuleNode* ModuleCompiler::compileStmtDefineVariable(ParserNode& pnode, StmtCon
 ModuleNode* ModuleCompiler::compileStmtDefineType(ParserNode& pnode, StmtContext& context) {
   assert(pnode.kind == ParserNode::Kind::StmtDefineType);
   EXPECT(pnode, pnode.children.size() == 1);
-  egg::ovum::String symbol;
+  String symbol;
   EXPECT(pnode, pnode.value->getString(symbol));
   auto mtype = this->compileTypeExpr(*pnode.children.front(), context);
   if (mtype == nullptr) {
@@ -685,7 +686,7 @@ ModuleNode* ModuleCompiler::compileStmtDefineType(ParserNode& pnode, StmtContext
 ModuleNode* ModuleCompiler::compileStmtDefineFunction(ParserNode& pnode, StmtContext& context) {
   assert(pnode.kind == ParserNode::Kind::StmtDefineFunction);
   EXPECT(pnode, pnode.children.size() == 2);
-  egg::ovum::String symbol;
+  String symbol;
   EXPECT(pnode, pnode.value->getString(symbol));
   auto& phead = *pnode.children.front();
   if (phead.kind != ParserNode::Kind::TypeFunctionSignature) {
@@ -704,7 +705,7 @@ ModuleNode* ModuleCompiler::compileStmtDefineFunction(ParserNode& pnode, StmtCon
     return this->error(pnode, "Unable to deduce signature of function '", symbol, "' with type '", type, "' at compile time");
   }
   auto okay = this->addSymbol(context, phead, StmtContext::Symbol::Kind::Function, symbol, type);
-  std::set<egg::ovum::String> captures;
+  std::set<String> captures;
   StmtContextData::Count canReturn{ signature->getReturnType() };
   assert(canReturn.type != nullptr);
   StmtContextData::Count canYield{ this->forgeYieldability(canReturn.type) };
@@ -743,7 +744,7 @@ ModuleNode* ModuleCompiler::compileStmtDefineFunction(ParserNode& pnode, StmtCon
 
 ModuleNode* ModuleCompiler::compileStmtMutate(ParserNode& pnode, StmtContext& context) {
   assert(pnode.kind == ParserNode::Kind::StmtMutate);
-  auto nudge = (pnode.op.valueMutationOp == egg::ovum::ValueMutationOp::Decrement) || (pnode.op.valueMutationOp == egg::ovum::ValueMutationOp::Increment);
+  auto nudge = (pnode.op.valueMutationOp == ValueMutationOp::Decrement) || (pnode.op.valueMutationOp == ValueMutationOp::Increment);
   if (nudge) {
     EXPECT(pnode, pnode.children.size() == 1);
   } else {
@@ -753,7 +754,7 @@ ModuleNode* ModuleCompiler::compileStmtMutate(ParserNode& pnode, StmtContext& co
   if (plhs.kind == ParserNode::Kind::Variable) {
     // 'variable'
     EXPECT(plhs, plhs.children.empty());
-    egg::ovum::String symbol;
+    String symbol;
     EXPECT(plhs, plhs.value->getString(symbol));
     ModuleNode* rhs;
     if (nudge) {
@@ -834,9 +835,9 @@ ModuleNode* ModuleCompiler::compileStmtMutate(ParserNode& pnode, StmtContext& co
 ModuleNode* ModuleCompiler::compileStmtForEach(ParserNode& pnode, StmtContext& context) {
   assert(pnode.kind == ParserNode::Kind::StmtForEach);
   EXPECT(pnode, pnode.children.size() == 3);
-  egg::ovum::String symbol;
+  String symbol;
   EXPECT(pnode, pnode.value->getString(symbol));
-  egg::ovum::Type type;
+  Type type;
   ModuleNode* iter;
   auto mtype = this->compileTypeInfer(pnode, *pnode.children[0], *pnode.children[1], context, type, iter);
   if (mtype == nullptr) {
@@ -925,9 +926,9 @@ ModuleNode* ModuleCompiler::compileStmtIfGuarded(ParserNode& pnode, StmtContext&
   auto& pguard = *pnode.children.front();
   assert(pguard.kind == ParserNode::Kind::ExprGuard);
   assert(pguard.children.size() == 2);
-  egg::ovum::String symbol;
+  String symbol;
   EXPECT(pguard, pguard.value->getString(symbol));
-  egg::ovum::Type type;
+  Type type;
   ModuleNode* mcond;
   auto* mtype = this->compileTypeGuard(pguard, context, type, mcond);
   if (mtype == nullptr) {
@@ -999,17 +1000,17 @@ ModuleNode* ModuleCompiler::compileStmtReturn(ParserNode& pnode, StmtContext& co
   if ((context.canYield != nullptr) && (context.canYield->count > 0)) {
     return this->error(pnode, "Cannot mix 'return' and 'yield statements within generator definitions");
   }
-  egg::ovum::Type expected{ context.canReturn->type };
+  Type expected{ context.canReturn->type };
   auto* stmt = &this->mbuilder.stmtReturn(pnode.range);
   if (pnode.children.empty()) {
     // return ;
-    if (expected != egg::ovum::Type::Void) {
+    if (expected != Type::Void) {
       return this->error(pnode, "Expected 'return' statement with a value of type '", *expected, "'");
     }
   } else {
     // return <expr> ;
     auto& pchild = *pnode.children.back();
-    if (expected == egg::ovum::Type::Void) {
+    if (expected == Type::Void) {
       return this->error(pchild, "Expected 'return' statement with no value");
     }
     auto* expr = this->compileValueExpr(pchild, context);
@@ -1019,7 +1020,7 @@ ModuleNode* ModuleCompiler::compileStmtReturn(ParserNode& pnode, StmtContext& co
     auto type = this->deduceExprType(*expr, context);
     assert(type != nullptr);
     auto assignable = this->isAssignable(expected, type);
-    if (assignable == egg::ovum::Assignability::Never) {
+    if (assignable == Assignability::Never) {
       return this->error(pchild, "Expected 'return' statement with a value of type '", *expected, "', but instead got a value of type '", *type, "'");
     }
     this->mbuilder.appendChild(*stmt, *expr);
@@ -1065,7 +1066,7 @@ ModuleNode* ModuleCompiler::compileStmtYield(ParserNode& pnode, StmtContext& con
       return this->error(pgrandchild, "Value of type '", *xtype, "' is not iterable in 'yield ...' statement");
     }
     auto assignable = this->isAssignable(context.canYield->type, itype);
-    if (assignable == egg::ovum::Assignability::Never) {
+    if (assignable == Assignability::Never) {
       return this->error(pchild, "Expected 'yield ...' statement with values of type '", *context.canYield->type, "', but instead got values of type '", *itype, "'");
     }
     return &this->mbuilder.stmtYieldAll(*expr, pnode.range);
@@ -1078,7 +1079,7 @@ ModuleNode* ModuleCompiler::compileStmtYield(ParserNode& pnode, StmtContext& con
   auto type = this->deduceExprType(*expr, context);
   assert(type != nullptr);
   auto assignable = this->isAssignable(context.canYield->type, type);
-  if (assignable == egg::ovum::Assignability::Never) {
+  if (assignable == Assignability::Never) {
     return this->error(pchild, "Expected 'yield' statement with a value of type '", *context.canYield->type, "', but instead got a value of type '", *type, "'");
   }
   return &this->mbuilder.stmtYield(*expr, pnode.range);
@@ -1150,7 +1151,7 @@ ModuleNode* ModuleCompiler::compileStmtCatch(ParserNode& pnode, StmtContext& con
   assert(pnode.kind == ParserNode::Kind::StmtCatch);
   EXPECT(pnode, pnode.children.size() >= 1);
   assert(context.canRethrow);
-  egg::ovum::String symbol;
+  String symbol;
   EXPECT(pnode, pnode.value->getString(symbol));
   ModuleNode* stmt = nullptr;
   size_t index = 0;
@@ -1196,9 +1197,9 @@ ModuleNode* ModuleCompiler::compileStmtWhileGuarded(ParserNode& pnode, StmtConte
   auto& pguard = *pnode.children.front();
   assert(pguard.kind == ParserNode::Kind::ExprGuard);
   assert(pguard.children.size() == 2);
-  egg::ovum::String symbol;
+  String symbol;
   EXPECT(pguard, pguard.value->getString(symbol));
-  egg::ovum::Type type;
+  Type type;
   ModuleNode* mcond;
   auto* mtype = this->compileTypeGuard(pguard, context, type, mcond);
   if (mtype == nullptr) {
@@ -1423,28 +1424,28 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode, const ExprContex
     return this->compileValueExprMissing(pnode, context);
   case ParserNode::Kind::TypeVoid:
     EXPECT(pnode, pnode.children.empty());
-    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Void, context);
+    return this->compileValueExprManifestation(pnode, Type::Void, context);
   case ParserNode::Kind::TypeBool:
     EXPECT(pnode, pnode.children.empty());
-    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Bool, context);
+    return this->compileValueExprManifestation(pnode, Type::Bool, context);
   case ParserNode::Kind::TypeInt:
     EXPECT(pnode, pnode.children.empty());
-    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Int, context);
+    return this->compileValueExprManifestation(pnode, Type::Int, context);
   case ParserNode::Kind::TypeFloat:
     EXPECT(pnode, pnode.children.empty());
-    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Float, context);
+    return this->compileValueExprManifestation(pnode, Type::Float, context);
   case ParserNode::Kind::TypeString:
     EXPECT(pnode, pnode.children.empty());
-    return this->compileValueExprManifestation(pnode, egg::ovum::Type::String, context);
+    return this->compileValueExprManifestation(pnode, Type::String, context);
   case ParserNode::Kind::TypeObject:
     EXPECT(pnode, pnode.children.empty());
-    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Object, context);
+    return this->compileValueExprManifestation(pnode, Type::Object, context);
   case ParserNode::Kind::TypeAny:
     EXPECT(pnode, pnode.children.empty());
-    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Any, context);
+    return this->compileValueExprManifestation(pnode, Type::Any, context);
   case ParserNode::Kind::TypeType:
     EXPECT(pnode, pnode.children.empty());
-    return this->compileValueExprManifestation(pnode, egg::ovum::Type::Type_, context);
+    return this->compileValueExprManifestation(pnode, Type::Type_, context);
   case ParserNode::Kind::ModuleRoot:
   case ParserNode::Kind::ExprEllipsis:
   case ParserNode::Kind::TypeInfer:
@@ -1493,7 +1494,7 @@ ModuleNode* ModuleCompiler::compileValueExpr(ParserNode& pnode, const ExprContex
 
 ModuleNode* ModuleCompiler::compileValueExprVariable(ParserNode& pnode, const ExprContext& context) {
   EXPECT(pnode, pnode.children.empty());
-  egg::ovum::String symbol;
+  String symbol;
   EXPECT(pnode, pnode.value->getString(symbol));
   auto extant = context.findSymbol(symbol);
   if (extant == nullptr) {
@@ -1548,19 +1549,19 @@ ModuleNode* ModuleCompiler::compileValueExprTernary(ParserNode& op, ParserNode& 
 }
 
 ModuleNode* ModuleCompiler::compileValueExprPredicate(ParserNode& pnode, const ExprContext& context) {
-  auto op = egg::ovum::ValuePredicateOp::None;
+  auto op = ValuePredicateOp::None;
   ModuleNode* first;
   ModuleNode* second;
   if ((pnode.kind == ParserNode::Kind::ExprUnary) && (pnode.children.size() == 1)) {
     switch (pnode.op.valueUnaryOp) {
-    case egg::ovum::ValueUnaryOp::LogicalNot:
-      op = egg::ovum::ValuePredicateOp::LogicalNot;
+    case ValueUnaryOp::LogicalNot:
+      op = ValuePredicateOp::LogicalNot;
       break;
-    case egg::ovum::ValueUnaryOp::Negate:
-    case egg::ovum::ValueUnaryOp::BitwiseNot:
+    case ValueUnaryOp::Negate:
+    case ValueUnaryOp::BitwiseNot:
       break;
     }
-    if (op == egg::ovum::ValuePredicateOp::None) {
+    if (op == ValuePredicateOp::None) {
       first = this->compileValueExpr(pnode, context);
     } else {
       first = this->compileValueExpr(*pnode.children.front(), context);
@@ -1568,45 +1569,45 @@ ModuleNode* ModuleCompiler::compileValueExprPredicate(ParserNode& pnode, const E
     second = nullptr;
   } else if ((pnode.kind == ParserNode::Kind::ExprBinary) && (pnode.children.size() == 2)) {
     switch (pnode.op.valueBinaryOp) {
-    case egg::ovum::ValueBinaryOp::LessThan:
-      op = egg::ovum::ValuePredicateOp::LessThan;
+    case ValueBinaryOp::LessThan:
+      op = ValuePredicateOp::LessThan;
       break;
-    case egg::ovum::ValueBinaryOp::LessThanOrEqual:
-      op = egg::ovum::ValuePredicateOp::LessThanOrEqual;
+    case ValueBinaryOp::LessThanOrEqual:
+      op = ValuePredicateOp::LessThanOrEqual;
       break;
-    case egg::ovum::ValueBinaryOp::Equal:
-      op = egg::ovum::ValuePredicateOp::Equal;
+    case ValueBinaryOp::Equal:
+      op = ValuePredicateOp::Equal;
       break;
-    case egg::ovum::ValueBinaryOp::NotEqual:
-      op = egg::ovum::ValuePredicateOp::NotEqual;
+    case ValueBinaryOp::NotEqual:
+      op = ValuePredicateOp::NotEqual;
       break;
-    case egg::ovum::ValueBinaryOp::GreaterThanOrEqual:
-      op = egg::ovum::ValuePredicateOp::GreaterThanOrEqual;
+    case ValueBinaryOp::GreaterThanOrEqual:
+      op = ValuePredicateOp::GreaterThanOrEqual;
       break;
-    case egg::ovum::ValueBinaryOp::GreaterThan:
-      op = egg::ovum::ValuePredicateOp::GreaterThan;
+    case ValueBinaryOp::GreaterThan:
+      op = ValuePredicateOp::GreaterThan;
       break;
-    case egg::ovum::ValueBinaryOp::Add:
-    case egg::ovum::ValueBinaryOp::Subtract:
-    case egg::ovum::ValueBinaryOp::Multiply:
-    case egg::ovum::ValueBinaryOp::Divide:
-    case egg::ovum::ValueBinaryOp::Remainder:
-    case egg::ovum::ValueBinaryOp::BitwiseAnd:
-    case egg::ovum::ValueBinaryOp::BitwiseOr:
-    case egg::ovum::ValueBinaryOp::BitwiseXor:
-    case egg::ovum::ValueBinaryOp::ShiftLeft:
-    case egg::ovum::ValueBinaryOp::ShiftRight:
-    case egg::ovum::ValueBinaryOp::ShiftRightUnsigned:
-    case egg::ovum::ValueBinaryOp::Minimum:
-    case egg::ovum::ValueBinaryOp::Maximum:
-    case egg::ovum::ValueBinaryOp::IfVoid:
-    case egg::ovum::ValueBinaryOp::IfNull:
-    case egg::ovum::ValueBinaryOp::IfFalse:
-    case egg::ovum::ValueBinaryOp::IfTrue:
+    case ValueBinaryOp::Add:
+    case ValueBinaryOp::Subtract:
+    case ValueBinaryOp::Multiply:
+    case ValueBinaryOp::Divide:
+    case ValueBinaryOp::Remainder:
+    case ValueBinaryOp::BitwiseAnd:
+    case ValueBinaryOp::BitwiseOr:
+    case ValueBinaryOp::BitwiseXor:
+    case ValueBinaryOp::ShiftLeft:
+    case ValueBinaryOp::ShiftRight:
+    case ValueBinaryOp::ShiftRightUnsigned:
+    case ValueBinaryOp::Minimum:
+    case ValueBinaryOp::Maximum:
+    case ValueBinaryOp::IfVoid:
+    case ValueBinaryOp::IfNull:
+    case ValueBinaryOp::IfFalse:
+    case ValueBinaryOp::IfTrue:
     default:
       break;
     }
-    if (op == egg::ovum::ValuePredicateOp::None) {
+    if (op == ValuePredicateOp::None) {
       first = this->compileValueExpr(pnode, context);
       second = nullptr;
     } else {
@@ -1637,7 +1638,7 @@ ModuleNode* ModuleCompiler::compileValueExprCall(ParserNodes& pnodes, const Expr
   if (pnodes.size() == 2) {
     // Possible special case for 'assert(predicate)'
     // TODO: Replace with predicate argument hint
-    egg::ovum::String symbol;
+    String symbol;
     if ((*pnode)->value->getString(symbol) && symbol.equals("assert")) {
       auto& predicate = *pnodes.back();
       return this->compileValueExprCallAssert(**pnode, predicate, context);
@@ -1722,7 +1723,7 @@ ModuleNode* ModuleCompiler::compileValueExprReference(ParserNode& ampersand, Par
   if (pexpr.kind == ParserNode::Kind::Variable) {
     // '&variable'
     EXPECT(pexpr, pexpr.children.empty());
-    egg::ovum::String symbol;
+    String symbol;
     EXPECT(pexpr, pexpr.value->getString(symbol));
     return this->checkValueExpr(this->mbuilder.exprVariableRef(symbol, ampersand.range), context);
   }
@@ -1774,7 +1775,7 @@ ModuleNode* ModuleCompiler::compileValueExprArray(ParserNode& pnode, const ExprC
   return this->compileValueExprArrayUnhinted(pnode, context);
 }
 
-ModuleNode* ModuleCompiler::compileValueExprArrayHinted(ParserNode& pnode, const ExprContext& context, const egg::ovum::Type& elementType) {
+ModuleNode* ModuleCompiler::compileValueExprArrayHinted(ParserNode& pnode, const ExprContext& context, const Type& elementType) {
   assert(elementType != nullptr);
   auto* marray = &this->mbuilder.exprArrayConstruct(elementType, pnode.range);
   for (auto& pchild : pnode.children) {
@@ -1788,7 +1789,7 @@ ModuleNode* ModuleCompiler::compileValueExprArrayHinted(ParserNode& pnode, const
   return marray;
 }
 
-ModuleNode* ModuleCompiler::compileValueExprArrayHintedElement(ParserNode& pnode, const ExprContext& context, const egg::ovum::Type&) {
+ModuleNode* ModuleCompiler::compileValueExprArrayHintedElement(ParserNode& pnode, const ExprContext& context, const Type&) {
   // TODO: handle ellipsis '...'
   // TODO: check assignability with elementType
   return this->compileValueExpr(pnode, context);
@@ -1796,7 +1797,7 @@ ModuleNode* ModuleCompiler::compileValueExprArrayHintedElement(ParserNode& pnode
 
 ModuleNode* ModuleCompiler::compileValueExprArrayUnhinted(ParserNode& pnode, const ExprContext& context) {
   auto& forge = this->vm.getTypeForge();
-  auto unionType = egg::ovum::Type::None;
+  auto unionType = Type::None;
   std::vector<ModuleNode*> mchildren;
   mchildren.reserve(pnode.children.size());
   for (auto& pchild : pnode.children) {
@@ -1814,8 +1815,8 @@ ModuleNode* ModuleCompiler::compileValueExprArrayUnhinted(ParserNode& pnode, con
   if (unionType == nullptr) {
     return nullptr;
   }
-  if (unionType == egg::ovum::Type::None) {
-    unionType = egg::ovum::Type::AnyQ;
+  if (unionType == Type::None) {
+    unionType = Type::AnyQ;
   }
   auto* marray = &this->mbuilder.exprArrayConstruct(unionType, pnode.range);
   for (auto& mchild : mchildren) {
@@ -1877,7 +1878,7 @@ ModuleNode* ModuleCompiler::compileValueExprObject(ParserNode& pnode, const Expr
 ModuleNode* ModuleCompiler::compileValueExprObjectElement(ParserNode& pnode, const ExprContext& context) {
   if (pnode.kind == ParserNode::Kind::ObjectSpecificationData) {
     EXPECT(pnode, pnode.children.size() == 2);
-    egg::ovum::String symbol;
+    String symbol;
     EXPECT(pnode, pnode.value->getString(symbol));
     auto mtype = this->compileTypeExpr(*pnode.children.front(), context);
     if (mtype == nullptr) {
@@ -1887,11 +1888,11 @@ ModuleNode* ModuleCompiler::compileValueExprObjectElement(ParserNode& pnode, con
     if (mvalue == nullptr) {
       return nullptr;
     }
-    return &this->mbuilder.exprObjectConstructProperty(symbol, *mtype, *mvalue, egg::ovum::Accessability::All, pnode.range);
+    return &this->mbuilder.exprObjectConstructProperty(symbol, *mtype, *mvalue, Accessability::All, pnode.range);
   }
   if (pnode.kind == ParserNode::Kind::ObjectSpecificationFunction) {
     EXPECT(pnode, pnode.children.size() == 2);
-    egg::ovum::String symbol;
+    String symbol;
     EXPECT(pnode, pnode.value->getString(symbol));
     auto& phead = *pnode.children.front();
     if (phead.kind != ParserNode::Kind::TypeFunctionSignature) {
@@ -1908,7 +1909,7 @@ ModuleNode* ModuleCompiler::compileValueExprObjectElement(ParserNode& pnode, con
     }
     auto* signature = type.getOnlyFunctionSignature();
     assert(signature != nullptr);
-    std::set<egg::ovum::String> captures;
+    std::set<String> captures;
     StmtContextData::Count canReturn{};
     canReturn.type = signature->getReturnType();
     StmtContextData data{};
@@ -1939,14 +1940,14 @@ ModuleNode* ModuleCompiler::compileValueExprObjectElement(ParserNode& pnode, con
     for (const auto& capture : captures) {
       this->mbuilder.appendChild(mvalue, this->mbuilder.exprFunctionCapture(capture, pnode.range));
     }
-    return &this->mbuilder.exprObjectConstructProperty(symbol, *mtype, mvalue, egg::ovum::Accessability::Get, pnode.range);
+    return &this->mbuilder.exprObjectConstructProperty(symbol, *mtype, mvalue, Accessability::Get, pnode.range);
   }
   return this->expected(pnode, "object expression element");
 }
 
 ModuleNode* ModuleCompiler::compileValueExprGuard(ParserNode& pnode, ParserNode&, ParserNode& pexpr, const ExprContext& context) {
   // The variable has been declared with the appropriate type already
-  egg::ovum::String symbol;
+  String symbol;
   EXPECT(pnode, pnode.value->getString(symbol));
   auto* mexpr = this->compileValueExpr(pexpr, context);
   if (mexpr == nullptr) {
@@ -1955,7 +1956,7 @@ ModuleNode* ModuleCompiler::compileValueExprGuard(ParserNode& pnode, ParserNode&
   return &this->mbuilder.exprGuard(symbol, *mexpr, pnode.range);
 }
 
-ModuleNode* ModuleCompiler::compileValueExprManifestation(ParserNode& pnode, const egg::ovum::Type& type, const ExprContext&) {
+ModuleNode* ModuleCompiler::compileValueExprManifestation(ParserNode& pnode, const Type& type, const ExprContext&) {
   return &this->mbuilder.typeManifestation(this->mbuilder.typeLiteral(type, pnode.range), pnode.range);
 }
 
@@ -1963,7 +1964,7 @@ ModuleNode* ModuleCompiler::compileValueExprMissing(ParserNode& pnode, const Exp
   // This is a missing condition (e.g. 'for(;;){}'); replace with 'true'
   assert(pnode.kind == ParserNode::Kind::Missing);
   EXPECT(pnode, pnode.children.empty());
-  return &this->mbuilder.exprLiteral(egg::ovum::HardValue::True, pnode.range);
+  return &this->mbuilder.exprLiteral(HardValue::True, pnode.range);
 }
 
 ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode, const ExprContext& context) {
@@ -1976,19 +1977,19 @@ ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode, const ExprContext
     EXPECT(pnode, pnode.children[1] != nullptr);
     return this->compileTypeExprProperty(pnode, *pnode.children.front(), *pnode.children.back(), context);
   case ParserNode::Kind::TypeVoid:
-    return &this->mbuilder.typeLiteral(egg::ovum::Type::Void, pnode.range);
+    return &this->mbuilder.typeLiteral(Type::Void, pnode.range);
   case ParserNode::Kind::TypeBool:
-    return &this->mbuilder.typeLiteral(egg::ovum::Type::Bool, pnode.range);
+    return &this->mbuilder.typeLiteral(Type::Bool, pnode.range);
   case ParserNode::Kind::TypeInt:
-    return &this->mbuilder.typeLiteral(egg::ovum::Type::Int, pnode.range);
+    return &this->mbuilder.typeLiteral(Type::Int, pnode.range);
   case ParserNode::Kind::TypeFloat:
-    return &this->mbuilder.typeLiteral(egg::ovum::Type::Float, pnode.range);
+    return &this->mbuilder.typeLiteral(Type::Float, pnode.range);
   case ParserNode::Kind::TypeString:
-    return &this->mbuilder.typeLiteral(egg::ovum::Type::String, pnode.range);
+    return &this->mbuilder.typeLiteral(Type::String, pnode.range);
   case ParserNode::Kind::TypeObject:
-    return &this->mbuilder.typeLiteral(egg::ovum::Type::Object, pnode.range);
+    return &this->mbuilder.typeLiteral(Type::Object, pnode.range);
   case ParserNode::Kind::TypeAny:
-    return &this->mbuilder.typeLiteral(egg::ovum::Type::Any, pnode.range);
+    return &this->mbuilder.typeLiteral(Type::Any, pnode.range);
   case ParserNode::Kind::TypeType:
     return &this->mbuilder.typeLiteral(nullptr, pnode.range);
   case ParserNode::Kind::TypeUnary:
@@ -2063,7 +2064,7 @@ ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode, const ExprContext
 
 ModuleNode* ModuleCompiler::compileTypeExprVariable(ParserNode& pnode, const ExprContext& context) {
   EXPECT(pnode, pnode.children.empty());
-  egg::ovum::String symbol;
+  String symbol;
   EXPECT(pnode, pnode.value->getString(symbol));
   auto extant = context.findSymbol(symbol);
   if (extant == nullptr) {
@@ -2114,7 +2115,7 @@ ModuleNode* ModuleCompiler::compileTypeExprBinary(ParserNode& op, ParserNode& lh
 
 ModuleNode* ModuleCompiler::compileTypeExprFunctionSignature(ParserNode& pnode, const ExprContext& context) {
   assert(pnode.kind == ParserNode::Kind::TypeFunctionSignature);
-  egg::ovum::String fname;
+  String fname;
   (void)pnode.value->getString(fname); // may be anonymous
   ModuleNode* mtype;
   auto& ptype = *pnode.children.front();
@@ -2127,7 +2128,7 @@ ModuleNode* ModuleCompiler::compileTypeExprFunctionSignature(ParserNode& pnode, 
     auto& pchild = *pnode.children[index];
     assert(pchild.kind == ParserNode::Kind::TypeFunctionSignatureParameter);
     assert(pchild.children.size() == 1);
-    egg::ovum::String pname;
+    String pname;
     EXPECT(pchild, pchild.value->getString(pname));
     mtype = this->compileTypeExpr(*pchild.children.front(), context);
     if (mtype == nullptr) {
@@ -2136,11 +2137,11 @@ ModuleNode* ModuleCompiler::compileTypeExprFunctionSignature(ParserNode& pnode, 
       ModuleNode* mchild;
       switch (pchild.op.parameterOp) {
       case ParserNode::ParameterOp::Required:
-        mchild = &this->mbuilder.typeFunctionSignatureParameter(pname, egg::ovum::IFunctionSignatureParameter::Flags::Required, *mtype, pnode.range);
+        mchild = &this->mbuilder.typeFunctionSignatureParameter(pname, IFunctionSignatureParameter::Flags::Required, *mtype, pnode.range);
         break;
       case ParserNode::ParameterOp::Optional:
       default:
-        mchild = &this->mbuilder.typeFunctionSignatureParameter(pname, egg::ovum::IFunctionSignatureParameter::Flags::None, *mtype, pnode.range);
+        mchild = &this->mbuilder.typeFunctionSignatureParameter(pname, IFunctionSignatureParameter::Flags::None, *mtype, pnode.range);
         break;
       }
       this->mbuilder.appendChild(*mnode, *mchild);
@@ -2153,7 +2154,7 @@ ModuleNode* ModuleCompiler::compileTypeSpecification(ParserNode& pnode, const Ex
   assert(pnode.kind == ParserNode::Kind::TypeSpecification);
   auto* mnode = &this->mbuilder.typeSpecification(pnode.range);
   ModuleNode* inode = nullptr;
-  egg::ovum::String description;
+  String description;
   if (pnode.value->getString(description)) {
     this->mbuilder.appendChild(*mnode, this->mbuilder.typeSpecificationDescription(description, pnode.range));
   }
@@ -2201,7 +2202,7 @@ ModuleNode* ModuleCompiler::compileTypeSpecification(ParserNode& pnode, const Ex
 ModuleNode* ModuleCompiler::compileTypeSpecificationStaticData(ParserNode& pnode, const ExprContext& context, ModuleNode*& inode) {
   assert(pnode.kind == ParserNode::Kind::TypeSpecificationStaticData);
   EXPECT(pnode, pnode.children.size() == 2);
-  egg::ovum::String symbol;
+  String symbol;
   EXPECT(pnode, pnode.value->getString(symbol));
   auto mtype = this->compileTypeExpr(*pnode.children.front(), context);
   if (mtype == nullptr) {
@@ -2212,14 +2213,14 @@ ModuleNode* ModuleCompiler::compileTypeSpecificationStaticData(ParserNode& pnode
     return nullptr;
   }
   auto* mnode = &this->mbuilder.typeSpecificationStaticMember(symbol, *mtype, pnode.range);
-  inode = &this->mbuilder.stmtManifestationProperty(symbol, *mtype, *mvalue, egg::ovum::Accessability::Get, pnode.range);
+  inode = &this->mbuilder.stmtManifestationProperty(symbol, *mtype, *mvalue, Accessability::Get, pnode.range);
   return mnode;
 }
 
 ModuleNode* ModuleCompiler::compileTypeSpecificationStaticFunction(ParserNode& pnode, const ExprContext& context, ModuleNode*& inode) {
   assert(pnode.kind == ParserNode::Kind::TypeSpecificationStaticFunction);
   EXPECT(pnode, pnode.children.size() == 2);
-  egg::ovum::String symbol;
+  String symbol;
   EXPECT(pnode, pnode.value->getString(symbol));
   auto& phead = *pnode.children.front();
   if (phead.kind != ParserNode::Kind::TypeFunctionSignature) {
@@ -2236,7 +2237,7 @@ ModuleNode* ModuleCompiler::compileTypeSpecificationStaticFunction(ParserNode& p
   }
   auto* signature = type.getOnlyFunctionSignature();
   assert(signature != nullptr);
-  std::set<egg::ovum::String> captures;
+  std::set<String> captures;
   StmtContextData::Count canReturn{};
   canReturn.type = signature->getReturnType();
   StmtContextData data{};
@@ -2268,28 +2269,28 @@ ModuleNode* ModuleCompiler::compileTypeSpecificationStaticFunction(ParserNode& p
     this->mbuilder.appendChild(mvalue, this->mbuilder.exprFunctionCapture(capture, pnode.range));
   }
   auto* mnode = &this->mbuilder.typeSpecificationStaticMember(symbol, *mtype, pnode.range);
-  inode = &this->mbuilder.stmtManifestationProperty(symbol, *mtype, mvalue, egg::ovum::Accessability::Get, pnode.range);
+  inode = &this->mbuilder.stmtManifestationProperty(symbol, *mtype, mvalue, Accessability::Get, pnode.range);
   return mnode;
 }
 
 ModuleNode* ModuleCompiler::compileTypeSpecificationInstanceData(ParserNode& pnode, const ExprContext& context) {
   assert(pnode.kind == ParserNode::Kind::TypeSpecificationInstanceData);
   EXPECT(pnode, pnode.children.size() >= 1);
-  egg::ovum::String symbol;
+  String symbol;
   EXPECT(pnode, pnode.value->getString(symbol));
   auto pchild = pnode.children.begin();
   auto mtype = this->compileTypeExpr(**pchild, context);
   if (mtype == nullptr) {
     return nullptr;
   }
-  auto accessability = egg::ovum::Accessability::None;
+  auto accessability = Accessability::None;
   while (++pchild != pnode.children.end()) {
     auto& child = **pchild;
     if (child.kind != ParserNode::Kind::TypeSpecificationAccess) {
       return this->expected(child, "type specification access node in instance data declaration");
     }
-    if (egg::ovum::Bits::hasAnySet(accessability, child.op.accessability)) {
-      egg::ovum::String keyword;
+    if (Bits::hasAnySet(accessability, child.op.accessability)) {
+      String keyword;
       if (child.value->getString(keyword)) {
         this->warning(child, "Duplicate '", keyword, "' access clause in instance data declaration of '", symbol, "'");
       } else {
@@ -2298,10 +2299,10 @@ ModuleNode* ModuleCompiler::compileTypeSpecificationInstanceData(ParserNode& pno
     }
     accessability = accessability | child.op.accessability;
   }
-  if (accessability == egg::ovum::Accessability::None) {
-    accessability = egg::ovum::Accessability::All;
+  if (accessability == Accessability::None) {
+    accessability = Accessability::All;
   }
-  assert(egg::ovum::Bits::clear(accessability, egg::ovum::Accessability::All) == egg::ovum::Accessability::None);
+  assert(Bits::clear(accessability, Accessability::All) == Accessability::None);
   auto* mnode = &this->mbuilder.typeSpecificationInstanceMember(symbol, *mtype, accessability, pnode.range);
   return mnode;
 }
@@ -2309,7 +2310,7 @@ ModuleNode* ModuleCompiler::compileTypeSpecificationInstanceData(ParserNode& pno
 ModuleNode* ModuleCompiler::compileTypeSpecificationInstanceFunction(ParserNode& pnode, const ExprContext& context) {
   assert(pnode.kind == ParserNode::Kind::TypeSpecificationInstanceFunction);
   EXPECT(pnode, pnode.children.size() == 1);
-  egg::ovum::String symbol;
+  String symbol;
   EXPECT(pnode, pnode.value->getString(symbol));
   auto& phead = *pnode.children.front();
   if (phead.kind != ParserNode::Kind::TypeFunctionSignature) {
@@ -2319,29 +2320,29 @@ ModuleNode* ModuleCompiler::compileTypeSpecificationInstanceFunction(ParserNode&
   if (mtype == nullptr) {
     return nullptr;
   }
-  auto accessability = egg::ovum::Accessability::Get;
+  auto accessability = Accessability::Get;
   auto* mnode = &this->mbuilder.typeSpecificationInstanceMember(symbol, *mtype, accessability, pnode.range);
   return mnode;
 }
 
-ModuleNode* ModuleCompiler::compileTypeGuard(ParserNode& pnode, const ExprContext& context, egg::ovum::Type& type, ModuleNode*& mcond) {
+ModuleNode* ModuleCompiler::compileTypeGuard(ParserNode& pnode, const ExprContext& context, Type& type, ModuleNode*& mcond) {
   assert(pnode.kind == ParserNode::Kind::ExprGuard);
   EXPECT(pnode, pnode.children.size() == 2);
   ModuleNode* mexpr;
   auto* mtype = this->compileTypeInfer(pnode, *pnode.children.front(), *pnode.children.back(), context, type, mexpr);
   if (mexpr != nullptr) {
-    egg::ovum::String symbol;
+    String symbol;
     EXPECT(pnode, pnode.value->getString(symbol));
     auto actual = this->deduceExprType(*mexpr, context);
     assert(actual != nullptr);
     switch (this->isAssignable(type, actual)) {
-    case egg::ovum::Assignability::Never:
-      this->log(egg::ovum::ILogger::Severity::Warning, this->resource, pnode.range, ": Guarded assignment to '", symbol, "' of type '", type, "' will always fail");
+    case Assignability::Never:
+      this->log(ILogger::Severity::Warning, this->resource, pnode.range, ": Guarded assignment to '", symbol, "' of type '", type, "' will always fail");
       break;
-    case egg::ovum::Assignability::Sometimes:
+    case Assignability::Sometimes:
       break;
-    case egg::ovum::Assignability::Always:
-      this->log(egg::ovum::ILogger::Severity::Warning, this->resource, pnode.range, ": Guarded assignment to '", symbol, "' of type '", type, "' will always succeed");
+    case Assignability::Always:
+      this->log(ILogger::Severity::Warning, this->resource, pnode.range, ": Guarded assignment to '", symbol, "' of type '", type, "' will always succeed");
       break;
     }
     mcond = &this->mbuilder.exprGuard(symbol, *mexpr, pnode.range);
@@ -2349,7 +2350,7 @@ ModuleNode* ModuleCompiler::compileTypeGuard(ParserNode& pnode, const ExprContex
   return mtype;
 }
 
-ModuleNode* ModuleCompiler::compileTypeInfer(ParserNode& pnode, ParserNode& ptype, ParserNode& pexpr, const ExprContext& context, egg::ovum::Type& type, ModuleNode*& mexpr) {
+ModuleNode* ModuleCompiler::compileTypeInfer(ParserNode& pnode, ParserNode& ptype, ParserNode& pexpr, const ExprContext& context, Type& type, ModuleNode*& mexpr) {
   assert((pnode.kind == ParserNode::Kind::StmtDefineVariable) || (pnode.kind == ParserNode::Kind::StmtForEach) || (pnode.kind == ParserNode::Kind::ExprGuard));
   if (ptype.kind == ParserNode::Kind::TypeInfer) {
     return this->compileTypeInferVar(pnode, ptype, pexpr, context, type, mexpr, false);
@@ -2384,7 +2385,7 @@ ModuleNode* ModuleCompiler::compileTypeInfer(ParserNode& pnode, ParserNode& ptyp
   return mtype;
 }
 
-ModuleNode* ModuleCompiler::compileTypeInferVar(ParserNode& pnode, ParserNode& ptype, ParserNode& pexpr, const ExprContext& context, egg::ovum::Type& type, ModuleNode*& mexpr, bool nullable) {
+ModuleNode* ModuleCompiler::compileTypeInferVar(ParserNode& pnode, ParserNode& ptype, ParserNode& pexpr, const ExprContext& context, Type& type, ModuleNode*& mexpr, bool nullable) {
   assert((pnode.kind == ParserNode::Kind::StmtDefineVariable) || (pnode.kind == ParserNode::Kind::StmtForEach) || (pnode.kind == ParserNode::Kind::ExprGuard));
   assert((ptype.kind == ParserNode::Kind::TypeInfer) || (ptype.kind == ParserNode::Kind::TypeInferQ));
   mexpr = this->compileValueExpr(pexpr, context);
@@ -2417,25 +2418,25 @@ ModuleNode* ModuleCompiler::compileAmbiguousExpr(ParserNode& pnode, const ExprCo
     return this->compileAmbiguousVariable(pnode, context, ambiguous);
   case ParserNode::Kind::TypeVoid:
     ambiguous = Ambiguous::Type;
-    return &this->mbuilder.typeLiteral(egg::ovum::Type::Void, pnode.range);
+    return &this->mbuilder.typeLiteral(Type::Void, pnode.range);
   case ParserNode::Kind::TypeBool:
     ambiguous = Ambiguous::Type;
-    return &this->mbuilder.typeLiteral(egg::ovum::Type::Bool, pnode.range);
+    return &this->mbuilder.typeLiteral(Type::Bool, pnode.range);
   case ParserNode::Kind::TypeInt:
     ambiguous = Ambiguous::Type;
-    return &this->mbuilder.typeLiteral(egg::ovum::Type::Int, pnode.range);
+    return &this->mbuilder.typeLiteral(Type::Int, pnode.range);
   case ParserNode::Kind::TypeFloat:
     ambiguous = Ambiguous::Type;
-    return &this->mbuilder.typeLiteral(egg::ovum::Type::Float, pnode.range);
+    return &this->mbuilder.typeLiteral(Type::Float, pnode.range);
   case ParserNode::Kind::TypeString:
     ambiguous = Ambiguous::Type;
-    return &this->mbuilder.typeLiteral(egg::ovum::Type::String, pnode.range);
+    return &this->mbuilder.typeLiteral(Type::String, pnode.range);
   case ParserNode::Kind::TypeObject:
     ambiguous = Ambiguous::Type;
-    return &this->mbuilder.typeLiteral(egg::ovum::Type::Object, pnode.range);
+    return &this->mbuilder.typeLiteral(Type::Object, pnode.range);
   case ParserNode::Kind::TypeAny:
     ambiguous = Ambiguous::Type;
-    return &this->mbuilder.typeLiteral(egg::ovum::Type::Any, pnode.range);
+    return &this->mbuilder.typeLiteral(Type::Any, pnode.range);
   }
   EGG_WARNING_SUPPRESS_SWITCH_END
   auto* mnode = this->compileValueExpr(pnode, context);
@@ -2447,7 +2448,7 @@ ModuleNode* ModuleCompiler::compileAmbiguousExpr(ParserNode& pnode, const ExprCo
 
 ModuleNode* ModuleCompiler::compileAmbiguousVariable(ParserNode& pnode, const ExprContext& context, Ambiguous& ambiguous) {
   EXPECT(pnode, pnode.children.empty());
-  egg::ovum::String symbol;
+  String symbol;
   EXPECT(pnode, pnode.value->getString(symbol));
   auto extant = context.findSymbol(symbol);
   if (extant == nullptr) {
@@ -2466,32 +2467,32 @@ ModuleNode* ModuleCompiler::compileLiteral(ParserNode& pnode) {
   return &this->mbuilder.exprLiteral(pnode.value, pnode.range);
 }
 
-egg::ovum::Type ModuleCompiler::literalType(ParserNode& pnode) {
+Type ModuleCompiler::literalType(ParserNode& pnode) {
   // Note that 'null' is not included on purpose
   EGG_WARNING_SUPPRESS_SWITCH_BEGIN
   switch (pnode.kind) {
   case ParserNode::Kind::TypeVoid:
-    return egg::ovum::Type::Void;
+    return Type::Void;
   case ParserNode::Kind::TypeBool:
-    return egg::ovum::Type::Bool;
+    return Type::Bool;
   case ParserNode::Kind::TypeInt:
-    return egg::ovum::Type::Int;
+    return Type::Int;
   case ParserNode::Kind::TypeFloat:
-    return egg::ovum::Type::Float;
+    return Type::Float;
   case ParserNode::Kind::TypeString:
-    return egg::ovum::Type::String;
+    return Type::String;
   case ParserNode::Kind::TypeObject:
-    return egg::ovum::Type::Object;
+    return Type::Object;
   case ParserNode::Kind::TypeAny:
-    return egg::ovum::Type::Any;
+    return Type::Any;
   }
   EGG_WARNING_SUPPRESS_SWITCH_END
   return nullptr;
 }
 
-egg::ovum::String ModuleCompiler::deduceString(ModuleNode& mnode, const ExprContext&) {
+String ModuleCompiler::deduceString(ModuleNode& mnode, const ExprContext&) {
   auto value = this->mbuilder.deduceConstant(mnode);
-  egg::ovum::String svalue;
+  String svalue;
   if (value->getString(svalue)) {
     return svalue;
   }
@@ -2506,107 +2507,107 @@ ModuleNode* ModuleCompiler::checkValueExpr(ModuleNode& mnode, const ExprContext&
   return &mnode;
 }
 
-bool ModuleCompiler::checkValueExprOperand(const char* expected, ModuleNode& mnode, ParserNode& pnode, egg::ovum::ValueFlags required, const ExprContext& context) {
+bool ModuleCompiler::checkValueExprOperand(const char* expected, ModuleNode& mnode, ParserNode& pnode, ValueFlags required, const ExprContext& context) {
   auto type = this->deduceExprType(mnode, context);
   assert(type != nullptr);
-  if (!egg::ovum::Bits::hasAnySet(type->getPrimitiveFlags(), required)) {
+  if (!Bits::hasAnySet(type->getPrimitiveFlags(), required)) {
     this->error(pnode, "Expected ", expected, ", but instead got a value of type '", *type, "'");
     return false;
   }
   return true;
 }
 
-bool ModuleCompiler::checkValueExprOperand2(const char* expected, ModuleNode& lhs, ModuleNode& rhs, ParserNode& pnode, egg::ovum::ValueFlags required, const ExprContext& context) {
+bool ModuleCompiler::checkValueExprOperand2(const char* expected, ModuleNode& lhs, ModuleNode& rhs, ParserNode& pnode, ValueFlags required, const ExprContext& context) {
   auto type = this->deduceExprType(lhs, context);
   assert(type != nullptr);
-  if (!egg::ovum::Bits::hasAnySet(type->getPrimitiveFlags(), required)) {
+  if (!Bits::hasAnySet(type->getPrimitiveFlags(), required)) {
     this->error(pnode, "Expected left-hand side of ", expected, ", but instead got a value of type '", *type, "'");
     return false;
   }
   type = this->deduceExprType(rhs, context);
   assert(type != nullptr);
-  if (!egg::ovum::Bits::hasAnySet(type->getPrimitiveFlags(), required)) {
+  if (!Bits::hasAnySet(type->getPrimitiveFlags(), required)) {
     this->error(pnode, "Expected right-hand side of ", expected, ", but instead got a value of type '", *type, "'");
     return false;
   }
   return true;
 }
 
-bool ModuleCompiler::checkValueExprUnary(egg::ovum::ValueUnaryOp op, ModuleNode& rhs, ParserNode& pnode, const ExprContext& context) {
+bool ModuleCompiler::checkValueExprUnary(ValueUnaryOp op, ModuleNode& rhs, ParserNode& pnode, const ExprContext& context) {
   switch (op) {
-  case egg::ovum::ValueUnaryOp::Negate: // -a
-    return this->checkValueExprOperand("expression after negation operator '-' to be an 'int' or 'float'", rhs, pnode, egg::ovum::ValueFlags::Arithmetic, context);
-  case egg::ovum::ValueUnaryOp::BitwiseNot: // ~a
-    return this->checkValueExprOperand("expression after bitwise-not operator '~' to be an 'int'", rhs, pnode, egg::ovum::ValueFlags::Int, context);
-  case egg::ovum::ValueUnaryOp::LogicalNot: // !a
-    return this->checkValueExprOperand("expression after logical-not operator '!' to be an 'int'", rhs, pnode, egg::ovum::ValueFlags::Bool, context);
+  case ValueUnaryOp::Negate: // -a
+    return this->checkValueExprOperand("expression after negation operator '-' to be an 'int' or 'float'", rhs, pnode, ValueFlags::Arithmetic, context);
+  case ValueUnaryOp::BitwiseNot: // ~a
+    return this->checkValueExprOperand("expression after bitwise-not operator '~' to be an 'int'", rhs, pnode, ValueFlags::Int, context);
+  case ValueUnaryOp::LogicalNot: // !a
+    return this->checkValueExprOperand("expression after logical-not operator '!' to be an 'int'", rhs, pnode, ValueFlags::Bool, context);
   }
   return false;
 }
 
-bool ModuleCompiler::checkValueExprBinary(egg::ovum::ValueBinaryOp op, ModuleNode& lhs, ModuleNode& rhs, ParserNode& pnode, const ExprContext& context) {
-  const auto arithmetic = egg::ovum::ValueFlags::Arithmetic;
-  const auto bitwise = egg::ovum::ValueFlags::Bool | egg::ovum::ValueFlags::Int;
-  const auto integer = egg::ovum::ValueFlags::Bool | egg::ovum::ValueFlags::Int;
+bool ModuleCompiler::checkValueExprBinary(ValueBinaryOp op, ModuleNode& lhs, ModuleNode& rhs, ParserNode& pnode, const ExprContext& context) {
+  const auto arithmetic = ValueFlags::Arithmetic;
+  const auto bitwise = ValueFlags::Bool | ValueFlags::Int;
+  const auto integer = ValueFlags::Bool | ValueFlags::Int;
   switch (op) {
-    case egg::ovum::ValueBinaryOp::Add: // a + b
+    case ValueBinaryOp::Add: // a + b
       return this->checkValueExprOperand2("addition operator '+' to be an 'int' or 'float'", lhs, rhs, pnode, arithmetic, context);
-    case egg::ovum::ValueBinaryOp::Subtract: // a - b
+    case ValueBinaryOp::Subtract: // a - b
       return this->checkValueExprOperand2("subtraction operator '-' to be an 'int' or 'float'", lhs, rhs, pnode, arithmetic, context);
-    case egg::ovum::ValueBinaryOp::Multiply: // a * b
+    case ValueBinaryOp::Multiply: // a * b
       return this->checkValueExprOperand2("multiplication operator '*' to be an 'int' or 'float'", lhs, rhs, pnode, arithmetic, context);
-    case egg::ovum::ValueBinaryOp::Divide: // a / b
+    case ValueBinaryOp::Divide: // a / b
       return this->checkValueExprOperand2("division operator '/' to be an 'int' or 'float'", lhs, rhs, pnode, arithmetic, context);
-    case egg::ovum::ValueBinaryOp::Remainder: // a % b
+    case ValueBinaryOp::Remainder: // a % b
       return this->checkValueExprOperand2("remainder operator '%' to be an 'int' or 'float'", lhs, rhs, pnode, arithmetic, context);
-    case egg::ovum::ValueBinaryOp::LessThan: // a < b
+    case ValueBinaryOp::LessThan: // a < b
       return this->checkValueExprOperand2("comparison operator '<' to be an 'int' or 'float'", lhs, rhs, pnode, arithmetic, context);
-    case egg::ovum::ValueBinaryOp::LessThanOrEqual: // a <= b
+    case ValueBinaryOp::LessThanOrEqual: // a <= b
       return this->checkValueExprOperand2("comparison operator '<=' to be an 'int' or 'float'", lhs, rhs, pnode, arithmetic, context);
-    case egg::ovum::ValueBinaryOp::Equal: // a == b
+    case ValueBinaryOp::Equal: // a == b
       // TODO
       break;
-    case egg::ovum::ValueBinaryOp::NotEqual: // a != b
+    case ValueBinaryOp::NotEqual: // a != b
       // TODO
       break;
-    case egg::ovum::ValueBinaryOp::GreaterThanOrEqual: // a >= b
+    case ValueBinaryOp::GreaterThanOrEqual: // a >= b
       return this->checkValueExprOperand2("comparison operator '>=' to be an 'int' or 'float'", lhs, rhs, pnode, arithmetic, context);
-    case egg::ovum::ValueBinaryOp::GreaterThan: // a > b
+    case ValueBinaryOp::GreaterThan: // a > b
       return this->checkValueExprOperand2("comparison operator '>' to be an 'int' or 'float'", lhs, rhs, pnode, arithmetic, context);
-    case egg::ovum::ValueBinaryOp::BitwiseAnd: // a & b
+    case ValueBinaryOp::BitwiseAnd: // a & b
       return this->checkValueExprOperand2("bitwise-and operator '&' to be a 'bool' or 'int'", lhs, rhs, pnode, bitwise, context);
-    case egg::ovum::ValueBinaryOp::BitwiseOr: // a | b
+    case ValueBinaryOp::BitwiseOr: // a | b
       return this->checkValueExprOperand2("bitwise-or operator '|' to be a 'bool' or 'int'", lhs, rhs, pnode, bitwise, context);
-    case egg::ovum::ValueBinaryOp::BitwiseXor: // a ^ b
+    case ValueBinaryOp::BitwiseXor: // a ^ b
       return this->checkValueExprOperand2("bitwise-xor operator '^' to be a 'bool' or 'int'", lhs, rhs, pnode, bitwise, context);
-    case egg::ovum::ValueBinaryOp::ShiftLeft: // a << b
+    case ValueBinaryOp::ShiftLeft: // a << b
       return this->checkValueExprOperand2("left-shift operator '<<' to be an 'int'", lhs, rhs, pnode, integer, context);
-    case egg::ovum::ValueBinaryOp::ShiftRight: // a >> b
+    case ValueBinaryOp::ShiftRight: // a >> b
       return this->checkValueExprOperand2("right-shift operator '>>' to be an 'int'", lhs, rhs, pnode, integer, context);
-    case egg::ovum::ValueBinaryOp::ShiftRightUnsigned: // a >>> b
+    case ValueBinaryOp::ShiftRightUnsigned: // a >>> b
       return this->checkValueExprOperand2("unsigned-shift operator '>>>' to be an 'int'", lhs, rhs, pnode, integer, context);
-    case egg::ovum::ValueBinaryOp::Minimum: // a <| b
+    case ValueBinaryOp::Minimum: // a <| b
       return this->checkValueExprOperand2("minimum operator '<|' to be an 'int' or 'float'", lhs, rhs, pnode, arithmetic, context);
-    case egg::ovum::ValueBinaryOp::Maximum: // a >| b
+    case ValueBinaryOp::Maximum: // a >| b
       return this->checkValueExprOperand2("maximum operator '>|' to be an 'int' or 'float'", lhs, rhs, pnode, arithmetic, context);
-    case egg::ovum::ValueBinaryOp::IfVoid: // a !! b
+    case ValueBinaryOp::IfVoid: // a !! b
       // TODO
       break;
-    case egg::ovum::ValueBinaryOp::IfNull: // a ?? b
+    case ValueBinaryOp::IfNull: // a ?? b
       // TODO
       break;
-    case egg::ovum::ValueBinaryOp::IfFalse: // a || b
+    case ValueBinaryOp::IfFalse: // a || b
       // TODO
       break;
-    case egg::ovum::ValueBinaryOp::IfTrue: // a && b
+    case ValueBinaryOp::IfTrue: // a && b
       // TODO
       break;
   }
   return true;
 }
 
-bool ModuleCompiler::checkValueExprTernary(egg::ovum::ValueTernaryOp, ModuleNode& lhs, ModuleNode& mid, ModuleNode& rhs, ParserNode& pnode, const ExprContext& context) {
-  if (!this->checkValueExprOperand("condition of ternary operator '?:' to be a 'bool'", lhs, pnode, egg::ovum::ValueFlags::Bool, context)) {
+bool ModuleCompiler::checkValueExprTernary(ValueTernaryOp, ModuleNode& lhs, ModuleNode& mid, ModuleNode& rhs, ParserNode& pnode, const ExprContext& context) {
+  if (!this->checkValueExprOperand("condition of ternary operator '?:' to be a 'bool'", lhs, pnode, ValueFlags::Bool, context)) {
     return false;
   }
   if (this->checkValueExpr(mid, context) == nullptr) {
@@ -2618,7 +2619,7 @@ bool ModuleCompiler::checkValueExprTernary(egg::ovum::ValueTernaryOp, ModuleNode
   return true;
 }
 
-bool ModuleCompiler::checkStmtVariableMutate(const egg::ovum::String& symbol, egg::ovum::ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context) {
+bool ModuleCompiler::checkStmtVariableMutate(const String& symbol, ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context) {
   auto extant = context.findSymbol(symbol);
   if (extant == nullptr) {
     this->error(pnode, "Unknown identifier: '", symbol, "'");
@@ -2632,7 +2633,7 @@ bool ModuleCompiler::checkStmtVariableMutate(const egg::ovum::String& symbol, eg
   if (vtype == nullptr) {
     return false;
   }
-  egg::ovum::String problem;
+  String problem;
   switch (this->checkTargetMutate(extant->type, op, vtype, problem)) {
   case MutateCheck::Failure:
     this->error(pnode, "Variable '", symbol, "' (declared as '", *extant->type, "') ", problem);
@@ -2647,9 +2648,9 @@ bool ModuleCompiler::checkStmtVariableMutate(const egg::ovum::String& symbol, eg
   return true;
 }
 
-bool ModuleCompiler::checkStmtPropertyMutate(ModuleNode& instance, ModuleNode& property, egg::ovum::ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context) {
+bool ModuleCompiler::checkStmtPropertyMutate(ModuleNode& instance, ModuleNode& property, ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context) {
   // Careful: The property may belong to a type (e.g. 'int.max') or an instance (e.g. 'o.p')
-  auto kind = egg::ovum::IVMTypeResolver::Kind::Type;
+  auto kind = IVMTypeResolver::Kind::Type;
   auto ctype = this->deduceType(instance, context, kind);
   if (ctype == nullptr) {
     return false;
@@ -2660,7 +2661,7 @@ bool ModuleCompiler::checkStmtPropertyMutate(ModuleNode& instance, ModuleNode& p
   }
   auto pname = this->deduceString(property, context);
   auto& forge = this->vm.getTypeForge();
-  if (kind == egg::ovum::IVMTypeResolver::Kind::Type) {
+  if (kind == IVMTypeResolver::Kind::Type) {
     auto* metashape = forge.getMetashape(ctype);
     if (metashape == nullptr) {
       this->error(pnode, "TODO: Cannot find metashape for type '", *ctype, "'");
@@ -2673,13 +2674,13 @@ bool ModuleCompiler::checkStmtPropertyMutate(ModuleNode& instance, ModuleNode& p
     if (pname.empty()) {
       // Unknown or runtime-only property name
       auto paccessability = getAccessabilityUnion(*metashape->dotable);
-      if (egg::ovum::Bits::hasNoneSet(paccessability, egg::ovum::Accessability::Mut)) {
+      if (Bits::hasNoneSet(paccessability, Accessability::Mut)) {
         this->error(pnode, "Type '", *ctype, "' does not support property modification");
         return false;
       }
       // TODO
-      egg::ovum::String problem;
-      switch (this->checkTargetMutate(egg::ovum::Type::AnyQ, op, vtype, problem)) {
+      String problem;
+      switch (this->checkTargetMutate(Type::AnyQ, op, vtype, problem)) {
       case MutateCheck::Failure:
         this->error(pnode, "Type '", *ctype, "' property ", problem);
         return false;
@@ -2692,15 +2693,15 @@ bool ModuleCompiler::checkStmtPropertyMutate(ModuleNode& instance, ModuleNode& p
     }
     auto paccessability = metashape->dotable->getAccessability(pname);
     auto ptype = metashape->dotable->getType(pname);
-    if ((paccessability == egg::ovum::Accessability::None) || (ptype == nullptr)) {
+    if ((paccessability == Accessability::None) || (ptype == nullptr)) {
       this->error(pnode, "Type '", *ctype, "' does not support property '", pname, "'");
       return false;
     }
-    if (egg::ovum::Bits::hasNoneSet(paccessability, egg::ovum::Accessability::Mut)) {
+    if (Bits::hasNoneSet(paccessability, Accessability::Mut)) {
       this->error(pnode, "Type '", *ctype, "' does not support modification of property '", pname, "'");
       return false;
     }
-    egg::ovum::String problem;
+    String problem;
     switch (this->checkTargetMutate(ptype, op, vtype, problem)) {
     case MutateCheck::Failure:
       this->error(pnode, "Type '", *ctype, "' property '", pname, "' (declared as '", *ptype, "') ", problem);
@@ -2718,10 +2719,10 @@ bool ModuleCompiler::checkStmtPropertyMutate(ModuleNode& instance, ModuleNode& p
   auto foundMut = false;
   if (pname.empty()) {
     // Unknown or runtime-only property name
-    forge.foreachDotable(ctype, [&](const egg::ovum::IPropertySignature& dotable) {
+    forge.foreachDotable(ctype, [&](const IPropertySignature& dotable) {
       // 'pname' is empty here, so we're effectively asking for unknown accessability
       foundAny = true;
-      if (egg::ovum::Bits::hasAnySet(dotable.getAccessability(pname), egg::ovum::Accessability::Mut)) {
+      if (Bits::hasAnySet(dotable.getAccessability(pname), Accessability::Mut)) {
         foundMut = true;
       }
       return foundMut; // completed if found a mutable property
@@ -2735,8 +2736,8 @@ bool ModuleCompiler::checkStmtPropertyMutate(ModuleNode& instance, ModuleNode& p
       return false;
     }
     // TODO
-    egg::ovum::String problem;
-    switch (this->checkTargetMutate(egg::ovum::Type::AnyQ, op, vtype, problem)) {
+    String problem;
+    switch (this->checkTargetMutate(Type::AnyQ, op, vtype, problem)) {
     case MutateCheck::Failure:
       this->error(pnode, "'", *ctype, "' property ", problem);
       return false;
@@ -2752,10 +2753,10 @@ bool ModuleCompiler::checkStmtPropertyMutate(ModuleNode& instance, ModuleNode& p
     return true;
   }
   auto builder = forge.createComplexBuilder();
-  forge.foreachDotable(ctype, [&](const egg::ovum::IPropertySignature& dotable) {
+  forge.foreachDotable(ctype, [&](const IPropertySignature& dotable) {
     auto accessability = dotable.getAccessability(pname);
-    foundAny |= (accessability != egg::ovum::Accessability::None);
-    if (egg::ovum::Bits::hasAnySet(accessability, egg::ovum::Accessability::Mut)) {
+    foundAny |= (accessability != Accessability::None);
+    if (Bits::hasAnySet(accessability, Accessability::Mut)) {
       auto ptype = dotable.getType(pname);
       if (ptype != nullptr) {
         // The builder constructs a union of all plausible property types
@@ -2774,7 +2775,7 @@ bool ModuleCompiler::checkStmtPropertyMutate(ModuleNode& instance, ModuleNode& p
     return false;
   }
   auto ptype = builder->build();
-  egg::ovum::String problem;
+  String problem;
   switch (this->checkTargetMutate(ptype, op, vtype, problem)) {
   case MutateCheck::Failure:
     this->error(pnode, "'", *ctype, "' property '", pname, "' (declared as '", *ptype, "') ", problem);
@@ -2789,7 +2790,7 @@ bool ModuleCompiler::checkStmtPropertyMutate(ModuleNode& instance, ModuleNode& p
   return true;
 }
 
-bool ModuleCompiler::checkStmtIndexMutate(ModuleNode& instance, ModuleNode& index, egg::ovum::ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context) {
+bool ModuleCompiler::checkStmtIndexMutate(ModuleNode& instance, ModuleNode& index, ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context) {
   auto ctype = this->deduceExprType(instance, context);
   if (ctype == nullptr) {
     return false;
@@ -2806,10 +2807,10 @@ bool ModuleCompiler::checkStmtIndexMutate(ModuleNode& instance, ModuleNode& inde
   auto foundAny = false;
   auto foundMut = false;
   auto rbuilder = forge.createComplexBuilder();
-  forge.foreachIndexable(ctype, [&](const egg::ovum::IIndexSignature& indexable) {
+  forge.foreachIndexable(ctype, [&](const IIndexSignature& indexable) {
     auto accessability = indexable.getAccessability();
-    foundAny |= (accessability != egg::ovum::Accessability::None);
-    if (egg::ovum::Bits::hasAnySet(accessability, egg::ovum::Accessability::Mut)) {
+    foundAny |= (accessability != Accessability::None);
+    if (Bits::hasAnySet(accessability, Accessability::Mut)) {
       // TODO check index type
       auto rtype = indexable.getResultType();
       if (rtype != nullptr) {
@@ -2829,7 +2830,7 @@ bool ModuleCompiler::checkStmtIndexMutate(ModuleNode& instance, ModuleNode& inde
     return false;
   }
   auto rtype = rbuilder->build();
-  egg::ovum::String problem;
+  String problem;
   switch (this->checkTargetMutate(rtype, op, vtype, problem)) {
   case MutateCheck::Failure:
     this->error(pnode, "'", *ctype, "' indexed value (declared as '", *rtype, "') ", problem);
@@ -2844,7 +2845,7 @@ bool ModuleCompiler::checkStmtIndexMutate(ModuleNode& instance, ModuleNode& inde
   return true;
 }
 
-bool ModuleCompiler::checkStmtPointeeMutate(ModuleNode& instance, egg::ovum::ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context) {
+bool ModuleCompiler::checkStmtPointeeMutate(ModuleNode& instance, ValueMutationOp op, ModuleNode& value, ParserNode& pnode, const StmtContext& context) {
   auto ctype = this->deduceExprType(instance, context);
   if (ctype == nullptr) {
     return false;
@@ -2857,10 +2858,10 @@ bool ModuleCompiler::checkStmtPointeeMutate(ModuleNode& instance, egg::ovum::Val
   auto foundAny = false;
   auto foundMut = false;
   auto rbuilder = forge.createComplexBuilder();
-  forge.foreachPointable(ctype, [&](const egg::ovum::IPointerSignature& pointable) {
+  forge.foreachPointable(ctype, [&](const IPointerSignature& pointable) {
     auto modifiability = pointable.getModifiability();
-    foundAny |= (modifiability != egg::ovum::Modifiability::None);
-    if (egg::ovum::Bits::hasAnySet(modifiability, egg::ovum::Modifiability::Mutate)) {
+    foundAny |= (modifiability != Modifiability::None);
+    if (Bits::hasAnySet(modifiability, Modifiability::Mutate)) {
       auto type = pointable.getPointeeType();
       if (type != nullptr) {
         // The builder constructs a union of all plausible result types
@@ -2879,7 +2880,7 @@ bool ModuleCompiler::checkStmtPointeeMutate(ModuleNode& instance, egg::ovum::Val
     return false;
   }
   auto rtype = rbuilder->build();
-  egg::ovum::String problem;
+  String problem;
   switch (this->checkTargetMutate(rtype, op, vtype, problem)) {
   case MutateCheck::Failure:
     this->error(pnode, "Dereferenced value (declared as '", *rtype, "') ", problem);
@@ -2894,24 +2895,24 @@ bool ModuleCompiler::checkStmtPointeeMutate(ModuleNode& instance, egg::ovum::Val
   return true;
 }
 
-ModuleCompiler::MutateCheck ModuleCompiler::checkTargetMutate(const egg::ovum::Type& target, egg::ovum::ValueMutationOp op, const egg::ovum::Type& value, egg::ovum::String& problem) {
+ModuleCompiler::MutateCheck ModuleCompiler::checkTargetMutate(const Type& target, ValueMutationOp op, const Type& value, String& problem) {
   auto& forge = this->vm.getTypeForge();
   auto mutatability = forge.isTypeMutatable(target, op, value);
   switch (mutatability) {
-  case egg::ovum::Mutatability::Sometimes:
-  case egg::ovum::Mutatability::Always:
+  case Mutatability::Sometimes:
+  case Mutatability::Always:
     break;
-  case egg::ovum::Mutatability::NeverLeft:
-    if (op == egg::ovum::ValueMutationOp::Assign) {
+  case Mutatability::NeverLeft:
+    if (op == ValueMutationOp::Assign) {
       problem = this->concat("cannot be assigned a value of type '", *value, "'");
     } else {
       problem = this->concat("cannot have operator '", op, "' applied");
     }
     return MutateCheck::Failure;
-  case egg::ovum::Mutatability::NeverRight:
+  case Mutatability::NeverRight:
     problem = this->concat("cannot have operator '", op, "' applied with a right-hand side of type '", *value, "'");
     return MutateCheck::Failure;
-  case egg::ovum::Mutatability::Unnecessary:
+  case Mutatability::Unnecessary:
     problem = this->concat("Operator '", op, "' has no effect");
     return MutateCheck::Unnecessary;
   }
@@ -3050,14 +3051,14 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
   return "unknown node kind";
 }
 
-egg::ovum::HardPtr<egg::ovum::IVMProgram> egg::yolk::EggCompilerFactory::compileFromStream(egg::ovum::IVM& vm, egg::ovum::TextStream& stream) {
-  auto lexer = egg::ovum::LexerFactory::createFromTextStream(stream);
-  auto tokenizer = egg::ovum::EggTokenizerFactory::createFromLexer(vm.getAllocator(), lexer);
-  auto parser = egg::ovum::EggParserFactory::createFromTokenizer(vm.getAllocator(), tokenizer);
+HardPtr<IVMProgram> egg::ovum::EggCompilerFactory::compileFromStream(IVM& vm, TextStream& stream) {
+  auto lexer = LexerFactory::createFromTextStream(stream);
+  auto tokenizer = EggTokenizerFactory::createFromLexer(vm.getAllocator(), lexer);
+  auto parser = EggParserFactory::createFromTokenizer(vm.getAllocator(), tokenizer);
   auto pbuilder = vm.createProgramBuilder();
-  pbuilder->addBuiltin(vm.createString("assert"), egg::ovum::Type::Object); // TODO
-  pbuilder->addBuiltin(vm.createString("print"), egg::ovum::Type::Object); // TODO
-  pbuilder->addBuiltin(vm.createString("symtable"), egg::ovum::Type::Object); // TODO
+  pbuilder->addBuiltin(vm.createString("assert"), Type::Object); // TODO
+  pbuilder->addBuiltin(vm.createString("print"), Type::Object); // TODO
+  pbuilder->addBuiltin(vm.createString("symtable"), Type::Object); // TODO
   auto compiler = EggCompilerFactory::createFromProgramBuilder(pbuilder);
   auto module = compiler->compile(*parser);
   if (module != nullptr) {
@@ -3066,17 +3067,17 @@ egg::ovum::HardPtr<egg::ovum::IVMProgram> egg::yolk::EggCompilerFactory::compile
   return nullptr;
 }
 
-egg::ovum::HardPtr<egg::ovum::IVMProgram> egg::yolk::EggCompilerFactory::compileFromPath(egg::ovum::IVM& vm, const std::string& path, bool swallowBOM) {
-  egg::ovum::FileTextStream stream{ path, swallowBOM };
+HardPtr<IVMProgram> egg::ovum::EggCompilerFactory::compileFromPath(IVM& vm, const std::string& path, bool swallowBOM) {
+  FileTextStream stream{ path, swallowBOM };
   return EggCompilerFactory::compileFromStream(vm, stream);
 }
 
-egg::ovum::HardPtr<egg::ovum::IVMProgram> egg::yolk::EggCompilerFactory::compileFromText(egg::ovum::IVM& vm, const std::string& text, const std::string& resource) {
-  egg::ovum::StringTextStream stream{ text, resource };
+HardPtr<IVMProgram> egg::ovum::EggCompilerFactory::compileFromText(IVM& vm, const std::string& text, const std::string& resource) {
+  StringTextStream stream{ text, resource };
   return EggCompilerFactory::compileFromStream(vm, stream);
 }
 
-std::shared_ptr<IEggCompiler> EggCompilerFactory::createFromProgramBuilder(const egg::ovum::HardPtr<egg::ovum::IVMProgramBuilder>& builder) {
+std::shared_ptr<IEggCompiler> egg::ovum::EggCompilerFactory::createFromProgramBuilder(const HardPtr<IVMProgramBuilder>& builder) {
   auto compiler = std::make_shared<EggCompiler>(builder);
   return compiler;
 }
