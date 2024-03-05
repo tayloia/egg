@@ -49,7 +49,6 @@
     <ClInclude Include="..\yolk\files.h" />
     <ClInclude Include="..\yolk\json-tokenizer.h" />
     <ClInclude Include="..\yolk\lexers.h" />
-    <ClInclude Include="..\yolk\macros.h" />
     <ClInclude Include="..\yolk\streams.h" />
     <ClInclude Include="..\yolk\test.h" />
     <ClInclude Include="..\yolk\yolk.h" />

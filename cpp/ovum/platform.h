@@ -48,3 +48,11 @@
 #error Unknown platform
 
 #endif
+
+#if !defined(__has_cpp_attribute)
+#define EGG_WARNING_SUPPRESS_FALLTHROUGH
+#elif !__has_cpp_attribute(fallthrough)
+#define EGG_WARNING_SUPPRESS_FALLTHROUGH
+#else
+#define EGG_WARNING_SUPPRESS_FALLTHROUGH [[fallthrough]];
+#endif

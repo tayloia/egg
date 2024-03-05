@@ -44,3 +44,6 @@ namespace egg::yolk {
     }
   };
 }
+
+#define EGG_THROW(message) \
+  throw egg::yolk::Exception(message, __FILE__, __LINE__)

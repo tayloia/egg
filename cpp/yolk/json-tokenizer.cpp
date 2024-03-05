@@ -91,7 +91,7 @@ namespace {
               this->lexer->next(this->upcoming);
               return item.kind;
             }
-            EGG_FALLTHROUGH
+            EGG_WARNING_SUPPRESS_FALLTHROUGH
           default:
             this->unexpected("Unexpected character in JSON", egg::ovum::UTF32::toReadable(this->upcoming.verbatim.front()));
             break;

@@ -61,9 +61,6 @@
     <ClInclude Include="..\yolk\lexers.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\yolk\macros.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\yolk\streams.h">
       <Filter>Header Files</Filter>
     </ClInclude>
