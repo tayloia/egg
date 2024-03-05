@@ -93,7 +93,7 @@ namespace {
             }
             EGG_FALLTHROUGH
           default:
-            this->unexpected("Unexpected character in JSON", String::unicodeToString(this->upcoming.verbatim.front()));
+            this->unexpected("Unexpected character in JSON", egg::ovum::UTF32::toReadable(this->upcoming.verbatim.front()));
             break;
           }
           if (this->upcoming.verbatim.size() > 1) {

@@ -35,9 +35,6 @@
     <ClCompile Include="..\yolk\streams.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\yolk\strings.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\yolk\egg-compiler.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -68,9 +65,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\yolk\streams.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\yolk\strings.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\yolk\test.h">

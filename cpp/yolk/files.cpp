@@ -2,17 +2,39 @@
 
 #include <filesystem>
 
+namespace {
+#if EGG_PLATFORM == EGG_PLATFORM_MSVC
+  std::string transform(const std::string& src, std::function<char(char)> lambda) {
+    std::string dst;
+    dst.reserve(src.size());
+    std::transform(src.begin(), src.end(), std::back_inserter(dst), lambda);
+    return dst;
+  }
+  std::string replace(const std::string& src, char from, char to) {
+    return transform(src, [from, to](char x) { return (x == from) ? to : x; });
+  }
+#endif
+  bool startsWith(const std::string& haystack, const std::string& needle) {
+    return (haystack.size() >= needle.size()) && std::equal(needle.begin(), needle.end(), haystack.begin());
+  }
+  void terminate(std::string& str, char terminator) {
+    if (str.empty() || (str.back() != terminator)) {
+      str.push_back(terminator);
+    }
+  }
+}
+
 std::string egg::yolk::File::normalizePath(const std::string& path, bool trailingSlash) {
 #if EGG_PLATFORM == EGG_PLATFORM_MSVC
-  auto result = String::transform(path, [](char x) { return (x == '\\') ? '/' : char(std::tolower(x)); });
+  auto result = transform(path, [](char x) { return (x == '\\') ? '/' : char(std::tolower(x)); });
   if (trailingSlash) {
-    String::terminate(result, '/');
+    terminate(result, '/');
   }
   return result;
 #else
   if (trailingSlash) {
     auto result = path;
-    String::terminate(result, '/');
+    terminate(result, '/');
     return result;
   }
   return path;
@@ -21,15 +43,15 @@ std::string egg::yolk::File::normalizePath(const std::string& path, bool trailin
 
 std::string egg::yolk::File::denormalizePath(const std::string& path, bool trailingSlash) {
 #if EGG_PLATFORM == EGG_PLATFORM_MSVC
-  auto result = String::replace(path, '/', '\\');
+  auto result = replace(path, '/', '\\');
   if (trailingSlash) {
-    String::terminate(result, '\\');
+    terminate(result, '\\');
   }
   return result;
 #else
   if (trailingSlash) {
     auto result = path;
-    String::terminate(result, '/');
+    terminate(result, '/');
     return result;
   }
   return path;
@@ -93,7 +115,7 @@ std::string egg::yolk::File::getTildeDirectory() {
 std::string egg::yolk::File::resolvePath(const std::string& path) {
   // Resolve a file path in normalized form
   auto resolved{ path };
-  if (String::startsWith(resolved, "~/")) {
+  if (startsWith(resolved, "~/")) {
     resolved = File::getTildeDirectory() + resolved.substr(2);
   }
 #if EGG_PLATFORM == EGG_PLATFORM_MSVC

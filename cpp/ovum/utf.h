@@ -1,3 +1,5 @@
+#include <iomanip>
+
 namespace egg::ovum {
   class UTF32 {
   public:
@@ -21,13 +23,13 @@ namespace egg::ovum {
         target = char(0x80 + (utf32 & 0x3F));
       }
     }
-    inline static std::string toUTF8(char32_t utf32) {
+    static std::string toUTF8(char32_t utf32) {
       std::string utf8;
       auto target = std::back_inserter(utf8);
       UTF32::toUTF8(target, utf32);
       return utf8;
     }
-    inline static std::string toUTF8(const char32_t* utf32, size_t codepoints) {
+    static std::string toUTF8(const char32_t* utf32, size_t codepoints) {
       std::string utf8;
       if (utf32 != nullptr) {
         auto target = std::back_inserter(utf8);
@@ -43,13 +45,24 @@ namespace egg::ovum {
       }
       return utf8;
     }
-    inline static std::string toUTF8(const std::u32string& utf32) {
+    static std::string toUTF8(const std::u32string& utf32) {
       std::string utf8;
       auto target = std::back_inserter(utf8);
       for (auto ch : utf32) {
         UTF32::toUTF8(target, ch);
       }
       return utf8;
+    }
+    static std::string toReadable(int ch) {
+      std::stringstream oss;
+      if ((ch >= 32) && (ch <= 126)) {
+        oss << '\'' << char(ch) << '\'';
+      } else if (ch < 0) {
+        oss << "<EOF>";
+      } else {
+        oss << "U+" << std::uppercase << std::setfill('0') << std::setw(4) << std::hex << ch;
+      }
+      return oss.str();
     }
   };
 
@@ -230,7 +243,7 @@ namespace egg::ovum {
       }
       return SIZE_MAX;
     }
-    inline static std::u32string toUTF32(const std::string& utf8) {
+    static std::u32string toUTF32(const std::string& utf8) {
       UTF8 reader(utf8, 0);
       std::u32string utf32;
       char32_t codepoint;
@@ -239,7 +252,7 @@ namespace egg::ovum {
       }
       return utf32;
     }
-    inline static std::string::const_iterator offsetOfCodePoint(const std::string& utf8, size_t index) {
+    static std::string::const_iterator offsetOfCodePoint(const std::string& utf8, size_t index) {
       auto remaining = utf8.size();
       auto p = utf8.cbegin();
       auto q = utf8.cend();
@@ -256,7 +269,7 @@ namespace egg::ovum {
       }
       return q;
     }
-    inline static size_t measure(const uint8_t* p, const uint8_t* q) {
+    static size_t measure(const uint8_t* p, const uint8_t* q) {
       // Return SIZE_MAX if this is not valid UTF-8, otherwise the codepoint count
       size_t count = 0;
       while (p < q) {

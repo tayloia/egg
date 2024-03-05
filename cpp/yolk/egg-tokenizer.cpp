@@ -1,6 +1,7 @@
 #include "yolk/yolk.h"
 #include "yolk/lexers.h"
 #include "yolk/egg-tokenizer.h"
+#include "ovum/utf.h"
 
 #define EGG_TOKENIZER_KEYWORD_DEFINE(key, text) \
   { egg::yolk::EggTokenizerKeyword::key, sizeof(text)-1, text },
@@ -173,7 +174,7 @@ namespace {
       assert(this->upcoming.kind == LexerKind::Operator);
       size_t length = 0;
       if (!EggTokenizerValue::tryParseOperator(this->upcoming.verbatim, item.value.o, length)) {
-        this->unexpected("Unexpected character", String::unicodeToString(this->upcoming.verbatim.front()));
+        this->unexpected("Unexpected character", egg::ovum::UTF32::toReadable(this->upcoming.verbatim.front()));
       }
       assert(length > 0);
       this->eatOperator(length);
@@ -185,7 +186,7 @@ namespace {
       assert(this->upcoming.verbatim.front() == '@');
       for (auto ch : this->upcoming.verbatim) {
         if (ch != '@') {
-          this->unexpected("Expected attribute name to follow '@'", String::unicodeToString(ch));
+          this->unexpected("Expected attribute name to follow '@'", egg::ovum::UTF32::toReadable(ch));
         }
       }
       egg::ovum::StringBuilder sb;

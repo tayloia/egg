@@ -7,6 +7,34 @@
 namespace {
   using namespace egg::yolk;
 
+  bool tryParseUnsigned(uint64_t& dst, const std::string& src, int base = 10) {
+    if (!src.empty()) {
+      errno = 0;
+      auto* str = src.c_str();
+      char* end = nullptr;
+      auto value = std::strtoull(str, &end, base);
+      if ((errno == 0) && (end == (str + src.size()))) {
+        dst = value;
+        return true;
+      }
+    }
+    return false;
+  }
+  
+  bool tryParseFloat(double& dst, const std::string& src) {
+    if (!src.empty()) {
+      errno = 0;
+      auto* str = src.c_str();
+      char* end = nullptr;
+      auto value = std::strtod(str, &end);
+      if ((errno == 0) && (end == (str + src.size()))) {
+        dst = value;
+        return true;
+      }
+    }
+    return false;
+  }
+
   class Lexer : public ILexer {
     EGG_NO_COPY(Lexer)
   private:
@@ -157,7 +185,7 @@ namespace {
         this->unexpected(item, "Unexpected letter in integer constant", ch);
       }
       item.kind = LexerKind::Integer;
-      if (!String::tryParseUnsigned(item.value.i, item.verbatim)) {
+      if (!tryParseUnsigned(item.value.i, item.verbatim)) {
         this->unexpected(item, "Invalid integer constant");
       }
     }
@@ -179,7 +207,7 @@ namespace {
         this->unexpected(item, "Hexadecimal constant too long");
       }
       item.kind = LexerKind::Integer;
-      if (!String::tryParseUnsigned(item.value.i, item.verbatim, 16)) {
+      if (!tryParseUnsigned(item.value.i, item.verbatim, 16)) {
         this->unexpected(item, "Invalid hexadecimal integer constant"); // NOCOVERAGE
       }
     }
@@ -197,7 +225,7 @@ namespace {
         nextFloatExponent(item);
       } else if (Lexer::isLetter(ch)) {
         this->unexpected(item, "Unexpected letter in floating-point constant", ch);
-      } else if (!String::tryParseFloat(item.value.f, item.verbatim)) {
+      } else if (!tryParseFloat(item.value.f, item.verbatim)) {
         this->unexpected(item, "Invalid floating-point constant"); // NOCOVERAGE
       }
     }
@@ -216,7 +244,7 @@ namespace {
       } while (Lexer::isDigit(ch));
       if (Lexer::isLetter(ch)) {
         this->unexpected(item, "Unexpected letter in exponent of floating-point constant", ch);
-      } else if (!String::tryParseFloat(item.value.f, item.verbatim)) {
+      } else if (!tryParseFloat(item.value.f, item.verbatim)) {
         this->unexpected(item, "Invalid floating-point constant");
       }
     }
@@ -330,7 +358,7 @@ namespace {
       throw egg::yolk::SyntaxException(message, this->stream.getResourceName(), item);
     } // NOCOVERAGE
     void unexpected(const LexerItem& item, const std::string& message, int ch) {
-      auto token = String::unicodeToString(ch);
+      auto token = egg::ovum::UTF32::toReadable(ch);
       throw egg::yolk::SyntaxException(message + ": " + token, this->stream.getResourceName(), item, token);
     } // NOCOVERAGE
   };

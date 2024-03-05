@@ -28,7 +28,6 @@
     <ClCompile Include="..\yolk\json-tokenizer.cpp" />
     <ClCompile Include="..\yolk\lexers.cpp" />
     <ClCompile Include="..\yolk\streams.cpp" />
-    <ClCompile Include="..\yolk\strings.cpp" />
     <ClCompile Include="yolk.pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
@@ -52,7 +51,6 @@
     <ClInclude Include="..\yolk\lexers.h" />
     <ClInclude Include="..\yolk\macros.h" />
     <ClInclude Include="..\yolk\streams.h" />
-    <ClInclude Include="..\yolk\strings.h" />
     <ClInclude Include="..\yolk\test.h" />
     <ClInclude Include="..\yolk\yolk.h" />
   </ItemGroup>

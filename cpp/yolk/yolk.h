@@ -5,4 +5,3 @@
 #include "yolk/exceptions.h"
 #include "yolk/files.h"
 #include "yolk/streams.h"
-#include "yolk/strings.h"

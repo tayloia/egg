@@ -1,6 +1,7 @@
 #include "yolk/yolk.h"
 #include "yolk/lexers.h"
 #include "yolk/eon-tokenizer.h"
+#include "ovum/utf.h"
 
 namespace {
   using namespace egg::yolk;
@@ -97,7 +98,7 @@ namespace {
             }
             EGG_FALLTHROUGH
           default:
-            this->unexpected("Unexpected character", String::unicodeToString(this->upcoming.verbatim.front()));
+            this->unexpected("Unexpected character", egg::ovum::UTF32::toReadable(this->upcoming.verbatim.front()));
             break;
           }
           if (this->upcoming.verbatim.size() > 1) {
