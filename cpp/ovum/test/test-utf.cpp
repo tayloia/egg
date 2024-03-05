@@ -66,3 +66,14 @@ TEST_P(TestUTF, UTF8toUTF32) {
 }
 
 EGG_INSTANTIATE_TEST_CASE_P(TestUTF)
+
+TEST(TestUTF32, toReadable) {
+  ASSERT_EQ("<EOF>", egg::ovum::UTF32::toReadable(-1));
+  ASSERT_EQ("U+0000", egg::ovum::UTF32::toReadable(0));
+  ASSERT_EQ("' '", egg::ovum::UTF32::toReadable(32));
+  ASSERT_EQ("'~'", egg::ovum::UTF32::toReadable(126));
+  ASSERT_EQ("U+007F", egg::ovum::UTF32::toReadable(127));
+  ASSERT_EQ("U+00A3", egg::ovum::UTF32::toReadable(0xA3));
+  ASSERT_EQ("U+20AC", egg::ovum::UTF32::toReadable(0x20AC));
+  ASSERT_EQ("U+1F95A", egg::ovum::UTF32::toReadable(0x1F95A));
+}
