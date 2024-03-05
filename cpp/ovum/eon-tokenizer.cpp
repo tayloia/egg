@@ -1,21 +1,21 @@
-#include "yolk/yolk.h"
+#include "ovum/ovum.h"
+#include "ovum/exception.h"
 #include "ovum/lexer.h"
-#include "yolk/eon-tokenizer.h"
+#include "ovum/eon-tokenizer.h"
 #include "ovum/utf.h"
 
 namespace {
   using namespace egg::ovum;
-  using namespace egg::yolk;
 
   class EonTokenizer : public IEonTokenizer {
     EonTokenizer(const EonTokenizer&) = delete;
     EonTokenizer& operator=(const EonTokenizer&) = delete;
   private:
-    egg::ovum::IAllocator& allocator;
+    IAllocator& allocator;
     std::shared_ptr<ILexer> lexer;
     LexerItem upcoming;
   public:
-    EonTokenizer(egg::ovum::IAllocator& allocator, const std::shared_ptr<ILexer>& lexer)
+    EonTokenizer(IAllocator& allocator, const std::shared_ptr<ILexer>& lexer)
       : allocator(allocator), lexer(lexer) {
       this->upcoming.line = 0;
     }
@@ -26,10 +26,10 @@ namespace {
       }
       item.line = this->upcoming.line;
       item.column = this->upcoming.column;
-      item.value = egg::ovum::HardValue::Void;
+      item.value = HardValue::Void;
       item.contiguous = true;
       bool skip;
-      egg::ovum::Int i64;
+      Int i64;
       do {
         skip = false;
         switch (this->upcoming.kind) {
@@ -41,20 +41,20 @@ namespace {
           break;
         case LexerKind::Integer:
           // This is an unsigned integer without a preceding '-'
-          i64 = egg::ovum::Int(this->upcoming.value.i);
+          i64 = Int(this->upcoming.value.i);
           if (i64 < 0) {
             this->unexpected("Invalid integer constant in JSON");
           }
-          item.value = egg::ovum::ValueFactory::createInt(this->allocator, i64);
+          item.value = ValueFactory::createInt(this->allocator, i64);
           item.kind = EonTokenizerKind::Integer;
           break;
         case LexerKind::Float:
           // This is a float without a preceding '-'
-          item.value = egg::ovum::ValueFactory::createFloat(this->allocator, this->upcoming.value.f);
+          item.value = ValueFactory::createFloat(this->allocator, this->upcoming.value.f);
           item.kind = EonTokenizerKind::Float;
           break;
         case LexerKind::String:
-          item.value = egg::ovum::ValueFactory::createStringUTF32(this->allocator, this->upcoming.value.s);
+          item.value = ValueFactory::createStringUTF32(this->allocator, this->upcoming.value.s);
           item.kind = EonTokenizerKind::String;
           break;
         case LexerKind::Operator:
@@ -83,14 +83,14 @@ namespace {
               auto kind = lexer->next(this->upcoming);
               if (kind == LexerKind::Float) {
                 item.kind = EonTokenizerKind::Float;
-                item.value = egg::ovum::ValueFactory::createFloat(this->allocator, -this->upcoming.value.f);
+                item.value = ValueFactory::createFloat(this->allocator, -this->upcoming.value.f);
               } else if (kind == LexerKind::Integer) {
-                i64 = -egg::ovum::Int(this->upcoming.value.i);
+                i64 = -Int(this->upcoming.value.i);
                 if (i64 > 0) {
                   this->unexpected("Invalid negative integer constant");
                 }
                 item.kind = EonTokenizerKind::Integer;
-                item.value = egg::ovum::ValueFactory::createInt(this->allocator, i64);
+                item.value = ValueFactory::createInt(this->allocator, i64);
               } else {
                 this->unexpected("Expected number to follow minus sign");
               }
@@ -99,7 +99,7 @@ namespace {
             }
             EGG_WARNING_SUPPRESS_FALLTHROUGH
           default:
-            this->unexpected("Unexpected character", egg::ovum::UTF32::toReadable(this->upcoming.verbatim.front()));
+            this->unexpected("Unexpected character", UTF32::toReadable(this->upcoming.verbatim.front()));
             break;
           }
           if (this->upcoming.verbatim.size() > 1) {
@@ -112,16 +112,16 @@ namespace {
         case LexerKind::Identifier:
           if (this->upcoming.verbatim == "null") {
             item.kind = EonTokenizerKind::Null;
-            item.value = egg::ovum::HardValue::Null;
+            item.value = HardValue::Null;
           } else if (this->upcoming.verbatim == "false") {
             item.kind = EonTokenizerKind::Boolean;
-            item.value = egg::ovum::HardValue::False;
+            item.value = HardValue::False;
           } else if (this->upcoming.verbatim == "true") {
             item.kind = EonTokenizerKind::Boolean;
-            item.value = egg::ovum::HardValue::True;
+            item.value = HardValue::True;
           } else {
             item.kind = EonTokenizerKind::Identifier;
-            item.value = egg::ovum::ValueFactory::createStringUTF8(this->allocator, this->upcoming.verbatim.data(), this->upcoming.verbatim.size());
+            item.value = ValueFactory::createStringUTF8(this->allocator, this->upcoming.verbatim.data(), this->upcoming.verbatim.size());
           }
           break;
         case LexerKind::EndOfFile:
@@ -145,6 +145,6 @@ namespace {
   };
 }
 
-std::shared_ptr<egg::yolk::IEonTokenizer> egg::yolk::EonTokenizerFactory::createFromLexer(egg::ovum::IAllocator& allocator, const std::shared_ptr<ILexer>& lexer) {
+std::shared_ptr<egg::ovum::IEonTokenizer> egg::ovum::EonTokenizerFactory::createFromLexer(IAllocator& allocator, const std::shared_ptr<ILexer>& lexer) {
   return std::make_shared<EonTokenizer>(allocator, lexer);
 }

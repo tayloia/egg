@@ -1,6 +1,6 @@
 #include "yolk/test.h"
 #include "ovum/lexer.h"
-#include "yolk/egg-tokenizer.h"
+#include "ovum/egg-tokenizer.h"
 #include "yolk/egg-parser.h"
 #include "yolk/egg-compiler.h"
 

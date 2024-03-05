@@ -70,6 +70,15 @@
     <ClCompile Include="..\ovum\test\test-gc.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\ovum\test\test-egg-tokenizer.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ovum\test\test-eon-tokenizer.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ovum\test\test-json-tokenizer.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ovum\test\etest.h">

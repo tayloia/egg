@@ -91,7 +91,7 @@
   macro(Tilde, "~")
 #define EGG_TOKENIZER_OPERATOR_DECLARE(key, text) key,
 
-namespace egg::yolk {
+namespace egg::ovum {
   enum class EggTokenizerKeyword {
     EGG_TOKENIZER_KEYWORDS(EGG_TOKENIZER_KEYWORD_DECLARE)
   };
@@ -112,12 +112,12 @@ namespace egg::yolk {
 
   struct EggTokenizerValue {
     union {
-      egg::ovum::Int i;
-      egg::ovum::Float f;
+      Int i;
+      Float f;
       EggTokenizerKeyword k;
       EggTokenizerOperator o;
     };
-    egg::ovum::String s; // verbatim for integers and floats
+    String s; // verbatim for integers and floats
 
     static std::string getKeywordString(EggTokenizerKeyword value);
     static std::string getOperatorString(EggTokenizerOperator value);
@@ -150,11 +150,11 @@ namespace egg::yolk {
   public:
     virtual ~IEggTokenizer() {}
     virtual EggTokenizerKind next(EggTokenizerItem& item) = 0;
-    virtual egg::ovum::String resource() const = 0;
+    virtual String resource() const = 0;
   };
 
   class EggTokenizerFactory {
   public:
-    static std::shared_ptr<IEggTokenizer> createFromLexer(egg::ovum::IAllocator& allocator, const std::shared_ptr<egg::ovum::ILexer>& lexer);
+    static std::shared_ptr<IEggTokenizer> createFromLexer(IAllocator& allocator, const std::shared_ptr<ILexer>& lexer);
   };
 }

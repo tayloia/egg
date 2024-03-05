@@ -1,9 +1,9 @@
-#include "yolk/test.h"
+#include "ovum/test.h"
+#include "ovum/exception.h"
 #include "ovum/lexer.h"
-#include "yolk/json-tokenizer.h"
+#include "ovum/json-tokenizer.h"
 
 using namespace egg::ovum;
-using namespace egg::yolk;
 
 namespace {
   std::shared_ptr<IJsonTokenizer> createFromString(const std::string& text) {

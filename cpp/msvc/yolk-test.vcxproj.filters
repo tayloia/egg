@@ -22,15 +22,6 @@
     <ClCompile Include="..\ovum\test\gtest.cpp">
       <Filter>Infrastructure Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\yolk\test\test-eon-tokenizer.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\yolk\test\test-egg-tokenizer.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\yolk\test\test-json-tokenizer.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\yolk\test\test-scripts.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>

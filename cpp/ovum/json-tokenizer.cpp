@@ -1,11 +1,11 @@
-#include "yolk/yolk.h"
+#include "ovum/ovum.h"
+#include "ovum/exception.h"
 #include "ovum/lexer.h"
-#include "yolk/json-tokenizer.h"
+#include "ovum/json-tokenizer.h"
 #include "ovum/utf.h"
 
 namespace {
   using namespace egg::ovum;
-  using namespace egg::yolk;
 
   class JsonTokenizer : public IJsonTokenizer {
   private:
@@ -50,7 +50,7 @@ namespace {
           if (this->upcoming.verbatim.front() == '`') {
             this->unexpected("Strict JSON does not permit backquoted strings");
           }
-          item.value.s = egg::ovum::UTF32::toUTF8(this->upcoming.value.s);
+          item.value.s = UTF32::toUTF8(this->upcoming.value.s);
           item.kind = JsonTokenizerKind::String;
           break;
         case LexerKind::Operator:
@@ -94,7 +94,7 @@ namespace {
             }
             EGG_WARNING_SUPPRESS_FALLTHROUGH
           default:
-            this->unexpected("Unexpected character in JSON", egg::ovum::UTF32::toReadable(this->upcoming.verbatim.front()));
+            this->unexpected("Unexpected character in JSON", UTF32::toReadable(this->upcoming.verbatim.front()));
             break;
           }
           if (this->upcoming.verbatim.size() > 1) {
@@ -138,6 +138,6 @@ namespace {
   };
 }
 
-std::shared_ptr<egg::yolk::IJsonTokenizer> egg::yolk::JsonTokenizerFactory::createFromLexer(const std::shared_ptr<ILexer>& lexer) {
+std::shared_ptr<egg::ovum::IJsonTokenizer> egg::ovum::JsonTokenizerFactory::createFromLexer(const std::shared_ptr<ILexer>& lexer) {
   return std::make_shared<JsonTokenizer>(lexer);
 }

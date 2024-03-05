@@ -1,16 +1,17 @@
-#include "yolk/yolk.h"
+#include "ovum/ovum.h"
+#include "ovum/exception.h"
 #include "ovum/lexer.h"
-#include "yolk/egg-tokenizer.h"
+#include "ovum/egg-tokenizer.h"
 #include "ovum/utf.h"
 
 #define EGG_TOKENIZER_KEYWORD_DEFINE(key, text) \
-  { egg::yolk::EggTokenizerKeyword::key, sizeof(text)-1, text },
+  { egg::ovum::EggTokenizerKeyword::key, sizeof(text)-1, text },
 #define EGG_TOKENIZER_OPERATOR_DEFINE(key, text) \
-  { egg::yolk::EggTokenizerOperator::key, sizeof(text)-1, text },
+  { egg::ovum::EggTokenizerOperator::key, sizeof(text)-1, text },
 
 namespace {
   const struct KeywordEntry {
-    egg::yolk::EggTokenizerKeyword key;
+    egg::ovum::EggTokenizerKeyword key;
     size_t length;
     char text[16];
   }
@@ -18,7 +19,7 @@ namespace {
     EGG_TOKENIZER_KEYWORDS(EGG_TOKENIZER_KEYWORD_DEFINE)
   };
   const struct OperatorEntry {
-    egg::yolk::EggTokenizerOperator key;
+    egg::ovum::EggTokenizerOperator key;
     size_t length;
     char text[16];
   }
@@ -27,19 +28,19 @@ namespace {
   };
 }
 
-std::string egg::yolk::EggTokenizerValue::getKeywordString(EggTokenizerKeyword value) {
+std::string egg::ovum::EggTokenizerValue::getKeywordString(EggTokenizerKeyword value) {
   size_t index = size_t(value);
   assert(index < EGG_NELEMS(keywords));
   return keywords[index].text;
 }
 
-std::string egg::yolk::EggTokenizerValue::getOperatorString(EggTokenizerOperator value) {
+std::string egg::ovum::EggTokenizerValue::getOperatorString(EggTokenizerOperator value) {
   size_t index = size_t(value);
   assert(index < EGG_NELEMS(operators));
   return operators[index].text;
 }
 
-bool egg::yolk::EggTokenizerValue::tryParseKeyword(const std::string& text, EggTokenizerKeyword& value) {
+bool egg::ovum::EggTokenizerValue::tryParseKeyword(const std::string& text, EggTokenizerKeyword& value) {
   // OPTIMIZE
   for (size_t i = 0; i < EGG_NELEMS(keywords); ++i) {
     if (text == keywords[i].text) {
@@ -50,7 +51,7 @@ bool egg::yolk::EggTokenizerValue::tryParseKeyword(const std::string& text, EggT
   return false;
 }
 
-bool egg::yolk::EggTokenizerValue::tryParseOperator(const std::string& text, EggTokenizerOperator& value, size_t& length) {
+bool egg::ovum::EggTokenizerValue::tryParseOperator(const std::string& text, EggTokenizerOperator& value, size_t& length) {
   // OPTIMIZE
   auto* data = text.data();
   auto size = text.size();
@@ -65,7 +66,7 @@ bool egg::yolk::EggTokenizerValue::tryParseOperator(const std::string& text, Egg
   return false;
 }
 
-std::string egg::yolk::EggTokenizerItem::toString() const {
+std::string egg::ovum::EggTokenizerItem::toString() const {
   switch (this->kind) {
   case EggTokenizerKind::Keyword:
     return "keyword '" + EggTokenizerValue::getKeywordString(this->value.k) + '\'';
@@ -86,17 +87,16 @@ std::string egg::yolk::EggTokenizerItem::toString() const {
 
 namespace {
   using namespace egg::ovum;
-  using namespace egg::yolk;
 
   class EggTokenizer : public IEggTokenizer {
     EggTokenizer(EggTokenizer&) = delete;
     EggTokenizer& operator=(EggTokenizer&) = delete;
   private:
-    egg::ovum::IAllocator& allocator;
+    IAllocator& allocator;
     std::shared_ptr<ILexer> lexer;
     LexerItem upcoming;
   public:
-    EggTokenizer(egg::ovum::IAllocator& allocator, const std::shared_ptr<ILexer>& lexer)
+    EggTokenizer(IAllocator& allocator, const std::shared_ptr<ILexer>& lexer)
       : allocator(allocator),
         lexer(lexer) {
       this->upcoming.line = 0;
@@ -106,7 +106,7 @@ namespace {
         // This is the first time through
         this->lexer->next(this->upcoming);
       }
-      item.value.s = egg::ovum::String();
+      item.value.s = String();
       item.contiguous = true;
       bool skip;
       do {
@@ -127,17 +127,17 @@ namespace {
           if (item.value.i < 0) {
             this->unexpected("Invalid integer constant");
           }
-          item.value.s = egg::ovum::String::fromUTF8(this->allocator, this->upcoming.verbatim.data(), this->upcoming.verbatim.size());
+          item.value.s = String::fromUTF8(this->allocator, this->upcoming.verbatim.data(), this->upcoming.verbatim.size());
           item.kind = EggTokenizerKind::Integer;
           break;
         case LexerKind::Float:
           // This is a float excluding any preceding sign
           item.value.f = this->upcoming.value.f;
-          item.value.s = egg::ovum::String::fromUTF8(this->allocator, this->upcoming.verbatim.data(), this->upcoming.verbatim.size());
+          item.value.s = String::fromUTF8(this->allocator, this->upcoming.verbatim.data(), this->upcoming.verbatim.size());
           item.kind = EggTokenizerKind::Float;
           break;
         case LexerKind::String:
-          item.value.s = egg::ovum::String::fromUTF32(this->allocator, this->upcoming.value.s.data(), this->upcoming.value.s.size());
+          item.value.s = String::fromUTF32(this->allocator, this->upcoming.value.s.data(), this->upcoming.value.s.size());
           item.kind = EggTokenizerKind::String;
           break;
         case LexerKind::Operator:
@@ -146,7 +146,7 @@ namespace {
           }
           return this->nextOperator(item);
         case LexerKind::Identifier:
-          item.value.s = egg::ovum::String::fromUTF8(this->allocator, this->upcoming.verbatim.data(), this->upcoming.verbatim.size());
+          item.value.s = String::fromUTF8(this->allocator, this->upcoming.verbatim.data(), this->upcoming.verbatim.size());
           if (EggTokenizerValue::tryParseKeyword(this->upcoming.verbatim, item.value.k)) {
             item.kind = EggTokenizerKind::Keyword;
           } else {
@@ -165,9 +165,9 @@ namespace {
       } while (skip);
       return item.kind;
     }
-    virtual egg::ovum::String resource() const override {
+    virtual String resource() const override {
       auto utf8 = this->lexer->getResourceName();
-      return egg::ovum::String::fromUTF8(this->allocator, utf8.data(), utf8.size());
+      return String::fromUTF8(this->allocator, utf8.data(), utf8.size());
     }
   private:
     EggTokenizerKind nextOperator(EggTokenizerItem& item) {
@@ -175,7 +175,7 @@ namespace {
       assert(this->upcoming.kind == LexerKind::Operator);
       size_t length = 0;
       if (!EggTokenizerValue::tryParseOperator(this->upcoming.verbatim, item.value.o, length)) {
-        this->unexpected("Unexpected character", egg::ovum::UTF32::toReadable(this->upcoming.verbatim.front()));
+        this->unexpected("Unexpected character", UTF32::toReadable(this->upcoming.verbatim.front()));
       }
       assert(length > 0);
       this->eatOperator(length);
@@ -187,10 +187,10 @@ namespace {
       assert(this->upcoming.verbatim.front() == '@');
       for (auto ch : this->upcoming.verbatim) {
         if (ch != '@') {
-          this->unexpected("Expected attribute name to follow '@'", egg::ovum::UTF32::toReadable(ch));
+          this->unexpected("Expected attribute name to follow '@'", UTF32::toReadable(ch));
         }
       }
-      egg::ovum::StringBuilder sb;
+      StringBuilder sb;
       sb.add(this->upcoming.verbatim);
       if (this->lexer->next(this->upcoming) != LexerKind::Identifier) {
         this->unexpected("Expected attribute name to follow '@'");
@@ -227,6 +227,6 @@ namespace {
   };
 }
 
-std::shared_ptr<egg::yolk::IEggTokenizer> egg::yolk::EggTokenizerFactory::createFromLexer(egg::ovum::IAllocator& allocator, const std::shared_ptr<ILexer>& lexer) {
+std::shared_ptr<egg::ovum::IEggTokenizer> egg::ovum::EggTokenizerFactory::createFromLexer(IAllocator& allocator, const std::shared_ptr<ILexer>& lexer) {
   return std::make_shared<EggTokenizer>(allocator, lexer);
 }

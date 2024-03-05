@@ -2,7 +2,7 @@
 #include "ovum/lexer.h"
 #include "ovum/file.h"
 #include "ovum/stream.h"
-#include "yolk/egg-tokenizer.h"
+#include "ovum/egg-tokenizer.h"
 #include "yolk/egg-parser.h"
 #include "yolk/egg-compiler.h"
 
@@ -3051,7 +3051,7 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
 
 egg::ovum::HardPtr<egg::ovum::IVMProgram> egg::yolk::EggCompilerFactory::compileFromStream(egg::ovum::IVM& vm, egg::ovum::ITextStream& stream) {
   auto lexer = egg::ovum::LexerFactory::createFromTextStream(stream);
-  auto tokenizer = EggTokenizerFactory::createFromLexer(vm.getAllocator(), lexer);
+  auto tokenizer = egg::ovum::EggTokenizerFactory::createFromLexer(vm.getAllocator(), lexer);
   auto parser = EggParserFactory::createFromTokenizer(vm.getAllocator(), tokenizer);
   auto pbuilder = vm.createProgramBuilder();
   pbuilder->addBuiltin(vm.createString("assert"), egg::ovum::Type::Object); // TODO

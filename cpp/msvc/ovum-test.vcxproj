@@ -35,9 +35,12 @@
       <DisableLanguageExtensions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</DisableLanguageExtensions>
       <DisableLanguageExtensions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</DisableLanguageExtensions>
     </ClCompile>
+    <ClCompile Include="..\ovum\test\test-egg-tokenizer.cpp" />
+    <ClCompile Include="..\ovum\test\test-eon-tokenizer.cpp" />
     <ClCompile Include="..\ovum\test\test-exception.cpp" />
     <ClCompile Include="..\ovum\test\test-file.cpp" />
     <ClCompile Include="..\ovum\test\test-gc.cpp" />
+    <ClCompile Include="..\ovum\test\test-json-tokenizer.cpp" />
     <ClCompile Include="..\ovum\test\test-lexer.cpp" />
     <ClCompile Include="..\ovum\test\test-memory.cpp" />
     <ClCompile Include="..\ovum\test\test-poly.cpp" />

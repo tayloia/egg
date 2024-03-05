@@ -1,9 +1,9 @@
-#include "yolk/test.h"
+#include "ovum/test.h"
+#include "ovum/exception.h"
 #include "ovum/lexer.h"
-#include "yolk/eon-tokenizer.h"
+#include "ovum/eon-tokenizer.h"
 
 using namespace egg::ovum;
-using namespace egg::yolk;
 
 namespace {
   std::shared_ptr<IEonTokenizer> createFromString(IAllocator& allocator, const std::string& text) {

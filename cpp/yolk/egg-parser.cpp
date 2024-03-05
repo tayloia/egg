@@ -1,13 +1,14 @@
 #include "yolk/yolk.h"
 #include "ovum/lexer.h"
-#include "yolk/egg-tokenizer.h"
+#include "ovum/egg-tokenizer.h"
 #include "yolk/egg-parser.h"
 
 #include <deque>
 
-using namespace egg::yolk;
-
 namespace {
+  using namespace egg::ovum;
+  using namespace egg::yolk;
+
   const char* describe(IEggParser::Node::Kind flavour) {
     if (flavour == IEggParser::Node::Kind::TypeInfer) {
       return "var";
@@ -18,45 +19,45 @@ namespace {
     return "<unknown>";
   }
 
-  int precedence(egg::ovum::ValueBinaryOp op) {
+  int precedence(ValueBinaryOp op) {
     // See egg/www/v1/syntax/syntax.html#binary-operator
     // OPTIMIZE
     switch (op) {
-    case egg::ovum::ValueBinaryOp::IfVoid:
-    case egg::ovum::ValueBinaryOp::IfNull:
+    case ValueBinaryOp::IfVoid:
+    case ValueBinaryOp::IfNull:
       return 1;
-    case egg::ovum::ValueBinaryOp::IfFalse:
+    case ValueBinaryOp::IfFalse:
       return 2;
-    case egg::ovum::ValueBinaryOp::IfTrue:
+    case ValueBinaryOp::IfTrue:
       return 3;
-    case egg::ovum::ValueBinaryOp::BitwiseOr:
+    case ValueBinaryOp::BitwiseOr:
       return 4;
-    case egg::ovum::ValueBinaryOp::BitwiseXor:
+    case ValueBinaryOp::BitwiseXor:
       return 5;
-    case egg::ovum::ValueBinaryOp::BitwiseAnd:
+    case ValueBinaryOp::BitwiseAnd:
       return 6;
-    case egg::ovum::ValueBinaryOp::Equal:
-    case egg::ovum::ValueBinaryOp::NotEqual:
+    case ValueBinaryOp::Equal:
+    case ValueBinaryOp::NotEqual:
       return 7;
-    case egg::ovum::ValueBinaryOp::LessThan:
-    case egg::ovum::ValueBinaryOp::LessThanOrEqual:
-    case egg::ovum::ValueBinaryOp::GreaterThanOrEqual:
-    case egg::ovum::ValueBinaryOp::GreaterThan:
+    case ValueBinaryOp::LessThan:
+    case ValueBinaryOp::LessThanOrEqual:
+    case ValueBinaryOp::GreaterThanOrEqual:
+    case ValueBinaryOp::GreaterThan:
       return 8;
-    case egg::ovum::ValueBinaryOp::Minimum:
-    case egg::ovum::ValueBinaryOp::Maximum:
+    case ValueBinaryOp::Minimum:
+    case ValueBinaryOp::Maximum:
       // TODO add these (and '!!') to documentation
       return 9;
-    case egg::ovum::ValueBinaryOp::ShiftLeft:
-    case egg::ovum::ValueBinaryOp::ShiftRight:
-    case egg::ovum::ValueBinaryOp::ShiftRightUnsigned:
+    case ValueBinaryOp::ShiftLeft:
+    case ValueBinaryOp::ShiftRight:
+    case ValueBinaryOp::ShiftRightUnsigned:
       return 10;
-    case egg::ovum::ValueBinaryOp::Add:
-    case egg::ovum::ValueBinaryOp::Subtract:
+    case ValueBinaryOp::Add:
+    case ValueBinaryOp::Subtract:
       return 11;
-    case egg::ovum::ValueBinaryOp::Multiply:
-    case egg::ovum::ValueBinaryOp::Divide:
-    case egg::ovum::ValueBinaryOp::Remainder:
+    case ValueBinaryOp::Multiply:
+    case ValueBinaryOp::Divide:
+    case ValueBinaryOp::Remainder:
       return 12;
     }
     return 0;
@@ -77,7 +78,7 @@ namespace {
         absolute(0) {
       assert(this->tokenizer != nullptr);
     }
-    egg::ovum::String resource() const {
+    String resource() const {
       return this->tokenizer->resource();
     }
     const EggTokenizerItem& getAbsolute(size_t absidx) {
@@ -116,11 +117,11 @@ namespace {
     EggParser(const EggParser&) = delete;
     EggParser& operator=(const EggParser&) = delete;
   private:
-    egg::ovum::IAllocator& allocator;
+    IAllocator& allocator;
     EggParserTokens tokens;
     std::vector<Issue> issues;
   public:
-    EggParser(egg::ovum::IAllocator& allocator, const std::shared_ptr<IEggTokenizer>& tokenizer)
+    EggParser(IAllocator& allocator, const std::shared_ptr<IEggTokenizer>& tokenizer)
       : allocator(allocator),
         tokens(tokenizer) {
     }
@@ -133,18 +134,18 @@ namespace {
           root = nullptr;
         }
       }
-      catch (egg::ovum::SyntaxException& exception) {
+      catch (SyntaxException& exception) {
         const auto& reason = exception.reason();
-        auto message = egg::ovum::String::fromUTF8(this->allocator, reason.data(), reason.size());
+        auto message = String::fromUTF8(this->allocator, reason.data(), reason.size());
         const auto& begin = exception.location().begin;
         const auto& end = exception.location().end;
-        egg::ovum::SourceRange range{ { begin.line, begin.column }, { end.line, end.column } };
+        SourceRange range{ { begin.line, begin.column }, { end.line, end.column } };
         this->issues.emplace_back(Issue::Severity::Error, message, range);
         root = nullptr;
       }
       return { root, std::move(this->issues) };
     }
-    virtual egg::ovum::String resource() const override {
+    virtual String resource() const override {
       return this->tokens.resource();
     }
     const EggTokenizerItem& getAbsolute(size_t absidx) {
@@ -236,7 +237,7 @@ namespace {
         this->parser.issues.push_back(issue);
         return this->failed();
       }
-      Partial failed(Issue::Severity severity, egg::ovum::String message, const egg::ovum::SourceRange& range) const {
+      Partial failed(Issue::Severity severity, String message, const SourceRange& range) const {
         this->parser.issues.emplace_back(severity, message, range);
         return this->failed();
       }
@@ -253,11 +254,11 @@ namespace {
     template<typename... ARGS>
     Issue createIssue(Issue::Severity severity, size_t tokensBefore, size_t tokensAfter, ARGS&&... args) {
       assert(tokensBefore <= tokensAfter);
-      auto message = egg::ovum::StringBuilder::concat(this->allocator, std::forward<ARGS>(args)...);
+      auto message = StringBuilder::concat(this->allocator, std::forward<ARGS>(args)...);
       auto& item0 = this->getAbsolute(tokensBefore);
-      egg::ovum::SourceLocation location0{ item0.line, item0.column };
+      SourceLocation location0{ item0.line, item0.column };
       auto& item1 = this->getAbsolute(tokensAfter);
-      egg::ovum::SourceLocation location1{ item1.line, item1.column + item1.width };
+      SourceLocation location1{ item1.line, item1.column + item1.width };
       return { severity, message, { location0, location1 } };
     }
     bool parseModule(Node& root) {
@@ -1032,7 +1033,7 @@ namespace {
         if (target.succeeded()) {
           target.wrap(Node::Kind::StmtMutate);
           target.node->range.begin = { context[0].line, context[0].column };
-          target.node->op.valueMutationOp = egg::ovum::ValueMutationOp::Increment;
+          target.node->op.valueMutationOp = ValueMutationOp::Increment;
         }
         return target;
       } else if (context[0].isOperator(EggTokenizerOperator::MinusMinus)) {
@@ -1041,7 +1042,7 @@ namespace {
         if (target.succeeded()) {
           target.wrap(Node::Kind::StmtMutate);
           target.node->range.begin = { context[0].line, context[0].column };
-          target.node->op.valueMutationOp = egg::ovum::ValueMutationOp::Decrement;
+          target.node->op.valueMutationOp = ValueMutationOp::Decrement;
         }
         return target;
       } else {
@@ -1051,41 +1052,41 @@ namespace {
           if (next.kind == EggTokenizerKind::Operator) {
             switch (next.value.o) {
             case EggTokenizerOperator::Equal: // '='
-              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::Assign);
+              return this->parseStatementMutateOperator(target, ValueMutationOp::Assign);
             case EggTokenizerOperator::BangBangEqual: // '!!='
-              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::IfVoid);
+              return this->parseStatementMutateOperator(target, ValueMutationOp::IfVoid);
             case EggTokenizerOperator::PercentEqual: // '%='
-              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::Remainder);
+              return this->parseStatementMutateOperator(target, ValueMutationOp::Remainder);
             case EggTokenizerOperator::AmpersandAmpersandEqual: // '&&='
-              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::IfTrue);
+              return this->parseStatementMutateOperator(target, ValueMutationOp::IfTrue);
             case EggTokenizerOperator::AmpersandEqual: // '&='
-              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::BitwiseAnd);
+              return this->parseStatementMutateOperator(target, ValueMutationOp::BitwiseAnd);
             case EggTokenizerOperator::StarEqual: // '*='
-              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::Multiply);
+              return this->parseStatementMutateOperator(target, ValueMutationOp::Multiply);
             case EggTokenizerOperator::PlusEqual: // '+='
-              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::Add);
+              return this->parseStatementMutateOperator(target, ValueMutationOp::Add);
             case EggTokenizerOperator::MinusEqual: // '-='
-              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::Subtract);
+              return this->parseStatementMutateOperator(target, ValueMutationOp::Subtract);
             case EggTokenizerOperator::SlashEqual: // '/='
-              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::Divide);
+              return this->parseStatementMutateOperator(target, ValueMutationOp::Divide);
             case EggTokenizerOperator::ShiftLeftEqual: // '<<='
-              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::ShiftLeft);
+              return this->parseStatementMutateOperator(target, ValueMutationOp::ShiftLeft);
             case EggTokenizerOperator::LessBarEqual: // '<|='
-              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::Minimum);
+              return this->parseStatementMutateOperator(target, ValueMutationOp::Minimum);
             case EggTokenizerOperator::ShiftRightEqual: // '>>='
-              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::ShiftRight);
+              return this->parseStatementMutateOperator(target, ValueMutationOp::ShiftRight);
             case EggTokenizerOperator::ShiftRightUnsignedEqual: // '>>>='
-              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::ShiftRightUnsigned);
+              return this->parseStatementMutateOperator(target, ValueMutationOp::ShiftRightUnsigned);
             case EggTokenizerOperator::GreaterBarEqual: // '>|='
-              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::Maximum);
+              return this->parseStatementMutateOperator(target, ValueMutationOp::Maximum);
             case EggTokenizerOperator::QueryQueryEqual: // '??='
-              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::IfNull);
+              return this->parseStatementMutateOperator(target, ValueMutationOp::IfNull);
             case EggTokenizerOperator::CaretEqual: // '^='
-              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::BitwiseXor);
+              return this->parseStatementMutateOperator(target, ValueMutationOp::BitwiseXor);
             case EggTokenizerOperator::BarEqual: // '|='
-              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::BitwiseOr);
+              return this->parseStatementMutateOperator(target, ValueMutationOp::BitwiseOr);
             case EggTokenizerOperator::BarBarEqual: // '||='
-              return this->parseStatementMutateOperator(target, egg::ovum::ValueMutationOp::IfFalse);
+              return this->parseStatementMutateOperator(target, ValueMutationOp::IfFalse);
             case EggTokenizerOperator::Bang: // '!'
             case EggTokenizerOperator::BangBang: // '!!'
             case EggTokenizerOperator::BangEqual: // '!='
@@ -1134,7 +1135,7 @@ namespace {
       }
       return context.skip();
     }
-    Partial parseStatementMutateOperator(Partial& lhs, egg::ovum::ValueMutationOp op) {
+    Partial parseStatementMutateOperator(Partial& lhs, ValueMutationOp op) {
       assert(lhs.succeeded());
       auto rhs = this->parseValueExpression(lhs.tokensAfter + 1);
       if (!rhs.succeeded()) {
@@ -1167,7 +1168,7 @@ namespace {
           lhs.wrap(Node::Kind::TypeBinary);
           lhs.node->range.end = rhs.node->range.end;
           lhs.node->children.emplace_back(std::move(rhs.node));
-          lhs.node->op.typeBinaryOp = egg::ovum::TypeBinaryOp::Union;
+          lhs.node->op.typeBinaryOp = TypeBinaryOp::Union;
           lhs.tokensAfter = rhs.tokensAfter;
           lhs.ambiguous |= rhs.ambiguous;
           return lhs;
@@ -1198,44 +1199,44 @@ namespace {
         auto& next = partial.after(0);
         if (next.isOperator(EggTokenizerOperator::Query)) {
           // type?
-          if ((partial.node->kind == Node::Kind::TypeUnary) && (partial.node->op.typeUnaryOp == egg::ovum::TypeUnaryOp::Nullable)) {
+          if ((partial.node->kind == Node::Kind::TypeUnary) && (partial.node->op.typeUnaryOp == TypeUnaryOp::Nullable)) {
             context.warning(partial.tokensAfter, partial.tokensAfter, "Redundant repetition of type suffix '?'");
           } else {
             partial.wrap(Node::Kind::TypeUnary);
             partial.node->range.end = { next.line, next.column + 1 };
-            partial.node->op.typeUnaryOp = egg::ovum::TypeUnaryOp::Nullable;
+            partial.node->op.typeUnaryOp = TypeUnaryOp::Nullable;
           }
           partial.tokensAfter++;
         } else if (next.isOperator(EggTokenizerOperator::QueryQuery)) {
           // type??
           context.warning(partial.tokensAfter, partial.tokensAfter, "Redundant repetition of type suffix '?'");
-          if ((partial.node->kind != Node::Kind::TypeUnary) || (partial.node->op.typeUnaryOp != egg::ovum::TypeUnaryOp::Nullable)) {
+          if ((partial.node->kind != Node::Kind::TypeUnary) || (partial.node->op.typeUnaryOp != TypeUnaryOp::Nullable)) {
             partial.wrap(Node::Kind::TypeUnary);
             partial.node->range.end = { next.line, next.column + 1 };
-            partial.node->op.typeUnaryOp = egg::ovum::TypeUnaryOp::Nullable;
+            partial.node->op.typeUnaryOp = TypeUnaryOp::Nullable;
           }
           partial.tokensAfter++;
         } else if (next.isOperator(EggTokenizerOperator::Star)) {
           // type*
           partial.wrap(Node::Kind::TypeUnary);
           partial.node->range.end = { next.line, next.column + 1 };
-          partial.node->op.typeUnaryOp = egg::ovum::TypeUnaryOp::Pointer;
+          partial.node->op.typeUnaryOp = TypeUnaryOp::Pointer;
           partial.tokensAfter++;
         } else if (next.isOperator(EggTokenizerOperator::Bang)) {
           // type!
           partial.wrap(Node::Kind::TypeUnary);
           partial.node->range.end = { next.line, next.column + 1 };
-          partial.node->op.typeUnaryOp = egg::ovum::TypeUnaryOp::Iterator;
+          partial.node->op.typeUnaryOp = TypeUnaryOp::Iterator;
           partial.tokensAfter++;
           partial.ambiguous = false;
         } else if (next.isOperator(EggTokenizerOperator::BangBang)) {
           // type!!
           partial.wrap(Node::Kind::TypeUnary);
           partial.node->range.end = { next.line, next.column + 1 };
-          partial.node->op.typeUnaryOp = egg::ovum::TypeUnaryOp::Iterator;
+          partial.node->op.typeUnaryOp = TypeUnaryOp::Iterator;
           partial.wrap(Node::Kind::TypeUnary);
           partial.node->range.end = { next.line, next.column + 2 };
-          partial.node->op.typeUnaryOp = egg::ovum::TypeUnaryOp::Iterator;
+          partial.node->op.typeUnaryOp = TypeUnaryOp::Iterator;
           partial.tokensAfter++;
         } else if (next.isOperator(EggTokenizerOperator::BracketLeft)) {
           auto& last = partial.after(1);
@@ -1243,7 +1244,7 @@ namespace {
             // type[]
             partial.wrap(Node::Kind::TypeUnary);
             partial.node->range.end = { last.line, last.column + 1 };
-            partial.node->op.typeUnaryOp = egg::ovum::TypeUnaryOp::Array;
+            partial.node->op.typeUnaryOp = TypeUnaryOp::Array;
             partial.tokensAfter += 2;
             partial.ambiguous = false;
           } else {
@@ -1259,7 +1260,7 @@ namespace {
             partial.wrap(Node::Kind::TypeBinary);
             partial.node->range.end = { terminal.line, terminal.column };
             partial.node->children.emplace_back(std::move(index.node));
-            partial.node->op.typeBinaryOp = egg::ovum::TypeBinaryOp::Map;
+            partial.node->op.typeBinaryOp = TypeBinaryOp::Map;
             partial.tokensAfter = index.tokensAfter + 1;
             partial.ambiguous |= index.ambiguous;
           }
@@ -1348,12 +1349,12 @@ namespace {
       auto node = this->makeNode(kind, context[0]);
       return context.success(std::move(node), context.tokensBefore + 1);
     }
-    Partial parseTypeSpecification(size_t tokidx, const egg::ovum::String& tname) {
+    Partial parseTypeSpecification(size_t tokidx, const String& tname) {
       // Type definition: { <clause> ... }
       Context context(*this, tokidx);
       auto& curly = context[0];
       assert(curly.isOperator(EggTokenizerOperator::CurlyLeft));
-      auto description = egg::ovum::ValueFactory::createString(this->allocator, tname);
+      auto description = ValueFactory::createString(this->allocator, tname);
       auto definition = this->makeNodeValue(Node::Kind::TypeSpecification, curly, description);
       auto nxtidx = tokidx + 1;
       while (!this->getAbsolute(nxtidx).isOperator(EggTokenizerOperator::CurlyRight)) {
@@ -1369,7 +1370,7 @@ namespace {
       outer.tokensAfter = nxtidx + 1;
       return outer;
     }
-    Partial parseTypeSpecificationClause(size_t tokidx, const egg::ovum::String& tname) {
+    Partial parseTypeSpecificationClause(size_t tokidx, const String& tname) {
       Context context(*this, tokidx);
       auto isstatic = context[0].isKeyword(EggTokenizerKeyword::Static);
       auto type = this->parseTypeExpression(tokidx + size_t(isstatic));
@@ -1465,12 +1466,12 @@ namespace {
         // <type> <identifier> {
         assert(next->isOperator(EggTokenizerOperator::CurlyLeft));
         auto curly = nxtidx;
-        std::map<egg::ovum::String, egg::ovum::Accessability> known{
-          { egg::ovum::String::fromUTF8(this->allocator, "get"), egg::ovum::Accessability::Get },
-          { egg::ovum::String::fromUTF8(this->allocator, "set"), egg::ovum::Accessability::Set },
-          { egg::ovum::String::fromUTF8(this->allocator, "mut"), egg::ovum::Accessability::Mut },
-          { egg::ovum::String::fromUTF8(this->allocator, "ref"), egg::ovum::Accessability::Ref },
-          { egg::ovum::String::fromUTF8(this->allocator, "del"), egg::ovum::Accessability::Del }
+        std::map<String, Accessability> known{
+          { String::fromUTF8(this->allocator, "get"), Accessability::Get },
+          { String::fromUTF8(this->allocator, "set"), Accessability::Set },
+          { String::fromUTF8(this->allocator, "mut"), Accessability::Mut },
+          { String::fromUTF8(this->allocator, "ref"), Accessability::Ref },
+          { String::fromUTF8(this->allocator, "del"), Accessability::Del }
         };
         next = &this->getAbsolute(++nxtidx);
         auto empty = true;
@@ -1634,7 +1635,7 @@ namespace {
             lhs.node->range.end = rhs.node->range.end;
             lhs.node->children.emplace_back(std::move(mid.node));
             lhs.node->children.emplace_back(std::move(rhs.node));
-            lhs.node->op.valueTernaryOp = egg::ovum::ValueTernaryOp::IfThenElse;
+            lhs.node->op.valueTernaryOp = ValueTernaryOp::IfThenElse;
             lhs.tokensAfter = rhs.tokensAfter;
           }
         }
@@ -1651,51 +1652,51 @@ namespace {
       if (op.kind == EggTokenizerKind::Operator) {
         switch (op.value.o) {
         case EggTokenizerOperator::Percent: // "%"
-          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::Remainder);
+          return this->parseValueExpressionBinaryOperator(lhs, ValueBinaryOp::Remainder);
         case EggTokenizerOperator::Ampersand: // "&"
-          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::BitwiseAnd);
+          return this->parseValueExpressionBinaryOperator(lhs, ValueBinaryOp::BitwiseAnd);
         case EggTokenizerOperator::AmpersandAmpersand: // "&&"
-          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::IfTrue);
+          return this->parseValueExpressionBinaryOperator(lhs, ValueBinaryOp::IfTrue);
         case EggTokenizerOperator::BangBang: // "!!"
-          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::IfVoid);
+          return this->parseValueExpressionBinaryOperator(lhs, ValueBinaryOp::IfVoid);
         case EggTokenizerOperator::BangEqual: // "!="
-          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::NotEqual);
+          return this->parseValueExpressionBinaryOperator(lhs, ValueBinaryOp::NotEqual);
         case EggTokenizerOperator::Star: // "*"
-          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::Multiply);
+          return this->parseValueExpressionBinaryOperator(lhs, ValueBinaryOp::Multiply);
         case EggTokenizerOperator::Plus: // "+"
-          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::Add);
+          return this->parseValueExpressionBinaryOperator(lhs, ValueBinaryOp::Add);
         case EggTokenizerOperator::Slash: // "/"
-          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::Divide);
+          return this->parseValueExpressionBinaryOperator(lhs, ValueBinaryOp::Divide);
         case EggTokenizerOperator::Minus: // "-"
-          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::Subtract);
+          return this->parseValueExpressionBinaryOperator(lhs, ValueBinaryOp::Subtract);
         case EggTokenizerOperator::Less: // "<"
-          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::LessThan);
+          return this->parseValueExpressionBinaryOperator(lhs, ValueBinaryOp::LessThan);
         case EggTokenizerOperator::ShiftLeft: // "<<"
-          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::ShiftLeft);
+          return this->parseValueExpressionBinaryOperator(lhs, ValueBinaryOp::ShiftLeft);
         case EggTokenizerOperator::LessEqual: // "<="
-          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::LessThanOrEqual);
+          return this->parseValueExpressionBinaryOperator(lhs, ValueBinaryOp::LessThanOrEqual);
         case EggTokenizerOperator::LessBar: // "<|"
-          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::Minimum);
+          return this->parseValueExpressionBinaryOperator(lhs, ValueBinaryOp::Minimum);
         case EggTokenizerOperator::EqualEqual: // "=="
-          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::Equal);
+          return this->parseValueExpressionBinaryOperator(lhs, ValueBinaryOp::Equal);
         case EggTokenizerOperator::Greater: // ">"
-          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::GreaterThan);
+          return this->parseValueExpressionBinaryOperator(lhs, ValueBinaryOp::GreaterThan);
         case EggTokenizerOperator::GreaterEqual: // ">="
-          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::GreaterThanOrEqual);
+          return this->parseValueExpressionBinaryOperator(lhs, ValueBinaryOp::GreaterThanOrEqual);
         case EggTokenizerOperator::GreaterBar: // ">|"
-          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::Maximum);
+          return this->parseValueExpressionBinaryOperator(lhs, ValueBinaryOp::Maximum);
         case EggTokenizerOperator::ShiftRight: // ">>"
-          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::ShiftRight);
+          return this->parseValueExpressionBinaryOperator(lhs, ValueBinaryOp::ShiftRight);
         case EggTokenizerOperator::ShiftRightUnsigned: // ">>>"
-          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::ShiftRightUnsigned);
+          return this->parseValueExpressionBinaryOperator(lhs, ValueBinaryOp::ShiftRightUnsigned);
         case EggTokenizerOperator::QueryQuery: // "??"
-          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::IfNull);
+          return this->parseValueExpressionBinaryOperator(lhs, ValueBinaryOp::IfNull);
         case EggTokenizerOperator::Caret: // "^"
-          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::BitwiseXor);
+          return this->parseValueExpressionBinaryOperator(lhs, ValueBinaryOp::BitwiseXor);
         case EggTokenizerOperator::Bar: // "|"
-          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::BitwiseOr);
+          return this->parseValueExpressionBinaryOperator(lhs, ValueBinaryOp::BitwiseOr);
         case EggTokenizerOperator::BarBar: // "||"
-          return this->parseValueExpressionBinaryOperator(lhs, egg::ovum::ValueBinaryOp::IfFalse);
+          return this->parseValueExpressionBinaryOperator(lhs, ValueBinaryOp::IfFalse);
         case EggTokenizerOperator::CurlyLeft: // "{"
           return this->parseObjectSpecification(lhs);
         case EggTokenizerOperator::Bang: // "!"
@@ -1737,7 +1738,7 @@ namespace {
       }
       return lhs;
     }
-    Partial parseValueExpressionBinaryOperator(Partial& lhs, egg::ovum::ValueBinaryOp op) {
+    Partial parseValueExpressionBinaryOperator(Partial& lhs, ValueBinaryOp op) {
       assert(lhs.succeeded());
       auto rhs = this->parseValueExpression(lhs.tokensAfter + 1);
       if (!rhs.succeeded()) {
@@ -1775,11 +1776,11 @@ namespace {
       if (op.kind == EggTokenizerKind::Operator) {
         switch (op.value.o) {
         case EggTokenizerOperator::Bang: // "!"
-          return this->parseValueExpressionUnaryOperator(tokidx, egg::ovum::ValueUnaryOp::LogicalNot);
+          return this->parseValueExpressionUnaryOperator(tokidx, ValueUnaryOp::LogicalNot);
         case EggTokenizerOperator::Minus: // "-"
-          return this->parseValueExpressionUnaryOperator(tokidx, egg::ovum::ValueUnaryOp::Negate);
+          return this->parseValueExpressionUnaryOperator(tokidx, ValueUnaryOp::Negate);
         case EggTokenizerOperator::Tilde: // "~"
-          return this->parseValueExpressionUnaryOperator(tokidx, egg::ovum::ValueUnaryOp::BitwiseNot);
+          return this->parseValueExpressionUnaryOperator(tokidx, ValueUnaryOp::BitwiseNot);
         case EggTokenizerOperator::Star: // "*"
           return this->parseValueExpressionPrimaryWrap(tokidx, Node::Kind::ExprDereference);
         case EggTokenizerOperator::Ampersand: // "&"
@@ -1845,7 +1846,7 @@ namespace {
       }
       return this->parseValueExpressionPrimary(tokidx, "expression");
     }
-    Partial parseValueExpressionUnaryOperator(size_t tokidx, egg::ovum::ValueUnaryOp op) {
+    Partial parseValueExpressionUnaryOperator(size_t tokidx, ValueUnaryOp op) {
       auto rhs = this->parseValueExpressionPrimaryWrap(tokidx, Node::Kind::ExprUnary);
       if (rhs.succeeded()) {
         rhs.node->op.valueUnaryOp = op;
@@ -1927,11 +1928,11 @@ namespace {
       case EggTokenizerKeyword::Type:
         return this->parseValueExpressionPrimaryPrefixKeywordManifestation(context, Node::Kind::TypeType);
       case EggTokenizerKeyword::False:
-        return this->parseValueExpressionPrimaryPrefixKeywordLiteral(context, egg::ovum::HardValue::False);
+        return this->parseValueExpressionPrimaryPrefixKeywordLiteral(context, HardValue::False);
       case EggTokenizerKeyword::Null:
-        return this->parseValueExpressionPrimaryPrefixKeywordLiteral(context, egg::ovum::HardValue::Null);
+        return this->parseValueExpressionPrimaryPrefixKeywordLiteral(context, HardValue::Null);
       case EggTokenizerKeyword::True:
-        return this->parseValueExpressionPrimaryPrefixKeywordLiteral(context, egg::ovum::HardValue::True);
+        return this->parseValueExpressionPrimaryPrefixKeywordLiteral(context, HardValue::True);
       case EggTokenizerKeyword::Break:
       case EggTokenizerKeyword::Case:
       case EggTokenizerKeyword::Catch:
@@ -1959,7 +1960,7 @@ namespace {
       auto node = this->makeNode(kind, context[0]);
       return context.success(std::move(node), context.tokensBefore + 1);
     }
-    Partial parseValueExpressionPrimaryPrefixKeywordLiteral(Context& context, const egg::ovum::HardValue& value) {
+    Partial parseValueExpressionPrimaryPrefixKeywordLiteral(Context& context, const HardValue& value) {
       assert(context[0].kind == EggTokenizerKind::Keyword);
       auto node = this->makeNodeValue(Node::Kind::Literal, context[0], value);
       return context.success(std::move(node), context.tokensBefore + 1);
@@ -2221,7 +2222,7 @@ namespace {
       }
       return context.expected(type.tokensAfter + 1, "'=' after identifier '", identifier.value.s, "' in definition of property");
     }
-    std::unique_ptr<Node> makeNode(Node::Kind kind, const egg::ovum::SourceRange& range) {
+    std::unique_ptr<Node> makeNode(Node::Kind kind, const SourceRange& range) {
       auto node = std::make_unique<Node>(kind);
       node->range = range;
       return node;
@@ -2239,20 +2240,20 @@ namespace {
       }
       return node;
     }
-    std::unique_ptr<Node> makeNodeValue(Node::Kind kind, const EggTokenizerItem& item, const egg::ovum::HardValue& value) {
+    std::unique_ptr<Node> makeNodeValue(Node::Kind kind, const EggTokenizerItem& item, const HardValue& value) {
       auto node = this->makeNode(kind, item);
       node->value = value;
       return node;
     }
     std::unique_ptr<Node> makeNodeInt(Node::Kind kind, const EggTokenizerItem& item) {
-      return this->makeNodeValue(kind, item, egg::ovum::ValueFactory::createInt(this->allocator, item.value.i));
+      return this->makeNodeValue(kind, item, ValueFactory::createInt(this->allocator, item.value.i));
     }
     std::unique_ptr<Node> makeNodeFloat(Node::Kind kind, const EggTokenizerItem& item) {
-      return this->makeNodeValue(kind, item, egg::ovum::ValueFactory::createFloat(this->allocator, item.value.f));
+      return this->makeNodeValue(kind, item, ValueFactory::createFloat(this->allocator, item.value.f));
     }
     std::unique_ptr<Node> makeNodeString(Node::Kind kind, const EggTokenizerItem& item) {
       assert((kind == Node::Kind::Literal) || !item.value.s.empty());
-      return this->makeNodeValue(kind, item, egg::ovum::ValueFactory::createString(this->allocator, item.value.s));
+      return this->makeNodeValue(kind, item, ValueFactory::createString(this->allocator, item.value.s));
     }
   };
 

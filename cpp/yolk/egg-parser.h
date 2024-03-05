@@ -1,6 +1,4 @@
 namespace egg::yolk {
-  class IEggTokenizer;
-
   class IEggParser {
   public:
     struct Issue {
@@ -110,6 +108,6 @@ namespace egg::yolk {
 
   class EggParserFactory {
   public:
-    static std::shared_ptr<IEggParser> createFromTokenizer(egg::ovum::IAllocator& allocator, const std::shared_ptr<IEggTokenizer>& tokenizer);
+    static std::shared_ptr<IEggParser> createFromTokenizer(egg::ovum::IAllocator& allocator, const std::shared_ptr<egg::ovum::IEggTokenizer>& tokenizer);
   };
 }

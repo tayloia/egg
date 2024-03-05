@@ -1,4 +1,4 @@
-namespace egg::yolk {
+namespace egg::ovum {
   enum class JsonTokenizerKind {
     ObjectStart,
     ObjectEnd,
@@ -40,6 +40,6 @@ namespace egg::yolk {
 
   class JsonTokenizerFactory {
   public:
-    static std::shared_ptr<IJsonTokenizer> createFromLexer(const std::shared_ptr<egg::ovum::ILexer>& lexer);
+    static std::shared_ptr<IJsonTokenizer> createFromLexer(const std::shared_ptr<ILexer>& lexer);
   };
 }

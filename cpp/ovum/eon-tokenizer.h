@@ -1,4 +1,4 @@
-namespace egg::yolk {
+namespace egg::ovum {
   enum class EonTokenizerKind {
     ObjectStart,
     ObjectEnd,
@@ -17,7 +17,7 @@ namespace egg::yolk {
 
   struct EonTokenizerItem {
     EonTokenizerKind kind;
-    egg::ovum::HardValue value;
+    HardValue value;
     size_t line;
     size_t column;
     bool contiguous;
@@ -31,6 +31,6 @@ namespace egg::yolk {
 
   class EonTokenizerFactory {
   public:
-    static std::shared_ptr<IEonTokenizer> createFromLexer(egg::ovum::IAllocator& allocator, const std::shared_ptr<egg::ovum::ILexer>& lexer);
+    static std::shared_ptr<IEonTokenizer> createFromLexer(IAllocator& allocator, const std::shared_ptr<ILexer>& lexer);
   };
 }
