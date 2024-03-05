@@ -205,6 +205,7 @@ namespace {
     ModuleNode* compileValueExprMissing(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileTypeExpr(ParserNode& pnode, const ExprContext& context);
     ModuleNode* compileTypeExprVariable(ParserNode& pnode, const ExprContext& context);
+    ModuleNode* compileTypeExprProperty(ParserNode& dot, ParserNode& lhs, ParserNode& rhs, const ExprContext& context);
     ModuleNode* compileTypeExprUnary(ParserNode& op, ParserNode& lhs, const ExprContext& context);
     ModuleNode* compileTypeExprBinary(ParserNode& op, ParserNode& lhs, ParserNode& rhs, const ExprContext& context);
     ModuleNode* compileTypeExprFunctionSignature(ParserNode& pnode, const ExprContext& context);
@@ -1966,6 +1967,11 @@ ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode, const ExprContext
   switch (pnode.kind) {
   case ParserNode::Kind::Variable:
     return this->compileTypeExprVariable(pnode, context);
+  case ParserNode::Kind::ExprProperty:
+    EXPECT(pnode, pnode.children.size() == 2);
+    EXPECT(pnode, pnode.children[0] != nullptr);
+    EXPECT(pnode, pnode.children[1] != nullptr);
+    return this->compileTypeExprProperty(pnode, *pnode.children.front(), *pnode.children.back(), context);
   case ParserNode::Kind::TypeVoid:
     return &this->mbuilder.typeLiteral(egg::ovum::Type::Void, pnode.range);
   case ParserNode::Kind::TypeBool:
@@ -2034,7 +2040,6 @@ ModuleNode* ModuleCompiler::compileTypeExpr(ParserNode& pnode, const ExprContext
   case ParserNode::Kind::ExprTernary:
   case ParserNode::Kind::ExprCall:
   case ParserNode::Kind::ExprIndex:
-  case ParserNode::Kind::ExprProperty:
   case ParserNode::Kind::ExprReference:
   case ParserNode::Kind::ExprDereference:
   case ParserNode::Kind::ExprArray:
@@ -2065,6 +2070,23 @@ ModuleNode* ModuleCompiler::compileTypeExprVariable(ParserNode& pnode, const Exp
     return this->error(pnode, "Identifier '", symbol, "' is not a type");
   }
   return &this->mbuilder.typeVariableGet(symbol, pnode.range);
+}
+
+ModuleNode* ModuleCompiler::compileTypeExprProperty(ParserNode& dot, ParserNode& lhs, ParserNode& rhs, const ExprContext& context) {
+  auto* lexpr = this->compileTypeExpr(lhs, context);
+  if (lexpr == nullptr) {
+    return nullptr;
+  }
+  auto* rexpr = this->compileValueExpr(rhs, context);
+  if (rexpr == nullptr) {
+    return nullptr;
+  }
+  auto* mnode = &this->mbuilder.typePropertyGet(*lexpr, *rexpr, dot.range);
+  auto type = this->deduceTypeExpr(*mnode, context);
+  if (type == nullptr) {
+    return nullptr;
+  }
+  return mnode;
 }
 
 ModuleNode* ModuleCompiler::compileTypeExprUnary(ParserNode& op, ParserNode& lhs, const ExprContext& context) {

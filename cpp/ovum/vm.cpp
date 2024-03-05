@@ -41,6 +41,7 @@ public:
     TypeInfer,
     TypeLiteral,
     TypeVariableGet,
+    TypePropertyGet,
     TypeUnaryOp,
     TypeBinaryOp,
     TypeManifestation,
@@ -1119,6 +1120,9 @@ namespace {
       case Node::Kind::TypeVariableGet:
         assert(node.children.empty());
         return this->deduceTypeVariableGet(node.literal, node.range);
+      case Node::Kind::TypePropertyGet:
+        assert(node.children.size() == 2);
+        return this->deduceTypePropertyGet(*node.children.front(), *node.children.back(), node.range);
       case Node::Kind::TypeUnaryOp:
         assert(node.children.size() == 1);
         return this->deduceTypeUnaryOp(node.typeUnaryOp, *node.children.front(), node.range);
@@ -1184,37 +1188,42 @@ namespace {
       // TODO
       if (instance.kind == Node::Kind::TypeManifestation) {
         // e.g. 'string.from', 'int.max' or 'Class.i'
-        assert(instance.children.size() == 1);
-        if (property.kind == Node::Kind::ExprLiteral) {
-          String pname;
-          if (property.literal->getString(pname)) {
-            auto infratype = this->deduceType(*instance.children.front());
-            if (infratype != nullptr) {
-              auto metashape = this->forge.getMetashape(infratype);
-              if ((metashape == nullptr) || (metashape->dotable == nullptr)) {
-                auto description = describe(*infratype);
-                if (infratype.hasProperties()) {
-                  return this->fail(range, "Type '", description, "' does not support static properties (though values of type '", description, "' support properties)");
-                }
-                return this->fail(range, "Type '", description, "' does not support static properties");
-              }
-              auto ptype = metashape->dotable->getType(pname);
-              if (ptype == nullptr) {
-                auto description = describe(*infratype);
-                if (infratype.hasProperty(pname)) {
-                  return this->fail(range, "Type '", description, "' does not have a static property named '", pname, "' (though values of type '", description, "' support a property with that name)");
-                }
-                return this->fail(range, "Type '", description, "' does not have a static property named '", pname, "'");
-              }
-              return { hint, ptype };
-            }
-            return this->fail(range, "Cannot deduce type of property '", pname, "' for type");
-          }
-        }
-        return this->fail(range, "Cannot deduce type of property for type");
+        return this->deduceManifestationPropertyGet(instance, property, range, hint);
       }
       // TODO
       return { hint, Type::AnyQ };
+    }
+    Deduced deduceManifestationPropertyGet(Node& instance, Node& property, const SourceRange& range, IVMTypeResolver::Kind hint) {
+      // e.g. 'string.from', 'int.max' or 'Class.i'
+      assert(instance.kind == Node::Kind::TypeManifestation);
+      assert(instance.children.size() == 1);
+      if (property.kind == Node::Kind::ExprLiteral) {
+        String pname;
+        if (property.literal->getString(pname)) {
+          auto infratype = this->deduceType(*instance.children.front());
+          if (infratype != nullptr) {
+            auto metashape = this->forge.getMetashape(infratype);
+            if ((metashape == nullptr) || (metashape->dotable == nullptr)) {
+              auto description = describe(*infratype);
+              if (infratype.hasProperties()) {
+                return this->fail(range, "Type '", description, "' does not support static properties (though values of type '", description, "' support properties)");
+              }
+              return this->fail(range, "Type '", description, "' does not support static properties");
+            }
+            auto ptype = metashape->dotable->getType(pname);
+            if (ptype == nullptr) {
+              auto description = describe(*infratype);
+              if (infratype.hasProperty(pname)) {
+                return this->fail(range, "Type '", description, "' does not have a static property named '", pname, "' (though values of type '", description, "' support a property with that name)");
+              }
+              return this->fail(range, "Type '", description, "' does not have a static property named '", pname, "'");
+            }
+            return { hint, ptype };
+          }
+          return this->fail(range, "Cannot deduce type of property '", pname, "' for type");
+        }
+      }
+      return this->fail(range, "Cannot deduce type of property for type");
     }
     Type deduceValue(Node& node) {
       auto deduced = this->deduceAmbiguous(node, IVMTypeResolver::Kind::Value);
@@ -1419,6 +1428,28 @@ namespace {
         return this->fail(range, "Identifier '", symbol, "' is not a type");
       }
       return { IVMTypeResolver::Kind::Type, type };
+    }
+    Deduced deduceTypePropertyGet(Node& instance, Node& property, const SourceRange& range) {
+      // TODO
+      if (instance.kind == Node::Kind::TypeManifestation) {
+        // e.g. 'string.from', 'int.max' or 'Class.i'
+        return this->deduceManifestationPropertyGet(instance, property, range, IVMTypeResolver::Kind::Type);
+      }
+      auto ptype = this->deduceType(instance);
+      if (ptype == nullptr) {
+        return { IVMTypeResolver::Kind::Type, nullptr };
+      }
+      if (property.kind == Node::Kind::ExprLiteral) {
+        String pname;
+        if (property.literal->getString(pname)) {
+          auto ntype = this->forge.getNamedType(ptype, pname);
+          if (ntype == nullptr) {
+            return this->fail(range, "Cannot find named type '", pname, "' for type '", describe(*ptype), "'");
+          }
+          return { IVMTypeResolver::Kind::Type, ntype };
+        }
+      }
+      return this->fail(range, "TODO: Cannot deduce type of property get");
     }
     Deduced deduceTypeUnaryOp(TypeUnaryOp op, Node& arg, const SourceRange& range) {
       auto atype = this->deduceType(arg);
@@ -1683,6 +1714,12 @@ namespace {
     virtual Node& typeManifestation(Node& type, const SourceRange& range) override {
       auto& node = this->module->createNode(Node::Kind::TypeManifestation, range);
       node.addChild(type);
+      return node;
+    }
+    virtual Node& typePropertyGet(Node& instance, Node& property, const SourceRange& range) override {
+      auto& node = this->module->createNode(Node::Kind::TypePropertyGet, range);
+      node.addChild(instance);
+      node.addChild(property);
       return node;
     }
     virtual Node& typeVariableGet(const String& symbol, const SourceRange& range) override {
@@ -4451,6 +4488,39 @@ VMRunner::StepOutcome VMRunner::stepNode(HardValue& retval) {
         return this->raise("Identifier '", symbol, "' is not a type");
       }
       return this->pop(this->createHardValueType(extant->type));
+    }
+    break;
+  case IVMModule::Node::Kind::TypePropertyGet:
+    assert(top.node->literal->getVoid());
+    assert(top.node->children.size() == 2);
+    if (!top.deque.empty()) {
+      // Check the last evaluation
+      auto& latest = top.deque.back();
+      if (latest.hasFlowControl()) {
+        return this->pop(latest);
+      }
+    }
+    if (top.index < 2) {
+      // Assemble the arguments
+      this->push(*top.node->children[top.index++]);
+    } else {
+      // Perform the property fetch
+      assert(top.deque.size() == 2);
+      auto& lhs = top.deque.front();
+      auto& rhs = top.deque.back();
+      Type ptype;
+      if (!lhs->getHardType(ptype)) {
+        return this->raise("Expected left-hand side of type property operator '.' to be a type, but instead got ", describe(lhs));
+      }
+      String pname;
+      if (!rhs->getString(pname)) {
+        return this->raise("Expected right-hand side of type property operator '.' to be a property name, but instead got ", describe(rhs));
+      }
+      auto ntype = this->vm.getTypeForge().getNamedType(ptype, pname);
+      if (ntype == nullptr) {
+        return this->raise("Unknown named property type '", pname, "' for type '", describe(*ptype), "'");
+      }
+      return this->pop(this->createHardValueType(ntype));
     }
     break;
   case IVMModule::Node::Kind::TypeInfer:

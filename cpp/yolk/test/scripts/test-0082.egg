@@ -15,4 +15,6 @@ var g = object.property.get;
 assert(type.of(g) == "object");
 assert(string(g) == "[object.property.get]");
 
-// WIBBLE object.Object o;
+object.Object o;
+print(o);
+///<RUNTIME><ERROR><RESOURCE>(19,7): Variable uninitialized: 'o'
