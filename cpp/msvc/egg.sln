@@ -43,6 +43,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "syntax", "syntax", "{76A260
 		..\www\v1\syntax\syntax.pdf = ..\www\v1\syntax\syntax.pdf
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cli", "cli.vcxproj", "{1F2B7D35-7C01-446A-B258-1D43A2224D9F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -90,6 +92,14 @@ Global
 		{31239C03-4A93-4DFD-BC85-4C1EC0C59B02}.Release|x64.Build.0 = Release|x64
 		{31239C03-4A93-4DFD-BC85-4C1EC0C59B02}.Release|x86.ActiveCfg = Release|Win32
 		{31239C03-4A93-4DFD-BC85-4C1EC0C59B02}.Release|x86.Build.0 = Release|Win32
+		{1F2B7D35-7C01-446A-B258-1D43A2224D9F}.Debug|x64.ActiveCfg = Debug|x64
+		{1F2B7D35-7C01-446A-B258-1D43A2224D9F}.Debug|x64.Build.0 = Debug|x64
+		{1F2B7D35-7C01-446A-B258-1D43A2224D9F}.Debug|x86.ActiveCfg = Debug|Win32
+		{1F2B7D35-7C01-446A-B258-1D43A2224D9F}.Debug|x86.Build.0 = Debug|Win32
+		{1F2B7D35-7C01-446A-B258-1D43A2224D9F}.Release|x64.ActiveCfg = Release|x64
+		{1F2B7D35-7C01-446A-B258-1D43A2224D9F}.Release|x64.Build.0 = Release|x64
+		{1F2B7D35-7C01-446A-B258-1D43A2224D9F}.Release|x86.ActiveCfg = Release|Win32
+		{1F2B7D35-7C01-446A-B258-1D43A2224D9F}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -19,31 +19,13 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="cli.vcxproj">
-      <Project>{1f2b7d35-7c01-446a-b258-1d43a2224d9f}</Project>
-    </ProjectReference>
     <ProjectReference Include="yolk.vcxproj">
       <Project>{05a72ea2-0b14-4e92-86f1-c98e7fdffbba}</Project>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\ovum\test\gtest.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
-      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(GoogleTest);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(GoogleTest);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(GoogleTest);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(GoogleTest);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <DisableLanguageExtensions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</DisableLanguageExtensions>
-      <DisableLanguageExtensions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</DisableLanguageExtensions>
-      <DisableLanguageExtensions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</DisableLanguageExtensions>
-      <DisableLanguageExtensions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</DisableLanguageExtensions>
-    </ClCompile>
-    <ClCompile Include="..\yolk\test\test-cli.cpp" />
-    <ClCompile Include="..\yolk\test\test-scripts.cpp" />
-    <ClCompile Include="yolk-test.pch.cpp">
+    <ClCompile Include="..\cli\main.cpp" />
+    <ClCompile Include="cli.pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
@@ -51,96 +33,11 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\ovum\test\etest.h" />
-    <ClInclude Include="..\ovum\test\gtest.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\yolk\test\scripts\test-0001.egg" />
-    <None Include="..\yolk\test\scripts\test-0002.egg" />
-    <None Include="..\yolk\test\scripts\test-0003.egg" />
-    <None Include="..\yolk\test\scripts\test-0004.egg" />
-    <None Include="..\yolk\test\scripts\test-0005.egg" />
-    <None Include="..\yolk\test\scripts\test-0006.egg" />
-    <None Include="..\yolk\test\scripts\test-0007.egg" />
-    <None Include="..\yolk\test\scripts\test-0008.egg" />
-    <None Include="..\yolk\test\scripts\test-0009.egg" />
-    <None Include="..\yolk\test\scripts\test-0010.egg" />
-    <None Include="..\yolk\test\scripts\test-0011.egg" />
-    <None Include="..\yolk\test\scripts\test-0012.egg" />
-    <None Include="..\yolk\test\scripts\test-0013.egg" />
-    <None Include="..\yolk\test\scripts\test-0014.egg" />
-    <None Include="..\yolk\test\scripts\test-0015.egg" />
-    <None Include="..\yolk\test\scripts\test-0016.egg" />
-    <None Include="..\yolk\test\scripts\test-0017.egg" />
-    <None Include="..\yolk\test\scripts\test-0018.egg" />
-    <None Include="..\yolk\test\scripts\test-0019.egg" />
-    <None Include="..\yolk\test\scripts\test-0020.egg" />
-    <None Include="..\yolk\test\scripts\test-0021.egg" />
-    <None Include="..\yolk\test\scripts\test-0022.egg" />
-    <None Include="..\yolk\test\scripts\test-0023.egg" />
-    <None Include="..\yolk\test\scripts\test-0024.egg" />
-    <None Include="..\yolk\test\scripts\test-0025.egg" />
-    <None Include="..\yolk\test\scripts\test-0026.egg" />
-    <None Include="..\yolk\test\scripts\test-0027.egg" />
-    <None Include="..\yolk\test\scripts\test-0028.egg" />
-    <None Include="..\yolk\test\scripts\test-0029.egg" />
-    <None Include="..\yolk\test\scripts\test-0030.egg" />
-    <None Include="..\yolk\test\scripts\test-0031.egg" />
-    <None Include="..\yolk\test\scripts\test-0032.egg" />
-    <None Include="..\yolk\test\scripts\test-0033.egg" />
-    <None Include="..\yolk\test\scripts\test-0034.egg" />
-    <None Include="..\yolk\test\scripts\test-0035.egg" />
-    <None Include="..\yolk\test\scripts\test-0036.egg" />
-    <None Include="..\yolk\test\scripts\test-0037.egg" />
-    <None Include="..\yolk\test\scripts\test-0038.egg" />
-    <None Include="..\yolk\test\scripts\test-0039.egg" />
-    <None Include="..\yolk\test\scripts\test-0040.egg" />
-    <None Include="..\yolk\test\scripts\test-0041.egg" />
-    <None Include="..\yolk\test\scripts\test-0042.egg" />
-    <None Include="..\yolk\test\scripts\test-0043.egg" />
-    <None Include="..\yolk\test\scripts\test-0044.egg" />
-    <None Include="..\yolk\test\scripts\test-0045.egg" />
-    <None Include="..\yolk\test\scripts\test-0046.egg" />
-    <None Include="..\yolk\test\scripts\test-0047.egg" />
-    <None Include="..\yolk\test\scripts\test-0048.egg" />
-    <None Include="..\yolk\test\scripts\test-0049.egg" />
-    <None Include="..\yolk\test\scripts\test-0050.egg" />
-    <None Include="..\yolk\test\scripts\test-0051.egg" />
-    <None Include="..\yolk\test\scripts\test-0052.egg" />
-    <None Include="..\yolk\test\scripts\test-0053.egg" />
-    <None Include="..\yolk\test\scripts\test-0054.egg" />
-    <None Include="..\yolk\test\scripts\test-0055.egg" />
-    <None Include="..\yolk\test\scripts\test-0056.egg" />
-    <None Include="..\yolk\test\scripts\test-0057.egg" />
-    <None Include="..\yolk\test\scripts\test-0058.egg" />
-    <None Include="..\yolk\test\scripts\test-0059.egg" />
-    <None Include="..\yolk\test\scripts\test-0060.egg" />
-    <None Include="..\yolk\test\scripts\test-0061.egg" />
-    <None Include="..\yolk\test\scripts\test-0062.egg" />
-    <None Include="..\yolk\test\scripts\test-0063.egg" />
-    <None Include="..\yolk\test\scripts\test-0064.egg" />
-    <None Include="..\yolk\test\scripts\test-0065.egg" />
-    <None Include="..\yolk\test\scripts\test-0066.egg" />
-    <None Include="..\yolk\test\scripts\test-0067.egg" />
-    <None Include="..\yolk\test\scripts\test-0068.egg" />
-    <None Include="..\yolk\test\scripts\test-0069.egg" />
-    <None Include="..\yolk\test\scripts\test-0070.egg" />
-    <None Include="..\yolk\test\scripts\test-0071.egg" />
-    <None Include="..\yolk\test\scripts\test-0072.egg" />
-    <None Include="..\yolk\test\scripts\test-0073.egg" />
-    <None Include="..\yolk\test\scripts\test-0074.egg" />
-    <None Include="..\yolk\test\scripts\test-0075.egg" />
-    <None Include="..\yolk\test\scripts\test-0076.egg" />
-    <None Include="..\yolk\test\scripts\test-0077.egg" />
-    <None Include="..\yolk\test\scripts\test-0078.egg" />
-    <None Include="..\yolk\test\scripts\test-0079.egg" />
-    <None Include="..\yolk\test\scripts\test-0080.egg" />
-    <None Include="..\yolk\test\scripts\test-0081.egg" />
-    <None Include="..\yolk\test\scripts\test-0082.egg" />
+    <ClInclude Include="..\cli\cli.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
-    <ProjectGuid>{F6D77923-DA76-4356-9A6E-E0790A422FE7}</ProjectGuid>
+    <ProjectGuid>{1F2B7D35-7C01-446A-B258-1D43A2224D9F}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>egg</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
@@ -198,15 +95,19 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
+    <TargetName>egg</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
+    <TargetName>egg</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
+    <TargetName>egg</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
+    <TargetName>egg</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -214,8 +115,8 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <PrecompiledHeaderFile>yolk\test.h</PrecompiledHeaderFile>
-      <PrecompiledHeaderOutputFile>$(IntDir)yolk-test.pch</PrecompiledHeaderOutputFile>
+      <PrecompiledHeaderFile>cli\cli.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderOutputFile>$(IntDir)cli.pch</PrecompiledHeaderOutputFile>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>/Zc:char8_t %(AdditionalOptions)</AdditionalOptions>
@@ -231,8 +132,8 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <PrecompiledHeaderFile>yolk\test.h</PrecompiledHeaderFile>
-      <PrecompiledHeaderOutputFile>$(IntDir)yolk-test.pch</PrecompiledHeaderOutputFile>
+      <PrecompiledHeaderFile>cli\cli.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderOutputFile>$(IntDir)cli.pch</PrecompiledHeaderOutputFile>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>/Zc:char8_t %(AdditionalOptions)</AdditionalOptions>
@@ -250,8 +151,8 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <PrecompiledHeaderFile>yolk\test.h</PrecompiledHeaderFile>
-      <PrecompiledHeaderOutputFile>$(IntDir)yolk-test.pch</PrecompiledHeaderOutputFile>
+      <PrecompiledHeaderFile>cli\cli.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderOutputFile>$(IntDir)cli.pch</PrecompiledHeaderOutputFile>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>/Zc:char8_t %(AdditionalOptions)</AdditionalOptions>
@@ -271,8 +172,8 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <PrecompiledHeaderFile>yolk\test.h</PrecompiledHeaderFile>
-      <PrecompiledHeaderOutputFile>$(IntDir)yolk-test.pch</PrecompiledHeaderOutputFile>
+      <PrecompiledHeaderFile>cli\cli.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderOutputFile>$(IntDir)cli.pch</PrecompiledHeaderOutputFile>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>/Zc:char8_t %(AdditionalOptions)</AdditionalOptions>

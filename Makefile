@@ -55,14 +55,17 @@ BIN_DIR = $(BIN_ROOT)/$(CONFIGURATION)
 
 EGG_SRCS = $(call sources,cpp/ovum/*.cpp cpp/yolk/*.cpp)
 TEST_SRCS = $(call sources,cpp/ovum/test/*.cpp cpp/yolk/test/*.cpp)
+CLI_SRCS = $(call sources,cpp/cli/*.cpp)
 
 EGG_OBJS = $(call objects,$(EGG_SRCS))
 TEST_OBJS = $(call objects,$(TEST_SRCS))
+CLI_OBJS = $(call objects,$(CLI_SRCS))
 
-ALL_OBJS = $(EGG_OBJS) $(TEST_OBJS)
+ALL_OBJS = $(EGG_OBJS) $(TEST_OBJS) $(CLI_OBJS)
 ALL_DIRS = $(call directories,$(ALL_OBJS)) $(BIN_DIR)/.
 
 TEST_EXE = $(BIN_DIR)/egg-testsuite.exe
+CLI_EXE = $(BIN_DIR)/egg.exe
 
 #############################################################################
 # GENERIC RULES
@@ -115,16 +118,19 @@ $(ALL_OBJS): Makefile | $(ALL_DIRS)
 # Testsuite dependencies
 $(TEST_EXE): $(EGG_OBJS) $(TEST_OBJS)
 
+# Command-line dependencies
+$(CLI_EXE): $(EGG_OBJS) $(CLI_OBJS)
+
 #############################################################################
 # PSEUDO-TARGETS
 #############################################################################
 
 # Pseudo-target to build the binaries
-bin: $(TEST_EXE)
+bin: $(TEST_EXE) $(CLI_EXE)
 	$(call noop)
 
 # Pseudo-target to build and run the test suite
-test: $(TEST_EXE)
+test: $(TEST_EXE) $(CLI_EXE)
 	$(ECHO) Running tests $<
 	$(RUNTEST) $<
 
@@ -132,6 +138,11 @@ test: $(TEST_EXE)
 valgrind: $(TEST_EXE)
 	$(ECHO) Grinding tests $<
 	valgrind -v --leak-check=full --show-leak-kinds=all --track-origins=yes $(TEST_EXE)
+
+# Pseudo-target to run command-line tests
+test-cli: $(CLI_EXE)
+	$(ECHO) Testing $<
+	$(CLI_EXE) test
 
 # Pseudo-target to run test coverage
 test-coverage: $(TEST_EXE)

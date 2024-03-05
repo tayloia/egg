@@ -23,7 +23,7 @@ namespace egg::ovum {
     std::u32string s;
   };
 
-  struct LexerItem : public SourceLocation { // WIBBLE exception.h 
+  struct LexerItem : public SourceLocation {
     LexerKind kind;
     LexerValue value;
     std::string verbatim;

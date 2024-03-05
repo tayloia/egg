@@ -4,6 +4,7 @@ namespace egg::ovum {
     enum class Kind { Unknown, Directory, File };
     static std::string normalizePath(const std::string& path, bool trailingSlash = false);
     static std::string denormalizePath(const std::string& path, bool trailingSlash = false);
+    static std::string getExecutablePath();
     static std::string getCurrentDirectory();
     static std::string getTildeDirectory();
     static std::string resolvePath(const std::string& path);

@@ -59,9 +59,9 @@ std::string egg::ovum::File::denormalizePath(const std::string& path, bool trail
 #endif
 }
 
-#if EGG_PLATFORM == EGG_PLATFORM_MSVC
 namespace {
-  const char* getExecutablePath() {
+#if EGG_PLATFORM == EGG_PLATFORM_MSVC
+  const char* getExecutableFile() {
     // See https://github.com/gpakosz/whereami/blob/master/src/whereami.c
     char* pgmptr = nullptr;
     _get_pgmptr(&pgmptr);
@@ -70,7 +70,7 @@ namespace {
 
   bool getExecutableDirectory(std::string& directory) {
     // Try to get the directory of the executable in normalized form with a trailing slash
-    const char* exe = getExecutablePath();
+    auto* exe = getExecutableFile();
     if (exe != nullptr) {
       const char* end = strrchr(exe, '\\');
       if (end) {
@@ -92,13 +92,22 @@ namespace {
     }
     return false;
   }
-}
+#else
+  std::string getExecutableFile() {
+    return std::filesystem::canonical("/proc/self/exe");
+  }
 #endif
+}
 
 std::string egg::ovum::File::getCurrentDirectory() {
   // Gets the current working directory in normalized form with a trailing slash
   auto path = std::filesystem::current_path().string();
   return File::normalizePath(path, true);
+}
+
+std::string egg::ovum::File::getExecutablePath() {
+  // Gets the path of the currently-running executable
+  return egg::ovum::File::normalizePath(getExecutableFile());
 }
 
 std::string egg::ovum::File::getTildeDirectory() {

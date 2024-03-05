@@ -76,3 +76,8 @@ TEST(TestFile, KindDirectory) {
 TEST(TestFile, KindFile) {
   ASSERT_EQ(egg::ovum::File::Kind::File, egg::ovum::File::getKind("~/data/egg.png"));
 }
+
+TEST(TestFile, GetExecutablePath) {
+  auto executable = egg::ovum::File::getExecutablePath();
+  ASSERT_GT(executable.size(), 0u);
+}
