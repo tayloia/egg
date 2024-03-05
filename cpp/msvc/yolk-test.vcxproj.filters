@@ -5,9 +5,6 @@
       <UniqueIdentifier>{f8183c1a-ec54-45fd-ba1d-9f1205a078b1}</UniqueIdentifier>
       <Extensions>.cpp</Extensions>
     </Filter>
-    <Filter Include="Data Files">
-      <UniqueIdentifier>{62480aea-55fa-4339-b09f-0f4edfb4dfae}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Infrastructure Files">
       <UniqueIdentifier>{f0a684c1-52a5-44a3-b1ff-08cb43a7d0e9}</UniqueIdentifier>
     </Filter>
@@ -35,15 +32,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\yolk\test\data\example.eon">
-      <Filter>Data Files</Filter>
-    </None>
-    <None Include="..\yolk\test\data\example.egg">
-      <Filter>Data Files</Filter>
-    </None>
-    <None Include="..\yolk\test\data\example.json">
-      <Filter>Data Files</Filter>
-    </None>
     <None Include="..\yolk\test\scripts\test-0001.egg">
       <Filter>Test Scripts</Filter>
     </None>
@@ -239,12 +227,6 @@
     <None Include="..\yolk\test\scripts\test-0065.egg">
       <Filter>Test Scripts</Filter>
     </None>
-    <None Include="..\yolk\test\data\coverage.egg">
-      <Filter>Data Files</Filter>
-    </None>
-    <None Include="..\yolk\test\data\working.egg">
-      <Filter>Data Files</Filter>
-    </None>
     <None Include="..\yolk\test\scripts\test-0066.egg">
       <Filter>Test Scripts</Filter>
     </None>
@@ -296,19 +278,5 @@
     <None Include="..\yolk\test\scripts\test-0082.egg">
       <Filter>Test Scripts</Filter>
     </None>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="..\yolk\test\data\utf-8-demo.bom.txt">
-      <Filter>Data Files</Filter>
-    </Text>
-    <Text Include="..\yolk\test\data\utf-8-demo.cr.txt">
-      <Filter>Data Files</Filter>
-    </Text>
-    <Text Include="..\yolk\test\data\utf-8-demo.lf.txt">
-      <Filter>Data Files</Filter>
-    </Text>
-    <Text Include="..\yolk\test\data\utf-8-demo.txt">
-      <Filter>Data Files</Filter>
-    </Text>
   </ItemGroup>
 </Project>

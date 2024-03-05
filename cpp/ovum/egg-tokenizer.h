@@ -92,6 +92,8 @@
 #define EGG_TOKENIZER_OPERATOR_DECLARE(key, text) key,
 
 namespace egg::ovum {
+  class ILexer;
+
   enum class EggTokenizerKeyword {
     EGG_TOKENIZER_KEYWORDS(EGG_TOKENIZER_KEYWORD_DECLARE)
   };

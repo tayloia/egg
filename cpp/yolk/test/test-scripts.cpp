@@ -1,4 +1,5 @@
 #include "yolk/test.h"
+#include "ovum/exception.h"
 #include "ovum/file.h"
 #include "ovum/stream.h"
 #include "ovum/egg-compiler.h"

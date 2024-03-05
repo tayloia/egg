@@ -15,32 +15,22 @@ namespace egg::ovum {
     }
   };
 
-  struct ExceptionLocation {
-    size_t line;
-    size_t column;
-  };
-
-  struct ExceptionLocationRange {
-    ExceptionLocation begin;
-    ExceptionLocation end;
-  };
-
   class SyntaxException : public Exception {
   private:
     std::string token_value;
     std::string resource_value;
-    ExceptionLocationRange location_value;
+    SourceRange range_value;
   public:
-    SyntaxException(const std::string& reason, const std::string& resource, const ExceptionLocation& location, const std::string& token = {});
-    SyntaxException(const std::string& reason, const std::string& resource, const ExceptionLocationRange& location, const std::string& token = {});
+    SyntaxException(const std::string& reason, const std::string& resource, const SourceLocation& location, const std::string& token = {});
+    SyntaxException(const std::string& reason, const std::string& resource, const SourceRange& range, const std::string& token = {});
     virtual const std::string& token() const {
       return this->token_value;
     }
     virtual const std::string& resource() const {
       return this->resource_value;
     }
-    virtual const ExceptionLocationRange& location() const {
-      return this->location_value;
+    virtual const SourceRange& range() const {
+      return this->range_value;
     }
   };
 }

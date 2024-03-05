@@ -3,7 +3,7 @@
 #include "ovum/file.h"
 
 namespace {
-  std::string formatWhere(const std::string& resource, const egg::ovum::ExceptionLocation& location) {
+  std::string formatWhere(const std::string& resource, const egg::ovum::SourceLocation& location) {
     std::stringstream oss;
     oss << resource << '(' << location.line;
     if (location.column > 0) {
@@ -26,16 +26,16 @@ egg::ovum::Exception::Exception(const std::string& reason, const std::string& fi
   : Exception(reason, File::normalizePath(file) + "(" + std::to_string(line) + ")") {
 }
 
-egg::ovum::SyntaxException::SyntaxException(const std::string& reason, const std::string& resource, const ExceptionLocation& location, const std::string& token)
+egg::ovum::SyntaxException::SyntaxException(const std::string& reason, const std::string& resource, const SourceLocation& location, const std::string& token)
   : Exception(reason, formatWhere(resource, location)),
     token_value(token),
     resource_value(resource),
-    location_value({ location, location }) {
+    range_value({ location, location }) {
 }
 
-egg::ovum::SyntaxException::SyntaxException(const std::string& reason, const std::string& resource, const ExceptionLocationRange& range, const std::string& token)
+egg::ovum::SyntaxException::SyntaxException(const std::string& reason, const std::string& resource, const SourceRange& range, const std::string& token)
   : Exception(reason, formatWhere(resource, range.begin)),
     token_value(token),
     resource_value(resource),
-    location_value({ range.begin, range.end }) {
+    range_value({ range.begin, range.end }) {
 }

@@ -1,13 +1,11 @@
 #include "ovum/ovum.h"
 #include "ovum/exception.h"
-#include "ovum/lexer.h"
 #include "ovum/file.h"
+#include "ovum/lexer.h"
 #include "ovum/stream.h"
 #include "ovum/egg-tokenizer.h"
 #include "ovum/egg-parser.h"
 #include "ovum/egg-compiler.h"
-
-#include <stack>
 
 // TODO remove and replace with better messages
 #define EXPECT(node, condition) \

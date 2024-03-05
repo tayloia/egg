@@ -137,10 +137,7 @@ namespace {
       catch (SyntaxException& exception) {
         const auto& reason = exception.reason();
         auto message = String::fromUTF8(this->allocator, reason.data(), reason.size());
-        const auto& begin = exception.location().begin;
-        const auto& end = exception.location().end;
-        SourceRange range{ { begin.line, begin.column }, { end.line, end.column } };
-        this->issues.emplace_back(Issue::Severity::Error, message, range);
+        this->issues.emplace_back(Issue::Severity::Error, message, exception.range());
         root = nullptr;
       }
       return { root, std::move(this->issues) };
