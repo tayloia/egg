@@ -36,7 +36,8 @@ namespace {
   }
 
   class Lexer : public ILexer {
-    EGG_NO_COPY(Lexer)
+    Lexer(Lexer&) = delete;
+    Lexer& operator=(Lexer&) = delete;
   private:
     TextStream& stream;
   public:
@@ -364,7 +365,8 @@ namespace {
   };
 
   class FileLexer : public Lexer {
-    EGG_NO_COPY(FileLexer)
+    FileLexer(FileLexer&) = delete;
+    FileLexer& operator=(FileLexer&) = delete;
   private:
     FileTextStream stream;
   public:
@@ -374,7 +376,8 @@ namespace {
   };
 
   class StringLexer : public Lexer {
-    EGG_NO_COPY(StringLexer)
+    StringLexer(StringLexer&) = delete;
+    StringLexer& operator=(StringLexer&) = delete;
   private:
     StringTextStream stream;
   public:

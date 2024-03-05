@@ -4,7 +4,8 @@
 
 namespace egg::yolk {
   class FileStream : public std::fstream {
-    EGG_NO_COPY(FileStream)
+    FileStream(FileStream&) = delete;
+    FileStream& operator=(FileStream&) = delete;
   public:
     FileStream(const std::string& unresolved, const std::string& resolved, ios_base::openmode mode)
       : std::fstream(resolved, mode) {
@@ -18,7 +19,8 @@ namespace egg::yolk {
   };
 
   class ByteStream {
-    EGG_NO_COPY(ByteStream)
+    ByteStream(ByteStream&) = delete;
+    ByteStream& operator=(ByteStream&) = delete;
   private:
     std::istream& stream;
     std::string resource;
@@ -46,7 +48,8 @@ namespace egg::yolk {
   };
 
   class FileByteStream : public ByteStream {
-    EGG_NO_COPY(FileByteStream)
+    FileByteStream(FileByteStream&) = delete;
+    FileByteStream& operator=(FileByteStream&) = delete;
   private:
     FileStream fs;
   public:
@@ -56,7 +59,8 @@ namespace egg::yolk {
   };
 
   class StringByteStream : public ByteStream {
-    EGG_NO_COPY(StringByteStream)
+    StringByteStream(StringByteStream&) = delete;
+    StringByteStream& operator=(StringByteStream&) = delete;
   private:
     std::stringstream ss;
   public:
@@ -66,7 +70,8 @@ namespace egg::yolk {
   };
 
   class CharStream {
-    EGG_NO_COPY(CharStream)
+    CharStream(CharStream&) = delete;
+    CharStream& operator=(CharStream&) = delete;
   private:
     ByteStream& bytes;
     bool swallowBOM;
@@ -83,7 +88,8 @@ namespace egg::yolk {
   };
 
   class FileCharStream : public CharStream {
-    EGG_NO_COPY(FileCharStream)
+    FileCharStream(FileCharStream&) = delete;
+    FileCharStream& operator=(FileCharStream&) = delete;
   private:
     FileByteStream fbs;
   public:
@@ -93,7 +99,8 @@ namespace egg::yolk {
   };
 
   class StringCharStream : public CharStream {
-    EGG_NO_COPY(StringCharStream)
+    StringCharStream(StringCharStream&) = delete;
+    StringCharStream& operator=(StringCharStream&) = delete;
   private:
     StringByteStream sbs;
   public:
@@ -103,7 +110,8 @@ namespace egg::yolk {
   };
 
   class TextStream {
-    EGG_NO_COPY(TextStream)
+    TextStream(TextStream&) = delete;
+    TextStream& operator=(TextStream&) = delete;
   private:
     CharStream& chars;
     std::deque<int> upcoming;
@@ -140,7 +148,8 @@ namespace egg::yolk {
   };
 
   class FileTextStream : public TextStream {
-    EGG_NO_COPY(FileTextStream)
+    FileTextStream(FileTextStream&) = delete;
+    FileTextStream& operator=(FileTextStream&) = delete;
   private:
     FileCharStream fcs;
   public:
@@ -150,7 +159,8 @@ namespace egg::yolk {
   };
 
   class StringTextStream : public TextStream {
-    EGG_NO_COPY(StringTextStream)
+    StringTextStream(StringTextStream&) = delete;
+    StringTextStream& operator=(StringTextStream&) = delete;
   private:
     StringCharStream scs;
   public:
