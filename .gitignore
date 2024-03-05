@@ -4,6 +4,9 @@
 # cppcheck directory
 cpp/msvc/cppcheck/
 
+# Used by MSVC build to capture git hash and build time
+/cpp/msvc/transient.h
+
 # Output directories
 bin/
 obj/

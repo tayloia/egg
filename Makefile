@@ -111,6 +111,9 @@ include $(ALL_OBJS:.o=.d)
 $(OBJ_DIR)/cpp/ovum/test/% $(OBJ_DIR)/cpp/yolk/test/%: CXXFLAGS += -iquote ./thirdparty/googletest/include
 $(OBJ_DIR)/cpp/ovum/test/gtest.%: CXXFLAGS += -iquote ./thirdparty/googletest
 
+# This source file ingests environmental data
+$(OBJ_DIR)/cpp/ovum/version.%: CXXFLAGS += -DEGG_COMMIT=\"$(shell git rev-parse HEAD)\" -DEGG_TIMESTAMP=\"$(shell date -u +\"%Y-%m-%d\ %H:%M:%SZ\")\"
+
 # Re-generate the object files if this makefile changes
 # Make sure intermediate directories are created before generating object files
 $(ALL_OBJS): Makefile | $(ALL_DIRS)

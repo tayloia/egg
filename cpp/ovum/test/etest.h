@@ -152,11 +152,20 @@ namespace egg::test {
     }
     return ::testing::internal::CmpHelperEQFailure(lhs_expression, rhs_expression, lhs, rhs);
   }
+  inline ::testing::AssertionResult assertRegexMatch(const char* lhs_expression, const char* rhs_expression, const std::string& lhs, const std::string& rhs) {
+    if (std::regex_match(rhs, std::regex(lhs))) {
+      return ::testing::AssertionSuccess();
+    }
+    return ::testing::internal::CmpHelperEQFailure(lhs_expression, rhs_expression, lhs, rhs);
+  }
   inline ::testing::AssertionResult assertTypeEQ(const char* lhs_expression, const char* rhs_expression, const egg::ovum::Type& lhs, const egg::ovum::Type& rhs) {
     if (lhs == rhs) {
       return ::testing::AssertionSuccess();
     }
     return ::testing::internal::CmpHelperEQFailure(lhs_expression, rhs_expression, lhs, rhs);
+  }
+  inline void assertRegex(const std::string& regex, const std::string& actual) {
+    ASSERT_PRED_FORMAT2(assertRegexMatch, regex, actual);
   }
   inline void assertString(const char* expected, const egg::ovum::String& actual) {
     ASSERT_STREQ(expected, actual.toUTF8().c_str());
@@ -253,6 +262,7 @@ inline void ::testing::internal::PrintTo(const egg::ovum::ILogger::Source& value
   egg::ovum::Print::write(*stream, value, egg::ovum::Print::Options::DEFAULT);
 }
 
+#define ASSERT_REGEX(expected, string) egg::test::assertRegex(expected, string)
 #define ASSERT_STRING(expected, string) egg::test::assertString(expected, string)
 #define ASSERT_TYPE(expected, string) egg::test::assertType(expected, string)
 #define ASSERT_VALUE(expected, value) egg::test::assertValue(expected, value)

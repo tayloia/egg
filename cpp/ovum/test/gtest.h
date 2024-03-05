@@ -16,6 +16,8 @@
 #pragma warning(disable: 26439)
 #endif
 
+#include <regex>
+
 namespace egg::test {
   // This is the default entry-point for Google Test runners
   int main(int argc, char** argv);

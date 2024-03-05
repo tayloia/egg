@@ -1,5 +1,6 @@
 #include "yolk/test.h"
 #include "ovum/file.h"
+#include "ovum/version.h"
 
 #include <cstdio>
 #include <sstream>
@@ -43,9 +44,10 @@ namespace {
   }
 }
 
-TEST(TestCLI, Spawn) {
-  std::string arg0 = executable();
-  std::string arg1 = "--WIBBLE";
-  auto output = spawn(arg0 + " " + arg1);
-  ASSERT_EQ(arg0 + "\n" + arg1 + "\n", output);
+TEST(TestCLI, Version) {
+  std::stringstream ss;
+  ss << egg::ovum::Version() << '\n';
+  auto expected = ss.str();
+  auto actual = spawn(executable() + " version");
+  ASSERT_EQ(expected, actual);
 }
