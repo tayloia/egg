@@ -144,11 +144,11 @@ namespace {
 }
 
 TEST(TestScript, Working) {
-  TestScript::run("~/cpp/yolk/test/data/working.egg");
+  TestScript::run("~/cpp/data/working.egg");
 }
 
 TEST(TestScript, Coverage) {
-  TestScript::run("~/cpp/yolk/test/data/coverage.egg");
+  TestScript::run("~/cpp/data/coverage.egg");
 }
 
 TEST_P(TestScripts, Run) {

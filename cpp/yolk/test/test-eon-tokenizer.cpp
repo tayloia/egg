@@ -280,7 +280,7 @@ TEST(TestEonTokenizer, Contiguous) {
 TEST(TestEonTokenizer, ExampleFile) {
   egg::test::Allocator allocator;
   EonTokenizerItem item;
-  auto tokenizer = createFromPath(allocator, "~/cpp/yolk/test/data/example.eon");
+  auto tokenizer = createFromPath(allocator, "~/cpp/data/example.eon");
   size_t count = 0;
   while (tokenizer->next(item) != EonTokenizerKind::EndOfFile) {
     count++;

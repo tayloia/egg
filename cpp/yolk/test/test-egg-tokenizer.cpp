@@ -241,7 +241,7 @@ TEST(TestEggTokenizer, Vexatious) {
 
 TEST(TestEggTokenizer, ExampleFile) {
   egg::test::Allocator allocator;
-  auto tokenizer = createFromPath(allocator, "~/cpp/yolk/test/data/example.egg");
+  auto tokenizer = createFromPath(allocator, "~/cpp/data/example.egg");
   size_t count = 0;
   EggTokenizerItem item;
   while (tokenizer->next(item) != EggTokenizerKind::EndOfFile) {
