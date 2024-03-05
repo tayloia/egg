@@ -76,9 +76,6 @@
     <ClInclude Include="..\ovum\basket.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\ovum\dictionary.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\ovum\hardptr.h">
       <Filter>Header Files</Filter>
     </ClInclude>

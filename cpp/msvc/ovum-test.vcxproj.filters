@@ -19,9 +19,6 @@
     <ClCompile Include="..\ovum\test\test-arithmetic.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\ovum\test\test-dictionary.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\ovum\test\test-memory.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>

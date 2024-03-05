@@ -47,7 +47,6 @@
   <ItemGroup>
     <ClInclude Include="..\ovum\arithmetic.h" />
     <ClInclude Include="..\ovum\basket.h" />
-    <ClInclude Include="..\ovum\dictionary.h" />
     <ClInclude Include="..\ovum\egg-compiler.h" />
     <ClInclude Include="..\ovum\egg-parser.h" />
     <ClInclude Include="..\ovum\egg-tokenizer.h" />
