@@ -1,9 +1,10 @@
 #include "yolk/yolk.h"
-#include "yolk/lexers.h"
+#include "ovum/lexer.h"
 #include "yolk/eon-tokenizer.h"
 #include "ovum/utf.h"
 
 namespace {
+  using namespace egg::ovum;
   using namespace egg::yolk;
 
   class EonTokenizer : public IEonTokenizer {

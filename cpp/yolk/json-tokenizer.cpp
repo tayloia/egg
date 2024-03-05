@@ -1,9 +1,10 @@
 #include "yolk/yolk.h"
-#include "yolk/lexers.h"
+#include "ovum/lexer.h"
 #include "yolk/json-tokenizer.h"
 #include "ovum/utf.h"
 
 namespace {
+  using namespace egg::ovum;
   using namespace egg::yolk;
 
   class JsonTokenizer : public IJsonTokenizer {

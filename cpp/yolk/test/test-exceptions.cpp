@@ -1,8 +1,8 @@
 #include "yolk/test.h"
 
 TEST(TestExceptions, Throw) {
-  ASSERT_THROW(EGG_THROW("Hello world"), egg::yolk::Exception);
-  ASSERT_THROW_E(EGG_THROW("Hello world"), egg::yolk::Exception, ASSERT_EQ("Hello world", e.reason()));
+  ASSERT_THROW(EGG_THROW("Hello world"), egg::ovum::Exception);
+  ASSERT_THROW_E(EGG_THROW("Hello world"), egg::ovum::Exception, ASSERT_EQ("Hello world", e.reason()));
 }
 
 TEST(TestExceptions, Catch) {
@@ -10,7 +10,7 @@ TEST(TestExceptions, Catch) {
   std::string expected_file = "/test-exceptions.cpp";
   try {
     EGG_THROW(expected_message);
-  } catch (const egg::yolk::Exception& exception) {
+  } catch (const egg::ovum::Exception& exception) {
     auto expected_line = __LINE__ - 2; // where the throw occurs
     auto ending = expected_file + "(" + std::to_string(expected_line) + ")";
     ASSERT_ENDSWITH(exception.what(), ending + ": " + expected_message);

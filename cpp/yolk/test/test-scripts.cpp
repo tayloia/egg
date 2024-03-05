@@ -1,6 +1,9 @@
 #include "yolk/test.h"
+#include "ovum/file.h"
+#include "ovum/stream.h"
 #include "yolk/egg-compiler.h"
 
+using namespace egg::ovum;
 using namespace egg::yolk;
 
 namespace {

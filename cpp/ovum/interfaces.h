@@ -138,6 +138,17 @@ namespace egg::ovum {
     Union               // t | u
   };
 
+  class ITextStream {
+  public:
+    // Interface
+    virtual ~ITextStream() {}
+    virtual int get() = 0;
+    virtual int peek(size_t index = 0) = 0;
+    virtual size_t getCurrentLine() = 0;
+    virtual size_t getCurrentColumn() = 0;
+    virtual const std::string& getResourceName() const = 0;
+  };
+
   class ILogger {
   public:
     enum class Source {

@@ -1,5 +1,5 @@
 #include "yolk/yolk.h"
-#include "yolk/lexers.h"
+#include "ovum/lexer.h"
 #include "yolk/egg-tokenizer.h"
 #include "ovum/utf.h"
 
@@ -85,6 +85,7 @@ std::string egg::yolk::EggTokenizerItem::toString() const {
 }
 
 namespace {
+  using namespace egg::ovum;
   using namespace egg::yolk;
 
   class EggTokenizer : public IEggTokenizer {

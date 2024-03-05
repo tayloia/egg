@@ -1,5 +1,7 @@
 #include "yolk/yolk.h"
-#include "yolk/lexers.h"
+#include "ovum/lexer.h"
+#include "ovum/file.h"
+#include "ovum/stream.h"
 #include "yolk/egg-tokenizer.h"
 #include "yolk/egg-parser.h"
 #include "yolk/egg-compiler.h"
@@ -3047,8 +3049,8 @@ std::string ModuleCompiler::toString(const ParserNode& pnode) {
   return "unknown node kind";
 }
 
-egg::ovum::HardPtr<egg::ovum::IVMProgram> egg::yolk::EggCompilerFactory::compileFromStream(egg::ovum::IVM& vm, egg::yolk::TextStream& stream) {
-  auto lexer = LexerFactory::createFromTextStream(stream);
+egg::ovum::HardPtr<egg::ovum::IVMProgram> egg::yolk::EggCompilerFactory::compileFromStream(egg::ovum::IVM& vm, egg::ovum::ITextStream& stream) {
+  auto lexer = egg::ovum::LexerFactory::createFromTextStream(stream);
   auto tokenizer = EggTokenizerFactory::createFromLexer(vm.getAllocator(), lexer);
   auto parser = EggParserFactory::createFromTokenizer(vm.getAllocator(), tokenizer);
   auto pbuilder = vm.createProgramBuilder();
@@ -3064,12 +3066,12 @@ egg::ovum::HardPtr<egg::ovum::IVMProgram> egg::yolk::EggCompilerFactory::compile
 }
 
 egg::ovum::HardPtr<egg::ovum::IVMProgram> egg::yolk::EggCompilerFactory::compileFromPath(egg::ovum::IVM& vm, const std::string& path, bool swallowBOM) {
-  FileTextStream stream{ path, swallowBOM };
+  egg::ovum::FileTextStream stream{ path, swallowBOM };
   return EggCompilerFactory::compileFromStream(vm, stream);
 }
 
 egg::ovum::HardPtr<egg::ovum::IVMProgram> egg::yolk::EggCompilerFactory::compileFromText(egg::ovum::IVM& vm, const std::string& text, const std::string& resource) {
-  StringTextStream stream{ text, resource };
+  egg::ovum::StringTextStream stream{ text, resource };
   return EggCompilerFactory::compileFromStream(vm, stream);
 }
 

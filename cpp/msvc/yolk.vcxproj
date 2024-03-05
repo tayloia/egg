@@ -23,11 +23,7 @@
     <ClCompile Include="..\yolk\egg-parser.cpp" />
     <ClCompile Include="..\yolk\egg-tokenizer.cpp" />
     <ClCompile Include="..\yolk\eon-tokenizer.cpp" />
-    <ClCompile Include="..\yolk\exceptions.cpp" />
-    <ClCompile Include="..\yolk\files.cpp" />
     <ClCompile Include="..\yolk\json-tokenizer.cpp" />
-    <ClCompile Include="..\yolk\lexers.cpp" />
-    <ClCompile Include="..\yolk\streams.cpp" />
     <ClCompile Include="yolk.pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
@@ -45,11 +41,7 @@
     <ClInclude Include="..\yolk\egg-parser.h" />
     <ClInclude Include="..\yolk\egg-tokenizer.h" />
     <ClInclude Include="..\yolk\eon-tokenizer.h" />
-    <ClInclude Include="..\yolk\exceptions.h" />
-    <ClInclude Include="..\yolk\files.h" />
     <ClInclude Include="..\yolk\json-tokenizer.h" />
-    <ClInclude Include="..\yolk\lexers.h" />
-    <ClInclude Include="..\yolk\streams.h" />
     <ClInclude Include="..\yolk\test.h" />
     <ClInclude Include="..\yolk\yolk.h" />
   </ItemGroup>

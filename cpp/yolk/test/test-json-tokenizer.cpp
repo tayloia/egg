@@ -1,7 +1,8 @@
 #include "yolk/test.h"
-#include "yolk/lexers.h"
+#include "ovum/lexer.h"
 #include "yolk/json-tokenizer.h"
 
+using namespace egg::ovum;
 using namespace egg::yolk;
 
 namespace {

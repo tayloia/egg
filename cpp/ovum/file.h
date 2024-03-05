@@ -1,4 +1,4 @@
-namespace egg::yolk {
+namespace egg::ovum {
   class File {
   public:
     enum class Kind { Unknown, Directory, File };

@@ -1,15 +1,16 @@
 #include "yolk/test.h"
-#include "yolk/lexers.h"
+#include "ovum/lexer.h"
 #include "yolk/egg-tokenizer.h"
 
+using namespace egg::ovum;
 using namespace egg::yolk;
 
 namespace {
-  std::shared_ptr<IEggTokenizer> createFromString(egg::ovum::IAllocator& allocator, const std::string& text) {
+  std::shared_ptr<IEggTokenizer> createFromString(IAllocator& allocator, const std::string& text) {
     auto lexer = LexerFactory::createFromString(text);
     return EggTokenizerFactory::createFromLexer(allocator, lexer);
   }
-  std::shared_ptr<IEggTokenizer> createFromPath(egg::ovum::IAllocator& allocator, const std::string& path) {
+  std::shared_ptr<IEggTokenizer> createFromPath(IAllocator& allocator, const std::string& path) {
     auto lexer = LexerFactory::createFromPath(path);
     return EggTokenizerFactory::createFromLexer(allocator, lexer);
   }

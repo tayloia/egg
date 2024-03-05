@@ -1,5 +1,5 @@
 #include "yolk/test.h"
-#include "yolk/lexers.h"
+#include "ovum/lexer.h"
 #include "yolk/egg-tokenizer.h"
 #include "yolk/egg-parser.h"
 
@@ -252,7 +252,7 @@ namespace {
   Result parseFromLines(egg::test::Allocator& allocator, std::initializer_list<std::string> lines) {
     std::ostringstream ss;
     std::copy(lines.begin(), lines.end(), std::ostream_iterator<std::string>(ss, "\n"));
-    auto lexer = egg::yolk::LexerFactory::createFromString(ss.str());
+    auto lexer = egg::ovum::LexerFactory::createFromString(ss.str());
     auto tokenizer = egg::yolk::EggTokenizerFactory::createFromLexer(allocator, lexer);
     auto parser = egg::yolk::EggParserFactory::createFromTokenizer(allocator, tokenizer);
     ASSERT_STRING("", parser->resource());

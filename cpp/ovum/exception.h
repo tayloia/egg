@@ -1,4 +1,4 @@
-namespace egg::yolk {
+namespace egg::ovum {
   class Exception : public std::runtime_error {
   private:
     std::string reason_value;
@@ -31,8 +31,8 @@ namespace egg::yolk {
     std::string resource_value;
     ExceptionLocationRange location_value;
   public:
-    SyntaxException(const std::string& reason, const std::string& resource, const ExceptionLocation& location, const std::string& token = std::string());
-    SyntaxException(const std::string& reason, const std::string& resource, const ExceptionLocationRange& location, const std::string& token = std::string());
+    SyntaxException(const std::string& reason, const std::string& resource, const ExceptionLocation& location, const std::string& token = {});
+    SyntaxException(const std::string& reason, const std::string& resource, const ExceptionLocationRange& location, const std::string& token = {});
     virtual const std::string& token() const {
       return this->token_value;
     }
@@ -46,4 +46,4 @@ namespace egg::yolk {
 }
 
 #define EGG_THROW(message) \
-  throw egg::yolk::Exception(message, __FILE__, __LINE__)
+  throw egg::ovum::Exception(message, __FILE__, __LINE__)

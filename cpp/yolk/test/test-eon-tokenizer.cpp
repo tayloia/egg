@@ -1,15 +1,16 @@
 #include "yolk/test.h"
-#include "yolk/lexers.h"
+#include "ovum/lexer.h"
 #include "yolk/eon-tokenizer.h"
 
+using namespace egg::ovum;
 using namespace egg::yolk;
 
 namespace {
-  std::shared_ptr<IEonTokenizer> createFromString(egg::ovum::IAllocator& allocator, const std::string& text) {
+  std::shared_ptr<IEonTokenizer> createFromString(IAllocator& allocator, const std::string& text) {
     auto lexer = LexerFactory::createFromString(text);
     return EonTokenizerFactory::createFromLexer(allocator, lexer);
   }
-  std::shared_ptr<IEonTokenizer> createFromPath(egg::ovum::IAllocator& allocator, const std::string& path) {
+  std::shared_ptr<IEonTokenizer> createFromPath(IAllocator& allocator, const std::string& path) {
     auto lexer = LexerFactory::createFromPath(path);
     return EonTokenizerFactory::createFromLexer(allocator, lexer);
   }
@@ -54,7 +55,7 @@ TEST(TestEonTokenizer, Null) {
   auto tokenizer = createFromString(allocator, "{ \"null\": null }");
   ASSERT_EQ(EonTokenizerKind::ObjectStart, tokenizer->next(item));
   ASSERT_EQ(EonTokenizerKind::String, tokenizer->next(item));
-  egg::ovum::String string;
+  String string;
   ASSERT_TRUE(item.value->getString(string));
   ASSERT_STRING("null", string);
   ASSERT_EQ(EonTokenizerKind::Colon, tokenizer->next(item));
@@ -69,12 +70,12 @@ TEST(TestEonTokenizer, BooleanFalse) {
   auto tokenizer = createFromString(allocator, "{ \"no\": false }");
   ASSERT_EQ(EonTokenizerKind::ObjectStart, tokenizer->next(item));
   ASSERT_EQ(EonTokenizerKind::String, tokenizer->next(item));
-  egg::ovum::String string;
+  String string;
   ASSERT_TRUE(item.value->getString(string));
   ASSERT_STRING("no", string);
   ASSERT_EQ(EonTokenizerKind::Colon, tokenizer->next(item));
   ASSERT_EQ(EonTokenizerKind::Boolean, tokenizer->next(item));
-  egg::ovum::Bool flag;
+  Bool flag;
   ASSERT_TRUE(item.value->getBool(flag));
   ASSERT_EQ(false, flag);
   ASSERT_EQ(EonTokenizerKind::ObjectEnd, tokenizer->next(item));
@@ -87,12 +88,12 @@ TEST(TestEonTokenizer, BooleanTrue) {
   auto tokenizer = createFromString(allocator, "{ \"yes\": true }");
   ASSERT_EQ(EonTokenizerKind::ObjectStart, tokenizer->next(item));
   ASSERT_EQ(EonTokenizerKind::String, tokenizer->next(item));
-  egg::ovum::String string;
+  String string;
   ASSERT_TRUE(item.value->getString(string));
   ASSERT_STRING("yes", string);
   ASSERT_EQ(EonTokenizerKind::Colon, tokenizer->next(item));
   ASSERT_EQ(EonTokenizerKind::Boolean, tokenizer->next(item));
-  egg::ovum::Bool flag;
+  Bool flag;
   ASSERT_TRUE(item.value->getBool(flag));
   ASSERT_EQ(true, flag);
   ASSERT_EQ(EonTokenizerKind::ObjectEnd, tokenizer->next(item));
@@ -105,12 +106,12 @@ TEST(TestEonTokenizer, Integer) {
   auto tokenizer = createFromString(allocator, "{ \"positive\": 123 \"negative\": -123 }");
   ASSERT_EQ(EonTokenizerKind::ObjectStart, tokenizer->next(item));
   ASSERT_EQ(EonTokenizerKind::String, tokenizer->next(item));
-  egg::ovum::String string;
+  String string;
   ASSERT_TRUE(item.value->getString(string));
   ASSERT_STRING("positive", string);
   ASSERT_EQ(EonTokenizerKind::Colon, tokenizer->next(item));
   ASSERT_EQ(EonTokenizerKind::Integer, tokenizer->next(item));
-  egg::ovum::Int value;
+  Int value;
   ASSERT_TRUE(item.value->getInt(value));
   ASSERT_EQ(123, value);
   ASSERT_EQ(EonTokenizerKind::String, tokenizer->next(item));
@@ -130,12 +131,12 @@ TEST(TestEonTokenizer, Float) {
   auto tokenizer = createFromString(allocator, "{ positive: 3.14159 negative: -3.14159 }");
   ASSERT_EQ(EonTokenizerKind::ObjectStart, tokenizer->next(item));
   ASSERT_EQ(EonTokenizerKind::Identifier, tokenizer->next(item));
-  egg::ovum::String string;
+  String string;
   ASSERT_TRUE(item.value->getString(string));
   ASSERT_STRING("positive", string);
   ASSERT_EQ(EonTokenizerKind::Colon, tokenizer->next(item));
   ASSERT_EQ(EonTokenizerKind::Float, tokenizer->next(item));
-  egg::ovum::Float value;
+  Float value;
   ASSERT_TRUE(item.value->getFloat(value));
   ASSERT_EQ(3.14159, value);
   ASSERT_EQ(EonTokenizerKind::Identifier, tokenizer->next(item));
@@ -155,7 +156,7 @@ TEST(TestEonTokenizer, String) {
   auto tokenizer = createFromString(allocator, "{ \"greeting\": \"hello world\" }");
   ASSERT_EQ(EonTokenizerKind::ObjectStart, tokenizer->next(item));
   ASSERT_EQ(EonTokenizerKind::String, tokenizer->next(item));
-  egg::ovum::String string;
+  String string;
   ASSERT_TRUE(item.value->getString(string));
   ASSERT_STRING("greeting", string);
   ASSERT_EQ(EonTokenizerKind::Colon, tokenizer->next(item));
@@ -183,7 +184,7 @@ TEST(TestEonTokenizer, Identifier) {
   EonTokenizerItem item;
   auto tokenizer = createFromString(allocator, "identifier");
   ASSERT_EQ(EonTokenizerKind::Identifier, tokenizer->next(item));
-  egg::ovum::String string;
+  String string;
   ASSERT_TRUE(item.value->getString(string));
   ASSERT_STRING("identifier", string);
 }
@@ -195,7 +196,7 @@ TEST(TestEonTokenizer, SequentialOperators) {
   ASSERT_EQ(EonTokenizerKind::ObjectStart, tokenizer->next(item));
   ASSERT_EQ(EonTokenizerKind::Colon, tokenizer->next(item));
   ASSERT_EQ(EonTokenizerKind::Integer, tokenizer->next(item));
-  egg::ovum::Int value;
+  Int value;
   ASSERT_TRUE(item.value->getInt(value));
   ASSERT_EQ(-1, value);
   ASSERT_EQ(EonTokenizerKind::ObjectEnd, tokenizer->next(item));

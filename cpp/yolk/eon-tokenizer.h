@@ -31,6 +31,6 @@ namespace egg::yolk {
 
   class EonTokenizerFactory {
   public:
-    static std::shared_ptr<IEonTokenizer> createFromLexer(egg::ovum::IAllocator& allocator, const std::shared_ptr<ILexer>& lexer);
+    static std::shared_ptr<IEonTokenizer> createFromLexer(egg::ovum::IAllocator& allocator, const std::shared_ptr<egg::ovum::ILexer>& lexer);
   };
 }

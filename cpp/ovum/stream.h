@@ -2,7 +2,7 @@
 #include <fstream>
 #include <iomanip>
 
-namespace egg::yolk {
+namespace egg::ovum {
   class FileStream : public std::fstream {
     FileStream(FileStream&) = delete;
     FileStream& operator=(FileStream&) = delete;
@@ -109,7 +109,7 @@ namespace egg::yolk {
     }
   };
 
-  class TextStream {
+  class TextStream : public egg::ovum::ITextStream {
     TextStream(TextStream&) = delete;
     TextStream& operator=(TextStream&) = delete;
   private:
@@ -121,28 +121,28 @@ namespace egg::yolk {
     explicit TextStream(CharStream& chars)
       : chars(chars), upcoming(), line(1), column(1) {
     }
-    int get();
-    bool readline(std::string& text);
-    bool readline(std::u32string& text);
-    void slurp(std::string& text, int eol = -1);
-    void slurp(std::u32string& text, int eol = -1);
-    bool rewind();
-    int peek(size_t index = 0) {
+    virtual int get() override;
+    virtual int peek(size_t index = 0) override {
       if (this->ensure(index + 1)) {
         return this->upcoming[index];
       }
       return -1;
     }
-    const std::string& getResourceName() const {
-      return this->chars.getResourceName();
-    }
-    size_t getCurrentLine() {
+    virtual size_t getCurrentLine() override {
       this->ensure(1);
       return this->line;
     }
-    size_t getCurrentColumn() {
+    virtual size_t getCurrentColumn() override {
       return this->column;
     }
+    virtual const std::string& getResourceName() const override {
+      return this->chars.getResourceName();
+    }
+    bool readline(std::string& text);
+    bool readline(std::u32string& text);
+    void slurp(std::string& text, int eol = -1);
+    void slurp(std::u32string& text, int eol = -1);
+    bool rewind();
   private:
     bool ensure(size_t count);
   };

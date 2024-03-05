@@ -21,9 +21,13 @@
   <ItemGroup>
     <ClCompile Include="..\ovum\arithmetic.cpp" />
     <ClCompile Include="..\ovum\basket.cpp" />
+    <ClCompile Include="..\ovum\exception.cpp" />
+    <ClCompile Include="..\ovum\file.cpp" />
+    <ClCompile Include="..\ovum\lexer.cpp" />
     <ClCompile Include="..\ovum\memory.cpp" />
     <ClCompile Include="..\ovum\object.cpp" />
     <ClCompile Include="..\ovum\print.cpp" />
+    <ClCompile Include="..\ovum\stream.cpp" />
     <ClCompile Include="..\ovum\string.cpp" />
     <ClCompile Include="..\ovum\type.cpp" />
     <ClCompile Include="..\ovum\value.cpp" />
@@ -39,9 +43,12 @@
     <ClInclude Include="..\ovum\arithmetic.h" />
     <ClInclude Include="..\ovum\basket.h" />
     <ClInclude Include="..\ovum\dictionary.h" />
+    <ClInclude Include="..\ovum\exception.h" />
+    <ClInclude Include="..\ovum\file.h" />
     <ClInclude Include="..\ovum\function.h" />
     <ClInclude Include="..\ovum\hardptr.h" />
     <ClInclude Include="..\ovum\interfaces.h" />
+    <ClInclude Include="..\ovum\lexer.h" />
     <ClInclude Include="..\ovum\memory.h" />
     <ClInclude Include="..\ovum\object.h" />
     <ClInclude Include="..\ovum\operation.h" />
@@ -49,6 +56,7 @@
     <ClInclude Include="..\ovum\platform.h" />
     <ClInclude Include="..\ovum\print.h" />
     <ClInclude Include="..\ovum\softptr.h" />
+    <ClInclude Include="..\ovum\stream.h" />
     <ClInclude Include="..\ovum\string.h" />
     <ClInclude Include="..\ovum\test.h" />
     <ClInclude Include="..\ovum\type.h" />

@@ -1,4 +1,5 @@
-#include "yolk/yolk.h"
+#include "ovum/ovum.h"
+#include "ovum/file.h"
 
 #include <filesystem>
 
@@ -24,7 +25,7 @@ namespace {
   }
 }
 
-std::string egg::yolk::File::normalizePath(const std::string& path, bool trailingSlash) {
+std::string egg::ovum::File::normalizePath(const std::string& path, bool trailingSlash) {
 #if EGG_PLATFORM == EGG_PLATFORM_MSVC
   auto result = transform(path, [](char x) { return (x == '\\') ? '/' : char(std::tolower(x)); });
   if (trailingSlash) {
@@ -41,7 +42,7 @@ std::string egg::yolk::File::normalizePath(const std::string& path, bool trailin
 #endif
 }
 
-std::string egg::yolk::File::denormalizePath(const std::string& path, bool trailingSlash) {
+std::string egg::ovum::File::denormalizePath(const std::string& path, bool trailingSlash) {
 #if EGG_PLATFORM == EGG_PLATFORM_MSVC
   auto result = replace(path, '/', '\\');
   if (trailingSlash) {
@@ -73,7 +74,7 @@ namespace {
     if (exe != nullptr) {
       const char* end = strrchr(exe, '\\');
       if (end) {
-        directory = egg::yolk::File::normalizePath(std::string(exe, end), true);
+        directory = egg::ovum::File::normalizePath(std::string(exe, end), true);
         return true;
       }
     }
@@ -94,13 +95,13 @@ namespace {
 }
 #endif
 
-std::string egg::yolk::File::getCurrentDirectory() {
+std::string egg::ovum::File::getCurrentDirectory() {
   // Gets the current working directory in normalized form with a trailing slash
   auto path = std::filesystem::current_path().string();
   return File::normalizePath(path, true);
 }
 
-std::string egg::yolk::File::getTildeDirectory() {
+std::string egg::ovum::File::getTildeDirectory() {
   // Gets the egg directory in normalized form with a trailing slash
 #if EGG_PLATFORM == EGG_PLATFORM_MSVC
   // Check for if we're running inside a development directory (e.g. Google Test adapter)
@@ -112,7 +113,7 @@ std::string egg::yolk::File::getTildeDirectory() {
   return File::getCurrentDirectory();
 }
 
-std::string egg::yolk::File::resolvePath(const std::string& path) {
+std::string egg::ovum::File::resolvePath(const std::string& path) {
   // Resolve a file path in normalized form
   auto resolved{ path };
   if (startsWith(resolved, "~/")) {
@@ -124,7 +125,7 @@ std::string egg::yolk::File::resolvePath(const std::string& path) {
   return resolved;
 }
 
-std::vector<std::string> egg::yolk::File::readDirectory(const std::string& path) {
+std::vector<std::string> egg::ovum::File::readDirectory(const std::string& path) {
   // Read the directory entries
   auto native = File::denormalizePath(File::resolvePath(path), false);
   std::vector<std::string> filenames;
@@ -136,7 +137,7 @@ std::vector<std::string> egg::yolk::File::readDirectory(const std::string& path)
   return filenames;
 }
 
-egg::yolk::File::Kind egg::yolk::File::getKind(const std::string& path) {
+egg::ovum::File::Kind egg::ovum::File::getKind(const std::string& path) {
   // Read the directory entries
   auto native = File::denormalizePath(File::resolvePath(path), false);
   auto status = std::filesystem::status(native);

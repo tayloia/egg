@@ -1,12 +1,17 @@
-#include "yolk/yolk.h"
+#include "ovum/ovum.h"
+#include "ovum/exception.h"
+#include "ovum/file.h"
+#include "ovum/stream.h"
 #include "ovum/utf.h"
 
 namespace {
+  using namespace egg::ovum;
+
   bool isEndOfLine(int ch) {
     return (ch == '\r') || (ch == '\n');
   }
   // See https://en.wikipedia.org/wiki/UTF-8
-  int readContinuation(egg::yolk::ByteStream& stream, int value, size_t count) {
+  int readContinuation(ByteStream& stream, int value, size_t count) {
     do {
       auto b = stream.get();
       if (b < 0) {
@@ -20,7 +25,7 @@ namespace {
     } while (--count);
     return value;
   }
-  int readCodepoint(egg::yolk::ByteStream& stream) {
+  int readCodepoint(ByteStream& stream) {
     auto b = stream.get();
     if (b < 0x80) {
       // EOF or ASCII codepoint
@@ -45,7 +50,7 @@ namespace {
   }
 }
 
-int egg::yolk::CharStream::get() {
+int egg::ovum::CharStream::get() {
   auto codepoint = readCodepoint(this->bytes);
   if (this->swallowBOM) {
     // See https://en.wikipedia.org/wiki/Byte_order_mark
@@ -57,17 +62,17 @@ int egg::yolk::CharStream::get() {
   return codepoint;
 }
 
-void egg::yolk::CharStream::slurp(std::u32string& text) {
+void egg::ovum::CharStream::slurp(std::u32string& text) {
   for (auto ch = this->get(); ch >= 0; ch = this->get()) {
     text.push_back(char32_t(ch));
   }
 }
 
-bool egg::yolk::CharStream::rewind() {
+bool egg::ovum::CharStream::rewind() {
   return this->bytes.rewind();
 }
 
-bool egg::yolk::TextStream::ensure(size_t count) {
+bool egg::ovum::TextStream::ensure(size_t count) {
   int ch = 0;
   if (this->upcoming.empty()) {
     // This is our first access
@@ -85,7 +90,7 @@ bool egg::yolk::TextStream::ensure(size_t count) {
   return true;
 }
 
-int egg::yolk::TextStream::get() {
+int egg::ovum::TextStream::get() {
   if (!this->ensure(2)) {
     // There's only the EOF marker left
     assert(this->upcoming.size() == 1);
@@ -109,7 +114,7 @@ int egg::yolk::TextStream::get() {
   return result;
 }
 
-bool egg::yolk::TextStream::readline(std::string& text) {
+bool egg::ovum::TextStream::readline(std::string& text) {
   text.clear();
   if (this->peek() < 0) {
     // Already at EOF
@@ -130,7 +135,7 @@ bool egg::yolk::TextStream::readline(std::string& text) {
   return true;
 }
 
-bool egg::yolk::TextStream::readline(std::u32string& text) {
+bool egg::ovum::TextStream::readline(std::u32string& text) {
   text.clear();
   if (this->peek() < 0) {
     // Already at EOF
@@ -149,7 +154,7 @@ bool egg::yolk::TextStream::readline(std::u32string& text) {
   return true;
 }
 
-void egg::yolk::TextStream::slurp(std::string& text, int eol) {
+void egg::ovum::TextStream::slurp(std::string& text, int eol) {
   auto target = std::back_inserter(text);
   if (eol < 0) {
     // Don't perform end-of-line substitution
@@ -174,7 +179,7 @@ void egg::yolk::TextStream::slurp(std::string& text, int eol) {
   }
 }
 
-void egg::yolk::TextStream::slurp(std::u32string& text, int eol) {
+void egg::ovum::TextStream::slurp(std::u32string& text, int eol) {
   if (eol < 0) {
     // Don't perform end-of-line substitution
     int ch = this->get();
@@ -198,7 +203,7 @@ void egg::yolk::TextStream::slurp(std::u32string& text, int eol) {
   }
 }
 
-bool egg::yolk::TextStream::rewind() {
+bool egg::ovum::TextStream::rewind() {
   if (this->chars.rewind()) {
     this->upcoming.clear();
     this->line = 1;

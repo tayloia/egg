@@ -20,19 +20,7 @@
     <ClCompile Include="..\yolk\egg-tokenizer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\yolk\exceptions.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\yolk\files.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\yolk\json-tokenizer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\yolk\lexers.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\yolk\streams.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\yolk\egg-compiler.cpp">
@@ -49,19 +37,7 @@
     <ClInclude Include="..\yolk\egg-tokenizer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\yolk\exceptions.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\yolk\files.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\yolk\json-tokenizer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\yolk\lexers.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\yolk\streams.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\yolk\test.h">

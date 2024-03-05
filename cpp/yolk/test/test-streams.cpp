@@ -1,23 +1,27 @@
 #include "yolk/test.h"
+#include "ovum/file.h"
+#include "ovum/stream.h"
+
+using namespace egg::ovum;
 
 // For ~/cpp/yolk/test/data/utf-8-demo*.txt
 // As per https://www.cl.cam.ac.uk/~mgk25/ucs/examples/UTF-8-demo.txt
 static const size_t expected_lengths[] = { 0,36,36,0,79,0,0,64,49,0,0,75,0,25,0,57,57,57,57,57,57,57,57,57,0,29,0,38,40,0,4,0,34,0,37,0,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,0,21,0,38,0,21,0,19,0,25,26,24,27,0,26,22,27,29,0,53,0,59,53,48,55,52,60,61,61,60,61,59,54,58,61,53,36,0,29,0,9,0,39,0,65,60,61,60,59,62,64,0,8,0,39,0,66,71,69,70,68,69,0,19,0,71,21,0,57,63,64,68,62,58,65,65,60,0,70,70,21,0,10,0,35,0,22,22,18,28,21,17,14,26,19,32,30,31,20,28,28,19,25,21,0,6,0,58,0,69,69,60,0,8,0,23,0,45,46,45,42,52,26,0,39,0,43,45,48,53,42,39,49,52,35,0,68,0,36,0,40,40,40,40,0,31,0,36,0,71,71,79,79,79,79,71,71,79,53,SIZE_MAX };
 
 TEST(TestStreams, FileStreamIn) {
-  egg::yolk::FileStream fsi("~/cpp/yolk/test/data/utf-8-demo.txt");
+  FileStream fsi("~/cpp/yolk/test/data/utf-8-demo.txt");
   std::stringstream oss;
   oss << fsi.rdbuf();
   ASSERT_EQ(14270u, oss.str().size());
 }
 
 TEST(TestStreams, FileStreamInMissing) {
-  ASSERT_THROW(egg::yolk::FileStream("~/missing"), egg::yolk::Exception);
+  ASSERT_THROW(FileStream("~/missing"), Exception);
 }
 
 TEST(TestStreams, ByteStream) {
-  egg::yolk::FileStream fs("~/cpp/yolk/test/data/utf-8-demo.txt");
-  egg::yolk::ByteStream bs(fs, "utf-8-demo.txt");
+  FileStream fs("~/cpp/yolk/test/data/utf-8-demo.txt");
+  ByteStream bs(fs, "utf-8-demo.txt");
   ASSERT_EQ("utf-8-demo.txt", bs.getResourceName());
   size_t size = 0;
   for (auto ch = bs.get(); ch >= 0; ch = bs.get()) {
@@ -28,7 +32,7 @@ TEST(TestStreams, ByteStream) {
 }
 
 TEST(TestByteStream, FileByteStream) {
-  egg::yolk::FileByteStream fbs("~/cpp/yolk/test/data/utf-8-demo.txt");
+  FileByteStream fbs("~/cpp/yolk/test/data/utf-8-demo.txt");
   ASSERT_ENDSWITH(fbs.getResourceName(), "utf-8-demo.txt");
   size_t size = 0;
   for (auto ch = fbs.get(); ch >= 0; ch = fbs.get()) {
@@ -39,11 +43,11 @@ TEST(TestByteStream, FileByteStream) {
 }
 
 TEST(TestByteStream, FileByteStreamMissing) {
-  ASSERT_THROW(egg::yolk::FileByteStream("~/missing"), egg::yolk::Exception);
+  ASSERT_THROW(FileByteStream("~/missing"), Exception);
 }
 
 TEST(TestByteStream, StringByteStream) {
-  egg::yolk::StringByteStream sbs("Hello World!");
+  StringByteStream sbs("Hello World!");
   size_t size = 0;
   for (auto ch = sbs.get(); ch >= 0; ch = sbs.get()) {
     size++;
@@ -53,7 +57,7 @@ TEST(TestByteStream, StringByteStream) {
 }
 
 TEST(TestStreams, FileCharStream) {
-  egg::yolk::FileCharStream fcs("~/cpp/yolk/test/data/utf-8-demo.txt");
+  FileCharStream fcs("~/cpp/yolk/test/data/utf-8-demo.txt");
   ASSERT_ENDSWITH(fcs.getResourceName(), "utf-8-demo.txt");
   size_t size = 0;
   for (auto ch = fcs.get(); ch >= 0; ch = fcs.get()) {
@@ -65,7 +69,7 @@ TEST(TestStreams, FileCharStream) {
 }
 
 TEST(TestStreams, FileCharStreamWithBOM) {
-  egg::yolk::FileCharStream fcs("~/cpp/yolk/test/data/utf-8-demo.bom.txt");
+  FileCharStream fcs("~/cpp/yolk/test/data/utf-8-demo.bom.txt");
   ASSERT_ENDSWITH(fcs.getResourceName(), "utf-8-demo.bom.txt");
   size_t size = 0;
   for (auto ch = fcs.get(); ch >= 0; ch = fcs.get()) {
@@ -77,7 +81,7 @@ TEST(TestStreams, FileCharStreamWithBOM) {
 }
 
 TEST(TestStreams, StringCharStream) {
-  egg::yolk::StringCharStream scs("Hello World!");
+  StringCharStream scs("Hello World!");
   std::u32string text;
   scs.slurp(text);
   ASSERT_EQ(12u, text.size());
@@ -87,17 +91,17 @@ TEST(TestStreams, StringCharStreamBad) {
   // See http://www.cl.cam.ac.uk/~mgk25/ucs/examples/UTF-8-test.txt
   std::u32string text;
   // Invalid UTF-8 encoding (unexpected continuation)
-  ASSERT_THROW(egg::yolk::StringCharStream("\x80").slurp(text), egg::yolk::Exception);
+  ASSERT_THROW(StringCharStream("\x80").slurp(text), Exception);
   // Invalid UTF-8 encoding (truncated continuation)
-  ASSERT_THROW(egg::yolk::StringCharStream("\xC0").slurp(text), egg::yolk::Exception);
+  ASSERT_THROW(StringCharStream("\xC0").slurp(text), Exception);
   // Invalid UTF-8 encoding (invalid continuation)
-  ASSERT_THROW(egg::yolk::StringCharStream("\xC0\x01").slurp(text), egg::yolk::Exception);
+  ASSERT_THROW(StringCharStream("\xC0\x01").slurp(text), Exception);
   // Invalid UTF-8 encoding (bad lead byte)
-  ASSERT_THROW(egg::yolk::StringCharStream("\xFF").slurp(text), egg::yolk::Exception);
+  ASSERT_THROW(StringCharStream("\xFF").slurp(text), Exception);
 }
 
 TEST(TestStreams, FileTextStream) {
-  egg::yolk::FileTextStream fts("~/cpp/yolk/test/data/utf-8-demo.txt");
+  FileTextStream fts("~/cpp/yolk/test/data/utf-8-demo.txt");
   ASSERT_ENDSWITH(fts.getResourceName(), "utf-8-demo.txt");
   size_t size = 0;
   for (auto ch = fts.get(); ch >= 0; ch = fts.get()) {
@@ -109,7 +113,7 @@ TEST(TestStreams, FileTextStream) {
 }
 
 TEST(TestStreams, StringTextStream) {
-  egg::yolk::StringTextStream sts("one\n!two\nthree");
+  StringTextStream sts("one\n!two\nthree");
   std::string text;
   // "one"
   ASSERT_EQ(1u, sts.getCurrentLine());
@@ -138,7 +142,7 @@ TEST(TestStreams, StringTextStream) {
 }
 
 static size_t lastLine(const std::string& path) {
-  egg::yolk::FileTextStream fts(path);
+  FileTextStream fts(path);
   while (fts.get() >= 0) {
     // Slurp the whole file
   }
@@ -152,7 +156,7 @@ TEST(TestStreams, FileTextStreamLastLine) {
 }
 
 TEST(TestStreams, FileTextStreamPeek) {
-  egg::yolk::FileTextStream fts("~/cpp/yolk/test/data/utf-8-demo.txt");
+  FileTextStream fts("~/cpp/yolk/test/data/utf-8-demo.txt");
   ASSERT_EQ('\r', fts.peek());
   ASSERT_EQ('\n', fts.peek(1));
   ASSERT_EQ('U', fts.peek(2));
@@ -163,7 +167,7 @@ TEST(TestStreams, FileTextStreamPeek) {
 }
 
 static void readLines(const std::string& path) {
-  egg::yolk::FileTextStream fts(path);
+  FileTextStream fts(path);
   ASSERT_EQ(1u, fts.getCurrentLine());
   std::u32string text;
   size_t line;
@@ -182,54 +186,54 @@ TEST(TestStreams, FileTextStreamReadLine) {
 
 TEST(TestStreams, FileTextStreamSlurp) {
   std::string slurped;
-  egg::yolk::FileTextStream("~/cpp/yolk/test/data/utf-8-demo.txt").slurp(slurped);
+  FileTextStream("~/cpp/yolk/test/data/utf-8-demo.txt").slurp(slurped);
   ASSERT_EQ(14270u, slurped.size());
   slurped.clear();
-  egg::yolk::FileTextStream("~/cpp/yolk/test/data/utf-8-demo.bom.txt").slurp(slurped);
+  FileTextStream("~/cpp/yolk/test/data/utf-8-demo.bom.txt").slurp(slurped);
   ASSERT_EQ(14270u, slurped.size());
   slurped.clear();
-  egg::yolk::FileTextStream("~/cpp/yolk/test/data/utf-8-demo.cr.txt").slurp(slurped);
+  FileTextStream("~/cpp/yolk/test/data/utf-8-demo.cr.txt").slurp(slurped);
   ASSERT_EQ(14058u, slurped.size());
   slurped.clear();
-  egg::yolk::FileTextStream("~/cpp/yolk/test/data/utf-8-demo.lf.txt").slurp(slurped);
+  FileTextStream("~/cpp/yolk/test/data/utf-8-demo.lf.txt").slurp(slurped);
   ASSERT_EQ(14058u, slurped.size());
   slurped.clear();
-  egg::yolk::FileTextStream("~/cpp/yolk/test/data/utf-8-demo.txt").slurp(slurped, '\n');
+  FileTextStream("~/cpp/yolk/test/data/utf-8-demo.txt").slurp(slurped, '\n');
   ASSERT_EQ(14058u, slurped.size());
   slurped.clear();
-  egg::yolk::FileTextStream("~/cpp/yolk/test/data/utf-8-demo.bom.txt").slurp(slurped, '\n');
+  FileTextStream("~/cpp/yolk/test/data/utf-8-demo.bom.txt").slurp(slurped, '\n');
   ASSERT_EQ(14058u, slurped.size());
   slurped.clear();
-  egg::yolk::FileTextStream("~/cpp/yolk/test/data/utf-8-demo.cr.txt").slurp(slurped, '\n');
+  FileTextStream("~/cpp/yolk/test/data/utf-8-demo.cr.txt").slurp(slurped, '\n');
   ASSERT_EQ(14058u, slurped.size());
   slurped.clear();
-  egg::yolk::FileTextStream("~/cpp/yolk/test/data/utf-8-demo.lf.txt").slurp(slurped, '\n');
+  FileTextStream("~/cpp/yolk/test/data/utf-8-demo.lf.txt").slurp(slurped, '\n');
   ASSERT_EQ(14058u, slurped.size());
 }
 
 TEST(TestStreams, FileTextStreamSlurp32) {
   std::u32string slurped;
-  egg::yolk::FileTextStream("~/cpp/yolk/test/data/utf-8-demo.txt").slurp(slurped);
+  FileTextStream("~/cpp/yolk/test/data/utf-8-demo.txt").slurp(slurped);
   ASSERT_EQ(7839u, slurped.size());
   slurped.clear();
-  egg::yolk::FileTextStream("~/cpp/yolk/test/data/utf-8-demo.bom.txt").slurp(slurped);
+  FileTextStream("~/cpp/yolk/test/data/utf-8-demo.bom.txt").slurp(slurped);
   ASSERT_EQ(7839u, slurped.size());
   slurped.clear();
-  egg::yolk::FileTextStream("~/cpp/yolk/test/data/utf-8-demo.cr.txt").slurp(slurped);
+  FileTextStream("~/cpp/yolk/test/data/utf-8-demo.cr.txt").slurp(slurped);
   ASSERT_EQ(7627u, slurped.size());
   slurped.clear();
-  egg::yolk::FileTextStream("~/cpp/yolk/test/data/utf-8-demo.lf.txt").slurp(slurped);
+  FileTextStream("~/cpp/yolk/test/data/utf-8-demo.lf.txt").slurp(slurped);
   ASSERT_EQ(7627u, slurped.size());
   slurped.clear();
-  egg::yolk::FileTextStream("~/cpp/yolk/test/data/utf-8-demo.txt").slurp(slurped, '\n');
+  FileTextStream("~/cpp/yolk/test/data/utf-8-demo.txt").slurp(slurped, '\n');
   ASSERT_EQ(7627u, slurped.size());
   slurped.clear();
-  egg::yolk::FileTextStream("~/cpp/yolk/test/data/utf-8-demo.bom.txt").slurp(slurped, '\n');
+  FileTextStream("~/cpp/yolk/test/data/utf-8-demo.bom.txt").slurp(slurped, '\n');
   ASSERT_EQ(7627u, slurped.size());
   slurped.clear();
-  egg::yolk::FileTextStream("~/cpp/yolk/test/data/utf-8-demo.cr.txt").slurp(slurped, '\n');
+  FileTextStream("~/cpp/yolk/test/data/utf-8-demo.cr.txt").slurp(slurped, '\n');
   ASSERT_EQ(7627u, slurped.size());
   slurped.clear();
-  egg::yolk::FileTextStream("~/cpp/yolk/test/data/utf-8-demo.lf.txt").slurp(slurped, '\n');
+  FileTextStream("~/cpp/yolk/test/data/utf-8-demo.lf.txt").slurp(slurped, '\n');
   ASSERT_EQ(7627u, slurped.size());
 }

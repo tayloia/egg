@@ -1,11 +1,12 @@
-#include "yolk/yolk.h"
-#include "yolk/lexers.h"
+#include "ovum/ovum.h"
+#include "ovum/exception.h"
+#include "ovum/file.h"
+#include "ovum/lexer.h"
+#include "ovum/stream.h"
 #include "ovum/utf.h"
 
-#include <iomanip>
-
 namespace {
-  using namespace egg::yolk;
+  using namespace egg::ovum;
 
   bool tryParseUnsigned(uint64_t& dst, const std::string& src, int base = 10) {
     if (!src.empty()) {
@@ -39,9 +40,9 @@ namespace {
     Lexer(Lexer&) = delete;
     Lexer& operator=(Lexer&) = delete;
   private:
-    TextStream& stream;
+    ITextStream& stream;
   public:
-    explicit Lexer(TextStream& stream)
+    explicit Lexer(ITextStream& stream)
       : stream(stream) {
     }
     virtual LexerKind next(LexerItem& item) override {
@@ -110,7 +111,7 @@ namespace {
     int eat(LexerItem& item) {
       auto curr = this->stream.get();
       assert(curr >= 0);
-      egg::ovum::UTF32::toUTF8(std::back_inserter(item.verbatim), char32_t(curr));
+      UTF32::toUTF8(std::back_inserter(item.verbatim), char32_t(curr));
       return this->stream.peek();
     }
     void nextWhitespace(LexerItem& item) {
@@ -356,11 +357,11 @@ namespace {
       this->unexpected(item, "Unexpected end of file found in backquoted string");
     }
     void unexpected(const LexerItem& item, const std::string& message) {
-      throw egg::yolk::SyntaxException(message, this->stream.getResourceName(), item);
+      throw SyntaxException(message, this->stream.getResourceName(), item);
     } // NOCOVERAGE
     void unexpected(const LexerItem& item, const std::string& message, int ch) {
-      auto token = egg::ovum::UTF32::toReadable(ch);
-      throw egg::yolk::SyntaxException(message + ": " + token, this->stream.getResourceName(), item, token);
+      auto token = UTF32::toReadable(ch);
+      throw SyntaxException(message + ": " + token, this->stream.getResourceName(), item, token);
     } // NOCOVERAGE
   };
 
@@ -387,14 +388,14 @@ namespace {
   };
 }
 
-std::shared_ptr<egg::yolk::ILexer> egg::yolk::LexerFactory::createFromPath(const std::string& path, bool swallowBOM) {
+std::shared_ptr<egg::ovum::ILexer> egg::ovum::LexerFactory::createFromPath(const std::string& path, bool swallowBOM) {
   return std::make_shared<FileLexer>(path, swallowBOM);
 }
 
-std::shared_ptr<egg::yolk::ILexer> egg::yolk::LexerFactory::createFromString(const std::string& text, const std::string& resource) {
+std::shared_ptr<egg::ovum::ILexer> egg::ovum::LexerFactory::createFromString(const std::string& text, const std::string& resource) {
   return std::make_shared<StringLexer>(text, resource);
 }
 
-std::shared_ptr<egg::yolk::ILexer> egg::yolk::LexerFactory::createFromTextStream(egg::yolk::TextStream& stream) {
+std::shared_ptr<egg::ovum::ILexer> egg::ovum::LexerFactory::createFromTextStream(ITextStream& stream) {
   return std::make_shared<Lexer>(stream);
 }

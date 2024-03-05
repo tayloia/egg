@@ -1,7 +1,9 @@
 #include "yolk/yolk.h"
-#include "yolk/lexers.h"
+#include "ovum/lexer.h"
 #include "yolk/egg-tokenizer.h"
 #include "yolk/egg-parser.h"
+
+#include <deque>
 
 using namespace egg::yolk;
 
@@ -131,7 +133,7 @@ namespace {
           root = nullptr;
         }
       }
-      catch (SyntaxException& exception) {
+      catch (egg::ovum::SyntaxException& exception) {
         const auto& reason = exception.reason();
         auto message = egg::ovum::String::fromUTF8(this->allocator, reason.data(), reason.size());
         const auto& begin = exception.location().begin;
