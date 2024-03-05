@@ -1,10 +1,10 @@
-#include "yolk/test.h"
+#include "ovum/test.h"
+#include "ovum/exception.h"
 #include "ovum/file.h"
 #include "ovum/lexer.h"
 #include "ovum/stream.h"
 
 using namespace egg::ovum;
-using namespace egg::yolk;
 
 namespace {
   LexerValue lexerStep(ILexer& lexer, LexerKind expected_kind, const std::string& expected_verbatim) {
@@ -307,4 +307,3 @@ TEST(TestLexers, Factory) {
   lexerStepEndOfFile(*lexer);
   lexerStepEndOfFile(*lexer);
 }
-

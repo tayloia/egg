@@ -299,4 +299,8 @@ namespace egg::ovum {
     }
   };
   using Hash = Hasher<size_t>;
+
+  template<typename T, size_t N> char(*nelems(T(&)[N]))[N] {}
 }
+
+#define EGG_NELEMS(arr) (sizeof(*egg::ovum::nelems(arr)))

@@ -35,12 +35,18 @@
       <DisableLanguageExtensions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</DisableLanguageExtensions>
       <DisableLanguageExtensions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</DisableLanguageExtensions>
     </ClCompile>
+    <ClCompile Include="..\ovum\test\test-exception.cpp" />
+    <ClCompile Include="..\ovum\test\test-file.cpp" />
+    <ClCompile Include="..\ovum\test\test-gc.cpp" />
+    <ClCompile Include="..\ovum\test\test-lexer.cpp" />
     <ClCompile Include="..\ovum\test\test-memory.cpp" />
     <ClCompile Include="..\ovum\test\test-poly.cpp" />
     <ClCompile Include="..\ovum\test\test-print.cpp" />
+    <ClCompile Include="..\ovum\test\test-stream.cpp" />
     <ClCompile Include="..\ovum\test\test-string.cpp" />
     <ClCompile Include="..\ovum\test\test-testing.cpp" />
     <ClCompile Include="..\ovum\test\test-type.cpp" />
+    <ClCompile Include="..\ovum\test\test-utf.cpp" />
     <ClCompile Include="..\ovum\test\test-utility.cpp" />
     <ClCompile Include="..\ovum\test\test-value.cpp" />
     <ClCompile Include="..\ovum\test\test-vm.cpp" />

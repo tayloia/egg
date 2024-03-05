@@ -28,31 +28,7 @@
     <ClCompile Include="..\yolk\test\test-egg-tokenizer.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\yolk\test\test-exceptions.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\yolk\test\test-files.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\yolk\test\test-json-tokenizer.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\yolk\test\test-lang.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\yolk\test\test-lexers.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\yolk\test\test-streams.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\yolk\test\test-strings.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\yolk\test\test-utf.cpp">
-      <Filter>Test Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\yolk\test\test-utility.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
     <ClCompile Include="..\yolk\test\test-scripts.cpp">

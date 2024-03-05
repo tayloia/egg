@@ -1,13 +1,14 @@
-#include "yolk/test.h"
+#include "ovum/test.h"
+#include "ovum/exception.h"
 
-TEST(TestExceptions, Throw) {
+TEST(TestException, Throw) {
   ASSERT_THROW(EGG_THROW("Hello world"), egg::ovum::Exception);
   ASSERT_THROW_E(EGG_THROW("Hello world"), egg::ovum::Exception, ASSERT_EQ("Hello world", e.reason()));
 }
 
-TEST(TestExceptions, Catch) {
+TEST(TestException, Catch) {
   std::string expected_message = "Hello world";
-  std::string expected_file = "/test-exceptions.cpp";
+  std::string expected_file = "/test-exception.cpp";
   try {
     EGG_THROW(expected_message);
   } catch (const egg::ovum::Exception& exception) {
