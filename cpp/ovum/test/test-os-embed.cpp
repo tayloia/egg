@@ -11,6 +11,7 @@ namespace {
     return "ovum-test";
   }
 }
+
 TEST(TestOS_Embed, GetExecutableFilename) {
   ASSERT_EQ(expectedStub() + ".exe", egg::ovum::os::embed::getExecutableFilename());
 }
@@ -40,7 +41,9 @@ TEST(TestOS_Embed, AddResource) {
   auto resources = egg::ovum::os::embed::findResources(cloned);
   auto before = resources.size();
   ASSERT_EQ(1u, before);
+
   egg::ovum::os::embed::addResource(cloned, "EGGTEST", "GREETING", "Hello world!", 12);
+
   resources = egg::ovum::os::embed::findResources(cloned);
   auto after = resources.size();
   ASSERT_EQ(before + 1, after);
@@ -51,4 +54,21 @@ TEST(TestOS_Embed, AddResource) {
   ASSERT_EQ("EGGTEST", found->type);
   ASSERT_EQ("GREETING", found->label);
   ASSERT_EQ(12u, found->bytes);
+
+  resources = egg::ovum::os::embed::findResources(cloned, "EGGTEST");
+  ASSERT_EQ(1, resources.size());
+  found = resources.begin();
+  ASSERT_NE(resources.end(), found);
+  ASSERT_EQ("EGGTEST", found->type);
+  ASSERT_EQ("GREETING", found->label);
+  ASSERT_EQ(12u, found->bytes);
+
+  auto resource = egg::ovum::os::embed::findResource(cloned, "EGGTEST", "GREETING");
+  ASSERT_NE(nullptr, resource);
+  ASSERT_EQ("EGGTEST", resource->type);
+  ASSERT_EQ("GREETING", resource->label);
+  ASSERT_EQ(12u, resource->bytes);
+  auto* memory = resource->lock();
+  ASSERT_NE(nullptr, memory);
+  ASSERT_EQ(0, std::memcmp(memory, "Hello world!", 12));
 }

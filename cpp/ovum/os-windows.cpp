@@ -5,9 +5,41 @@
 #include <windows.h>
 #include <codecvt>
 
-using Resource = egg::ovum::os::embed::Resource;
-
 namespace {
+  using namespace egg::ovum::os::embed;
+
+  struct WindowsLockableResource : public LockableResource {
+    HMODULE module;
+    HRSRC handle;
+    HGLOBAL locked;
+    WindowsLockableResource(HMODULE rmodule, const std::string& rtype, const std::string& rlabel, HRSRC rhandle) {
+      this->type = rtype;
+      this->label = rlabel;
+      this->bytes = ::SizeofResource(rmodule, rhandle);
+      this->module = rmodule;
+      this->handle = rhandle;
+      this->locked = NULL;
+    }
+    ~WindowsLockableResource() {
+      this->unlock();
+      ::FreeLibrary(this->module);
+    }
+    virtual const void* lock() override {
+      if (this->locked == NULL) {
+        this->locked = ::LoadResource(this->module, this->handle);
+        if (this->locked == NULL) {
+          return nullptr;
+        }
+      }
+      return ::LockResource(this->locked);
+    }
+    virtual void unlock() override {
+      if (this->locked != NULL) {
+        ::FreeResource(this->locked);
+        this->locked = NULL;
+      }
+    }
+  };
   std::string narrow(const std::wstring& wide) {
     auto count = ::WideCharToMultiByte(CP_UTF8, 0, wide.data(), int(wide.size()), NULL, NULL, NULL, NULL);
     assert(count >= 0);
@@ -38,11 +70,11 @@ namespace {
     }
     return handle;
   }
-  void updateResource(HANDLE handle, const std::string& type, const std::string& name, const void* data, size_t bytes) {
+  void updateResource(HANDLE handle, const std::string& type, const std::string& label, const void* data, size_t bytes) {
     auto wtype = widen(type);
-    auto wname = widen(name);
+    auto wlabel = widen(label);
     WORD language = MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL);
-    if (!::UpdateResource(handle, wtype.c_str(), wname.c_str(), language, LPVOID(data), DWORD(bytes))) {
+    if (!::UpdateResource(handle, wtype.c_str(), wlabel.c_str(), language, LPVOID(data), DWORD(bytes))) {
       throw std::runtime_error("Cannot update resource in executable file");
     }
   }
@@ -53,16 +85,14 @@ namespace {
   }
   HMODULE loadLibrary(const std::string& executable) {
     auto wexecutable = widen(egg::ovum::os::file::denormalizePath(executable, false));
-    return ::LoadLibraryEx(wexecutable.c_str(), NULL, LOAD_LIBRARY_AS_IMAGE_RESOURCE);
+    return ::LoadLibraryEx(wexecutable.c_str(), NULL, LOAD_LIBRARY_AS_DATAFILE);
   }
   BOOL enumResourceNamesCallback(HMODULE module, LPCWSTR type, LPWSTR label, LONG_PTR lparam) {
-    std::vector<Resource>& resources = *(std::vector<Resource>*)lparam;
-    size_t bytes = 0;
     auto handle = ::FindResourceW(module, label, type);
     if (handle != NULL) {
-      bytes = ::SizeofResource(module, handle);
+      auto& resources = *(std::vector<Resource>*)lparam;
+      resources.push_back({ name(type), name(label), ::SizeofResource(module, handle) });
     }
-    resources.push_back({ name(type), name(label), bytes });
     return TRUE;
   }
   BOOL enumResourceTypesCallback(HMODULE module, LPWSTR type, LONG_PTR lparam) {
@@ -73,6 +103,21 @@ namespace {
     std::vector<Resource> resources;
     ::EnumResourceTypesW(module, enumResourceTypesCallback, (LONG_PTR)&resources);
     return resources;
+  }
+  std::vector<Resource> enumResourceNames(HMODULE module, const std::string& type) {
+    std::vector<Resource> resources;
+    auto wtype = widen(type);
+    ::EnumResourceNamesW(module, wtype.c_str(), enumResourceNamesCallback, (LONG_PTR)&resources);
+    return resources;
+  }
+  std::shared_ptr<LockableResource> findResourceName(HMODULE module, const std::string& type, const std::string& label) {
+    auto wtype = widen(type);
+    auto wlabel = widen(label);
+    auto handle = ::FindResourceW(module, wlabel.c_str(), wtype.c_str());
+    if (handle == NULL) {
+      return nullptr;
+    }
+    return std::make_shared<WindowsLockableResource>(module, type, label, handle);
   }
   void freeLibrary(HMODULE module) {
     if (!::FreeLibrary(module)) {
@@ -104,4 +149,23 @@ std::vector<Resource> egg::ovum::os::embed::findResources(const std::string& exe
     freeLibrary(handle);
     throw;
   }
+}
+
+std::vector<Resource> egg::ovum::os::embed::findResources(const std::string& executable, const std::string& type) {
+  auto handle = loadLibrary(executable);
+  try {
+    auto resources = enumResourceNames(handle, type);
+    freeLibrary(handle);
+    return resources;
+  }
+  catch (...) {
+    freeLibrary(handle);
+    throw;
+  }
+}
+
+std::shared_ptr<LockableResource> egg::ovum::os::embed::findResource(const std::string& executable, const std::string& type, const std::string& label) {
+  // The library handle is freed by RAII in ~LockableResource()
+  auto handle = loadLibrary(executable);
+  return findResourceName(handle, type, label);
 }
