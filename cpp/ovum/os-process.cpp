@@ -1,18 +1,57 @@
 #include "ovum/ovum.h"
 #include "ovum/os-process.h"
 
-FILE* egg::ovum::os::process::popen(const std::string& command) {
+namespace {
+  void writeErrno(std::ostream& os, int error) {
 #if EGG_PLATFORM == EGG_PLATFORM_MSVC
-  return ::_popen(command.c_str(), "r");
+    char buffer[1024];
+    if (strerror_s(buffer, error) == 0) {
+      os << buffer;
+    } else {
+      os << "errno=" << error;
+    }
 #else
-  return ::popen(command.c_str(), "r");
+    auto buffer = strerror(error);
+    if (buffer != nullptr) {
+      os << buffer;
+    } else {
+      os << "errno=" << error;
+    }
+#endif
+  }
+}
+
+FILE* egg::ovum::os::process::popen(const char* command, const char* mode) {
+  assert(command != nullptr);
+  assert(mode != nullptr);
+#if EGG_PLATFORM == EGG_PLATFORM_MSVC
+  return ::_popen(command, mode);
+#else
+  return ::popen(command, mode);
 #endif
 }
 
-void egg::ovum::os::process::pclose(FILE* fp) {
+int egg::ovum::os::process::pclose(FILE* fp) {
 #if EGG_PLATFORM == EGG_PLATFORM_MSVC
-  ::_pclose(fp);
+  return ::_pclose(fp);
 #else
-  ::pclose(fp);
+  auto status = ::pclose(fp);
+  return WIFEXITED(status) ? WEXITSTATUS(status) : status;
 #endif
+}
+
+int egg::ovum::os::process::pexec(std::ostream& os, const std::string& command) {
+  int retval = -1;
+  auto redirect = "2>&1 " + command;
+  auto* fp = egg::ovum::os::process::popen(redirect.c_str(), "r");
+  if (fp != nullptr) {
+    for (auto ch = std::fgetc(fp); ch != EOF; ch = std::fgetc(fp)) {
+      os.put(char(ch));
+    }
+    retval = egg::ovum::os::process::pclose(fp);
+  }
+  if (retval < 0) {
+    writeErrno(os, errno);
+  }
+  return retval;
 }

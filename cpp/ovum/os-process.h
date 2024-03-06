@@ -1,4 +1,5 @@
 namespace egg::ovum::os::process {
-  FILE* popen(const std::string& command);
-  void pclose(FILE* fp);
+  FILE* popen(const char* command, const char* mode);
+  int pclose(FILE* fp);
+  int pexec(std::ostream& os, const std::string& command);
 }

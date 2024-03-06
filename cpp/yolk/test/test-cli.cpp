@@ -24,18 +24,14 @@ namespace {
       std::string needle{ "/egg-testsuite" };
       replaceFirst(exe, needle, "/egg");
     }
-    return exe;
+    return egg::ovum::os::file::denormalizePath(exe, false);
   }
-  std::string spawn(const std::string& command) {
+  std::string spawn(const std::string& arguments) {
     std::stringstream ss;
-    auto* fp = egg::ovum::os::process::popen(command);
-    if (fp == nullptr) {
-      return "Failed to run: " + command;
+    auto exitcode = egg::ovum::os::process::pexec(ss, executable() + " " + arguments);
+    if (exitcode != 0) {
+      ss << "exitcode=" << exitcode;
     }
-    for (auto ch = std::fgetc(fp); ch != EOF; ch = std::fgetc(fp)) {
-      ss.put(char(ch));
-    }
-    egg::ovum::os::process::pclose(fp);
     return ss.str();
   }
 }
@@ -44,6 +40,6 @@ TEST(TestCLI, Version) {
   std::stringstream ss;
   ss << egg::ovum::Version() << '\n';
   auto expected = ss.str();
-  auto actual = spawn(executable() + " version");
+  auto actual = spawn("version");
   ASSERT_EQ(expected, actual);
 }
