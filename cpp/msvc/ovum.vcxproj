@@ -31,6 +31,7 @@
     <ClCompile Include="..\ovum\lexer.cpp" />
     <ClCompile Include="..\ovum\memory.cpp" />
     <ClCompile Include="..\ovum\object.cpp" />
+    <ClCompile Include="..\ovum\os-file.cpp" />
     <ClCompile Include="..\ovum\print.cpp" />
     <ClCompile Include="..\ovum\stream.cpp" />
     <ClCompile Include="..\ovum\string.cpp" />
@@ -67,6 +68,7 @@
     <ClInclude Include="..\ovum\memory.h" />
     <ClInclude Include="..\ovum\object.h" />
     <ClInclude Include="..\ovum\operation.h" />
+    <ClInclude Include="..\ovum\os-file.h" />
     <ClInclude Include="..\ovum\os-memory.h" />
     <ClInclude Include="..\ovum\ovum.h" />
     <ClInclude Include="..\ovum\platform.h" />

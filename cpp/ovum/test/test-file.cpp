@@ -34,18 +34,6 @@ TEST(TestFile, DenormalizePath) {
 #endif
 }
 
-TEST(TestFile, GetTildeDirectory) {
-  auto tilde = egg::ovum::File::getTildeDirectory();
-  ASSERT_GT(tilde.size(), 0u);
-  ASSERT_EQ('/', tilde.back());
-}
-
-TEST(TestFile, GetCurrentDirectory) {
-  auto cwd = egg::ovum::File::getCurrentDirectory();
-  ASSERT_GT(cwd.size(), 0u);
-  ASSERT_EQ('/', cwd.back());
-}
-
 TEST(TestFile, ResolvePath) {
   auto resolved = egg::ovum::File::resolvePath("~/path/to/file");
   ASSERT_NE('~', resolved[0]);
@@ -75,9 +63,4 @@ TEST(TestFile, KindDirectory) {
 
 TEST(TestFile, KindFile) {
   ASSERT_EQ(egg::ovum::File::Kind::File, egg::ovum::File::getKind("~/data/egg.png"));
-}
-
-TEST(TestFile, GetExecutablePath) {
-  auto executable = egg::ovum::File::getExecutablePath();
-  ASSERT_GT(executable.size(), 0u);
 }

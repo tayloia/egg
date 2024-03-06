@@ -1,5 +1,5 @@
 #include "yolk/test.h"
-#include "ovum/file.h"
+#include "ovum/os-file.h"
 #include "ovum/version.h"
 
 #include <cstdio>
@@ -12,7 +12,7 @@ namespace {
     haystack.replace(pos, needle.size(), replacement);
   }
   std::string executable() {
-    auto exe = egg::ovum::File::getExecutablePath();
+    auto exe = egg::ovum::os::file::getExecutablePath();
 #if EGG_PLATFORM == EGG_PLATFORM_MSVC
     // e.g. "c:/project/egg/bin/msvc/yolk-test.debug.x64/yolk-test.exe"
     std::string needle{ "/yolk-test." };
