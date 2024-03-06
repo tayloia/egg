@@ -94,6 +94,9 @@
     <ClCompile Include="..\ovum\test\test-os-file.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\ovum\test\test-os-process.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ovum\test\etest.h">

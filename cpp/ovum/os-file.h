@@ -6,5 +6,6 @@ namespace egg::ovum::os {
     std::string getDevelopmentDirectory();
     std::string getExecutableDirectory();
     std::string getExecutablePath();
+    char slash();
   }
 }

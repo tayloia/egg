@@ -1,5 +1,6 @@
 #include "yolk/test.h"
 #include "ovum/os-file.h"
+#include "ovum/os-process.h"
 #include "ovum/version.h"
 
 #include <cstdio>
@@ -13,33 +14,28 @@ namespace {
   }
   std::string executable() {
     auto exe = egg::ovum::os::file::getExecutablePath();
-#if EGG_PLATFORM == EGG_PLATFORM_MSVC
-    // e.g. "c:/project/egg/bin/msvc/yolk-test.debug.x64/yolk-test.exe"
-    std::string needle{ "/yolk-test." };
-    replaceFirst(exe, needle, "/cli.");
-    replaceFirst(exe, needle, "/egg.");
-#else
-    // e.g. "/mnt/c/Project/egg/bin/wsl/gcc/release/egg-testsuite.exe"
-    std::string needle{ "/egg-testsuite" };
-    replaceFirst(exe, needle, "/egg");
-#endif
+    if (egg::ovum::os::file::slash() == '\\') {
+      // e.g. "c:/project/egg/bin/msvc/yolk-test.debug.x64/yolk-test.exe"
+      std::string needle{ "/yolk-test." };
+      replaceFirst(exe, needle, "/cli.");
+      replaceFirst(exe, needle, "/egg.");
+    } else {
+      // e.g. "/mnt/c/Project/egg/bin/wsl/gcc/release/egg-testsuite.exe"
+      std::string needle{ "/egg-testsuite" };
+      replaceFirst(exe, needle, "/egg");
+    }
     return exe;
   }
-#if EGG_PLATFORM == EGG_PLATFORM_MSVC
-  // Microsoft aliases
-  auto popen = _popen;
-  auto pclose = _pclose;
-#endif
   std::string spawn(const std::string& command) {
     std::stringstream ss;
-    auto* fp = popen(command.c_str(), "r");
+    auto* fp = egg::ovum::os::process::popen(command);
     if (fp == nullptr) {
       return "Failed to run: " + command;
     }
     for (auto ch = std::fgetc(fp); ch != EOF; ch = std::fgetc(fp)) {
       ss.put(char(ch));
     }
-    pclose(fp);
+    egg::ovum::os::process::pclose(fp);
     return ss.str();
   }
 }

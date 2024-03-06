@@ -14,23 +14,13 @@ namespace {
   std::string replace(const std::string& src, char from, char to) {
     return transform(src, [from, to](char x) { return (x == from) ? to : x; });
   }
-#endif
-  void terminate(std::string& str, char terminator) {
-    if (str.empty() || (str.back() != terminator)) {
-      str.push_back(terminator);
-    }
-  }
-}
-
-namespace {
-#if EGG_PLATFORM == EGG_PLATFORM_MSVC
   const char* getExecutableFile() {
     // See https://github.com/gpakosz/whereami/blob/master/src/whereami.c
     char* pgmptr = nullptr;
     _get_pgmptr(&pgmptr);
     return pgmptr;
   }
-  bool getExecutableDirectory(std::string& directory) {
+  bool tryExecutableDirectory(std::string& directory) {
     // Try to get the directory of the executable in normalized form with a trailing slash
     auto* exe = getExecutableFile();
     if (exe != nullptr) {
@@ -42,22 +32,16 @@ namespace {
     }
     return false;
   }
-  bool getDevelopmentEggRoot(std::string& directory) {
-    // Check for if we're running inside a development directory (e.g. Google Test adapter)
-    if (getExecutableDirectory(directory)) {
-      auto msvc = directory.rfind("/bin/msvc/");
-      if (msvc != std::string::npos) {
-        directory.resize(msvc + 1);
-        return true;
-      }
-    }
-    return false;
-  }
 #else
   std::string getExecutableFile() {
     return std::filesystem::canonical("/proc/self/exe");
   }
 #endif
+  void terminate(std::string& str, char terminator) {
+    if (str.empty() || (str.back() != terminator)) {
+      str.push_back(terminator);
+    }
+  }
 }
 
 std::string egg::ovum::os::file::normalizePath(const std::string& path, bool trailingSlash) {
@@ -104,9 +88,13 @@ std::string egg::ovum::os::file::getDevelopmentDirectory() {
   // Gets the egg directory in normalized form with a trailing slash
 #if EGG_PLATFORM == EGG_PLATFORM_MSVC
   // Check for if we're running inside a development directory (e.g. Google Test adapter)
-  std::string eggroot;
-  if (getDevelopmentEggRoot(eggroot)) {
-    return eggroot;
+  std::string directory;
+  if (tryExecutableDirectory(directory)) {
+    auto msvc = directory.rfind("/bin/msvc/");
+    if (msvc != std::string::npos) {
+      directory.resize(msvc + 1);
+      return directory;
+    }
   }
 #endif
   return os::file::getCurrentDirectory();
@@ -117,7 +105,7 @@ std::string egg::ovum::os::file::getExecutableDirectory() {
   auto executable = os::file::normalizePath(getExecutableFile(), false);
   auto slash = executable.rfind('/');
   if (slash == std::string::npos) {
-    return "./";
+    return os::file::getCurrentDirectory();
   }
   executable.resize(slash + 1);
   return executable;
@@ -126,4 +114,9 @@ std::string egg::ovum::os::file::getExecutableDirectory() {
 std::string egg::ovum::os::file::getExecutablePath() {
   // Gets the path of the currently-running executable
   return os::file::normalizePath(getExecutableFile(), false);
+}
+
+char egg::ovum::os::file::slash() {
+  // Gets the path of the currently-running executable
+  return char(std::filesystem::path::preferred_separator);
 }
