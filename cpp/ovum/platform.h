@@ -13,8 +13,9 @@
 // warning C4710 : '...': function not inlined
 // warning C4711 : function '...' selected for automatic expansion
 // warning C4820 : '...' : '...' bytes padding added after data member '...'
+// warning C5039 : '...' : pointer or reference to potentially throwing function passed to 'extern "C"' function under -EHc
 // warning C5045 : Compiler will insert Spectre mitigation for memory load if /Qspectre switch specified
-#pragma warning(disable: 4514 4571 4710 4711 4820 5045)
+#pragma warning(disable: 4514 4571 4710 4711 4820 5039 5045)
 // warning C26495 : PREfast uninitialized union member
 #pragma warning(disable: 26495)
 // Include some base headers with lower warning levels here

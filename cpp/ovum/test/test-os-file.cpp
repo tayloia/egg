@@ -60,7 +60,7 @@ TEST(TestOS_File, GetExecutableDirectory) {
 }
 
 TEST(TestOS_File, CreateTemporaryDirectory) {
-  auto dir = egg::ovum::os::file::createTemporaryDirectory("egg-test-", 100);
+  auto dir = egg::ovum::os::file::createTemporaryDirectory("egg-test-file-", 100);
   ASSERT_GT(dir.size(), 0u);
   ASSERT_EQ('/', dir.back());
   ASSERT_EQ(egg::ovum::File::Kind::Directory, egg::ovum::File::getKind(dir));
