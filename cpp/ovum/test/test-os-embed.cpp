@@ -28,8 +28,7 @@ TEST(TestOS_Embed, CloneExecutable) {
 }
 
 TEST(TestOS_Embed, FindResources) {
-  // WIBBLE std::string path = egg::ovum::os::file::getExecutablePath();
-  std::string path = "c:/program files/microsoft visual studio/2022/community/common7/ide/devenv.exe";
+  std::string path = egg::ovum::os::file::getExecutablePath();
   auto resources = egg::ovum::os::embed::findResources(path);
   ASSERT_GT(resources.size(), 0);
 }
@@ -38,5 +37,18 @@ TEST(TestOS_Embed, AddResource) {
   auto tmpdir = egg::ovum::os::file::createTemporaryDirectory("egg-test-embed-", 100);
   auto cloned = tmpdir + "cloned.exe";
   egg::ovum::os::embed::cloneExecutable(cloned);
-  egg::ovum::os::embed::addResource(cloned, "WIBBLE", "Hello world!", 12);
+  auto resources = egg::ovum::os::embed::findResources(cloned);
+  auto before = resources.size();
+  ASSERT_EQ(1u, before);
+  egg::ovum::os::embed::addResource(cloned, "EGGTEST", "GREETING", "Hello world!", 12);
+  resources = egg::ovum::os::embed::findResources(cloned);
+  auto after = resources.size();
+  ASSERT_EQ(before + 1, after);
+  auto found = std::find_if(resources.begin(), resources.end(), [](const egg::ovum::os::embed::Resource& candidate) {
+    return candidate.type == "EGGTEST";
+  });
+  ASSERT_NE(resources.end(), found);
+  ASSERT_EQ("EGGTEST", found->type);
+  ASSERT_EQ("GREETING", found->label);
+  ASSERT_EQ(12u, found->bytes);
 }
