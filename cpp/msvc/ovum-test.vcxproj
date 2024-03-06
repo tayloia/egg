@@ -45,6 +45,7 @@
     <ClCompile Include="..\ovum\test\test-json-tokenizer.cpp" />
     <ClCompile Include="..\ovum\test\test-lexer.cpp" />
     <ClCompile Include="..\ovum\test\test-memory.cpp" />
+    <ClCompile Include="..\ovum\test\test-os-memory.cpp" />
     <ClCompile Include="..\ovum\test\test-poly.cpp" />
     <ClCompile Include="..\ovum\test\test-print.cpp" />
     <ClCompile Include="..\ovum\test\test-stream.cpp" />

@@ -5,9 +5,15 @@ namespace egg::ovum {
   };
 
   struct AllocatorDefaultPolicy {
-    inline static void* memalloc(size_t bytes, size_t alignment);
-    inline static size_t memsize(void* allocated, size_t alignment);
-    inline static void memfree(void* allocated, size_t);
+    static void* memalloc(size_t bytes, size_t alignment) {
+      return os::memory::alloc(bytes, alignment);
+    }
+    static size_t memsize(void* allocated, size_t alignment) {
+      return os::memory::size(allocated, alignment);
+    }
+    static void memfree(void* allocated, size_t alignment) {
+      os::memory::free(allocated, alignment);
+    }
   };
 
   // This often lives high up on the machine stack, so we need to know the class layout
@@ -52,36 +58,3 @@ namespace egg::ovum {
   };
   using AllocatorDefault = AllocatorWithPolicy<AllocatorDefaultPolicy>;
 }
-
-// We want this code generated from the header
-#if EGG_PLATFORM == EGG_PLATFORM_MSVC
-  // Microsoft-style run-time
-  inline void* egg::ovum::AllocatorDefaultPolicy::memalloc(size_t bytes, size_t alignment) {
-    return _aligned_malloc(bytes, alignment);
-  }
-  inline size_t egg::ovum::AllocatorDefaultPolicy::memsize(void* allocated, size_t alignment) {
-    return _aligned_msize(allocated, alignment, 0);
-  }
-  inline void egg::ovum::AllocatorDefaultPolicy::memfree(void* allocated, size_t) {
-    return _aligned_free(allocated);
-  }
-#else
-  // Platform-independent
-  inline void* egg::ovum::AllocatorDefaultPolicy::memalloc(size_t bytes, size_t alignment) {
-    auto total = bytes + std::max(alignment, sizeof(size_t) * 2);
-    auto allocated = static_cast<char*>(std::malloc(total));
-    auto unaligned = allocated + total - bytes;
-    auto aligned = unaligned - reinterpret_cast<uintptr_t>(unaligned) % uintptr_t(alignment);
-    auto preamble = reinterpret_cast<size_t*>(aligned);
-    preamble[-2] = size_t(aligned - allocated);
-    preamble[-1] = bytes;
-    return aligned;
-  }
-  inline size_t egg::ovum::AllocatorDefaultPolicy::memsize(void* allocated, size_t) {
-    return reinterpret_cast<size_t*>(allocated)[-1];
-  }
-  inline void egg::ovum::AllocatorDefaultPolicy::memfree(void* allocated, size_t) {
-    auto padding = reinterpret_cast<size_t*>(allocated)[-2];
-    return free(reinterpret_cast<char*>(allocated) - padding);
-  }
-#endif

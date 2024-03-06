@@ -25,5 +25,6 @@
 #include "ovum/type.h"
 #include "ovum/value.h"
 #include "ovum/function.h"
+#include "ovum/os-memory.h"
 #include "ovum/basket.h"
 #include "ovum/vm.h"

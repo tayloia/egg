@@ -88,6 +88,9 @@
     <ClCompile Include="..\ovum\test\test-version.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\ovum\test\test-os-memory.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ovum\test\etest.h">

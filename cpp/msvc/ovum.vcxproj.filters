@@ -160,6 +160,9 @@
     <ClInclude Include="..\ovum\version.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\ovum\os-memory.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="ovum.natvis" />
