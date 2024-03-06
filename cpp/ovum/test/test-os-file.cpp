@@ -2,8 +2,6 @@
 #include "ovum/os-file.h"
 #include "ovum/file.h"
 
-#include <filesystem>
-
 TEST(TestOS_File, NormalizePath) {
   ASSERT_EQ("/path/to/file", egg::ovum::os::file::normalizePath("/path/to/file", false));
   ASSERT_EQ("/path/to/file/", egg::ovum::os::file::normalizePath("/path/to/file/", false));
