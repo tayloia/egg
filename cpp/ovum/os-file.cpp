@@ -2,6 +2,7 @@
 #include "ovum/os-file.h"
 
 #include <filesystem>
+#include <random>
 
 namespace {
 #if EGG_PLATFORM == EGG_PLATFORM_MSVC
@@ -42,6 +43,31 @@ namespace {
       str.push_back(terminator);
     }
   }
+  class TemporaryDirectories final {
+    TemporaryDirectories(const TemporaryDirectories&) = delete;
+    TemporaryDirectories& operator=(const TemporaryDirectories&) = delete;
+  private:
+    std::vector<std::filesystem::path> entries;
+    std::mutex mutex;
+  public:
+    TemporaryDirectories() = default;
+    void add(const std::filesystem::path& entry) {
+      // TODO exception handling
+      std::unique_lock lock{ this->mutex };
+      this->entries.push_back(entry);
+    }
+    void purge() {
+      // TODO exception handling
+      std::unique_lock lock{ this->mutex };
+      for (auto& entry : this->entries) {
+        std::filesystem::remove_all(entry);
+      }
+      this->entries.clear();
+    }
+    ~TemporaryDirectories() {
+      this->purge();
+    }
+  };
 }
 
 std::string egg::ovum::os::file::normalizePath(const std::string& path, bool trailingSlash) {
@@ -114,6 +140,25 @@ std::string egg::ovum::os::file::getExecutableDirectory() {
 std::string egg::ovum::os::file::getExecutablePath() {
   // Gets the path of the currently-running executable
   return os::file::normalizePath(getExecutableFile(), false);
+}
+
+std::string egg::ovum::os::file::createTemporaryDirectory(const std::string& prefix, size_t attempts) {
+  // See https://stackoverflow.com/a/58454949
+  auto tmpdir = std::filesystem::temp_directory_path();
+  std::random_device randev{};
+  std::mt19937 prng{ randev() };
+  std::uniform_int_distribution<uint64_t> rand{ 0 };
+  for (size_t attempt = 0; attempt < attempts; ++attempt) {
+    std::stringstream ss;
+    ss << prefix << std::hex << rand(prng);
+    auto path = tmpdir / ss.str();
+    if (std::filesystem::create_directory(path)) {
+      static TemporaryDirectories registry;
+      registry.add(path);
+      return egg::ovum::os::file::normalizePath(path.string(), true);
+    }
+  }
+  throw std::runtime_error("Failed to create temporary directory");
 }
 
 char egg::ovum::os::file::slash() {

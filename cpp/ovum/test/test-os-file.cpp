@@ -1,5 +1,8 @@
 #include "ovum/test.h"
 #include "ovum/os-file.h"
+#include "ovum/file.h"
+
+#include <filesystem>
 
 TEST(TestOS_File, NormalizePath) {
   ASSERT_EQ("/path/to/file", egg::ovum::os::file::normalizePath("/path/to/file", false));
@@ -56,4 +59,11 @@ TEST(TestOS_File, GetExecutableDirectory) {
   auto dir = egg::ovum::os::file::getExecutableDirectory();
   ASSERT_GT(dir.size(), 0u);
   ASSERT_EQ('/', dir.back());
+}
+
+TEST(TestOS_File, CreateTemporaryDirectory) {
+  auto dir = egg::ovum::os::file::createTemporaryDirectory("egg-test-", 100);
+  ASSERT_GT(dir.size(), 0u);
+  ASSERT_EQ('/', dir.back());
+  ASSERT_EQ(egg::ovum::File::Kind::Directory, egg::ovum::File::getKind(dir));
 }
