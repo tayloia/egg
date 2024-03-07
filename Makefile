@@ -9,7 +9,7 @@ override CONFIGURATION ?= release
 include make/$(PLATFORM).mak
 
 # We exclude these source files
-EXCLUDE_SRCS = 
+EXCLUDE_SRCS = cpp/ovum/os-windows.cpp
 
 SILENT = @
 

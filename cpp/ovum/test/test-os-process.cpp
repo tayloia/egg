@@ -52,3 +52,30 @@ TEST(TestOS_Process, PexecFail) {
   ASSERT_LT(0, exitcode);
   ASSERT_NE("", ss.str());
 }
+
+TEST(TestOS_Process, PlinesEcho) {
+  std::stringstream ss;
+  auto exitcode = egg::ovum::os::process::plines("echo hello", [&](const std::string& line) {
+    ss << '[' << line << ']';
+  });
+  ASSERT_EQ(0, exitcode);
+  ASSERT_EQ("[hello]", ss.str());
+}
+
+TEST(TestOS_Process, PlinesExit) {
+  std::stringstream ss;
+  auto exitcode = egg::ovum::os::process::plines("exit 123", [&](const std::string& line) {
+    ss << '[' << line << ']';
+  });
+  ASSERT_EQ(123, exitcode);
+  ASSERT_EQ("", ss.str());
+}
+
+TEST(TestOS_Process, PlinesFail) {
+  std::stringstream ss;
+  auto exitcode = egg::ovum::os::process::plines("does-not-exist", [&](const std::string& line) {
+    ss << '[' << line << ']';
+  });
+  ASSERT_LT(0, exitcode);
+  ASSERT_NE("", ss.str());
+}

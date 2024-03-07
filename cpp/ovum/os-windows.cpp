@@ -3,7 +3,6 @@
 #include "ovum/os-file.h"
 
 #include <windows.h>
-#include <codecvt>
 
 namespace {
   using namespace egg::ovum::os::embed;
@@ -138,7 +137,7 @@ void egg::ovum::os::embed::addResource(const std::string& executable, const std:
   endUpdateResource(handle, false);
 }
 
-std::vector<Resource> egg::ovum::os::embed::findResources(const std::string& executable) {
+std::vector<egg::ovum::os::embed::Resource> egg::ovum::os::embed::findResources(const std::string& executable) {
   auto handle = loadLibrary(executable);
   try {
     auto resources = enumResourceTypes(handle);
@@ -151,7 +150,7 @@ std::vector<Resource> egg::ovum::os::embed::findResources(const std::string& exe
   }
 }
 
-std::vector<Resource> egg::ovum::os::embed::findResources(const std::string& executable, const std::string& type) {
+std::vector<egg::ovum::os::embed::Resource> egg::ovum::os::embed::findResources(const std::string& executable, const std::string& type) {
   auto handle = loadLibrary(executable);
   try {
     auto resources = enumResourceNames(handle, type);
@@ -164,7 +163,7 @@ std::vector<Resource> egg::ovum::os::embed::findResources(const std::string& exe
   }
 }
 
-std::shared_ptr<LockableResource> egg::ovum::os::embed::findResource(const std::string& executable, const std::string& type, const std::string& label) {
+std::shared_ptr<egg::ovum::os::embed::LockableResource> egg::ovum::os::embed::findResource(const std::string& executable, const std::string& type, const std::string& label) {
   // The library handle is freed by RAII in ~LockableResource()
   auto handle = loadLibrary(executable);
   return findResourceName(handle, type, label);

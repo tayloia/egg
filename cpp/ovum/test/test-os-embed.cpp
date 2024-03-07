@@ -31,7 +31,7 @@ TEST(TestOS_Embed, CloneExecutable) {
 TEST(TestOS_Embed, FindResources) {
   std::string path = egg::ovum::os::file::getExecutablePath();
   auto resources = egg::ovum::os::embed::findResources(path);
-  ASSERT_GT(resources.size(), 0);
+  ASSERT_GT(resources.size(), 0u);
 }
 
 TEST(TestOS_Embed, AddResource) {
@@ -56,7 +56,7 @@ TEST(TestOS_Embed, AddResource) {
   ASSERT_EQ(12u, found->bytes);
 
   resources = egg::ovum::os::embed::findResources(cloned, "EGGTEST");
-  ASSERT_EQ(1, resources.size());
+  ASSERT_EQ(1u, resources.size());
   found = resources.begin();
   ASSERT_NE(resources.end(), found);
   ASSERT_EQ("EGGTEST", found->type);
