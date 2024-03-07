@@ -91,7 +91,7 @@ namespace {
 
 }
 
-void egg::ovum::os::embed::addResource(const std::string& executable, const std::string& type, const std::string& label, const void* resource, size_t bytes) {
+void egg::ovum::os::embed::updateResource(const std::string& executable, const std::string& type, const std::string& label, const void* resource, size_t bytes) {
   (void)executable;
   (void)type;
   (void)label;

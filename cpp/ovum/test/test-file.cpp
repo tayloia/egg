@@ -65,3 +65,9 @@ TEST(TestFile, KindDirectory) {
 TEST(TestFile, KindFile) {
   ASSERT_EQ(egg::ovum::File::Kind::File, egg::ovum::File::getKind("~/data/egg.png"));
 }
+
+TEST(TestFile, Slurp) {
+  auto jabberwocky = egg::ovum::File::slurp("~/cpp/data/jabberwocky.txt");
+  ASSERT_EQ(1008u, jabberwocky.size());
+  ASSERT_CONTAINS(jabberwocky, "Twas brillig, and the slithy toves");
+}

@@ -3,6 +3,7 @@
 #include "ovum/os-file.h"
 
 #include <filesystem>
+#include <fstream>
 
 std::string egg::ovum::File::normalizePath(const std::string& path, bool trailingSlash) {
   return os::file::normalizePath(path, trailingSlash);
@@ -23,7 +24,7 @@ std::string egg::ovum::File::resolvePath(const std::string& path) {
 
 std::vector<std::string> egg::ovum::File::readDirectory(const std::string& path) {
   // Read the directory entries
-  auto native = os::file::denormalizePath(File::resolvePath(path), false);
+  auto native = File::resolvePath(path);
   std::vector<std::string> filenames;
   std::error_code error;
   for (auto& file : std::filesystem::directory_iterator(native, error)) {
@@ -35,7 +36,7 @@ std::vector<std::string> egg::ovum::File::readDirectory(const std::string& path)
 
 egg::ovum::File::Kind egg::ovum::File::getKind(const std::string& path) {
   // Read the directory entries
-  auto native = os::file::denormalizePath(File::resolvePath(path), false);
+  auto native = File::resolvePath(path);
   auto status = std::filesystem::status(native);
   auto type = status.type();
   if (type == std::filesystem::file_type::directory) {
@@ -46,3 +47,15 @@ egg::ovum::File::Kind egg::ovum::File::getKind(const std::string& path) {
   }
   return Kind::Unknown;
 }
+
+std::string egg::ovum::File::slurp(const std::string& path) {
+  // Slurp the entire file as a string of bytes
+  std::ifstream ifs{ File::resolvePath(path), std::ios::in | std::ios::binary };
+  ifs.seekg(0, std::ios::end);
+  auto bytes = ifs.tellg();
+  std::string buffer(size_t(bytes), '\0');
+  ifs.seekg(0);
+  ifs.read(buffer.data(), bytes);
+  return buffer;
+}
+

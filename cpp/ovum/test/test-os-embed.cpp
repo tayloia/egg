@@ -34,28 +34,29 @@ TEST(TestOS_Embed, FindResources) {
   ASSERT_GT(resources.size(), 0u);
 }
 
-TEST(TestOS_Embed, AddResource) {
+TEST(TestOS_Embed, UpdateResourceFromMemory) {
   auto tmpdir = egg::ovum::os::file::createTemporaryDirectory("egg-test-embed-", 100);
   auto cloned = tmpdir + "cloned.exe";
   egg::ovum::os::embed::cloneExecutable(cloned);
+
   auto resources = egg::ovum::os::embed::findResources(cloned);
   auto before = resources.size();
   ASSERT_EQ(1u, before);
 
-  egg::ovum::os::embed::addResource(cloned, "EGGTEST", "GREETING", "Hello world!", 12);
+  egg::ovum::os::embed::updateResourceFromMemory(cloned, "EGGTEST", "GREETING", "Hello world!", 12);
 
   resources = egg::ovum::os::embed::findResources(cloned);
   auto after = resources.size();
   ASSERT_EQ(before + 1, after);
   auto found = std::find_if(resources.begin(), resources.end(), [](const egg::ovum::os::embed::Resource& candidate) {
     return candidate.type == "EGGTEST";
-  });
+    });
   ASSERT_NE(resources.end(), found);
   ASSERT_EQ("EGGTEST", found->type);
   ASSERT_EQ("GREETING", found->label);
   ASSERT_EQ(12u, found->bytes);
 
-  resources = egg::ovum::os::embed::findResources(cloned, "EGGTEST");
+  resources = egg::ovum::os::embed::findResourcesByType(cloned, "EGGTEST");
   ASSERT_EQ(1u, resources.size());
   found = resources.begin();
   ASSERT_NE(resources.end(), found);
@@ -63,7 +64,7 @@ TEST(TestOS_Embed, AddResource) {
   ASSERT_EQ("GREETING", found->label);
   ASSERT_EQ(12u, found->bytes);
 
-  auto resource = egg::ovum::os::embed::findResource(cloned, "EGGTEST", "GREETING");
+  auto resource = egg::ovum::os::embed::findResourceByName(cloned, "EGGTEST", "GREETING");
   ASSERT_NE(nullptr, resource);
   ASSERT_EQ("EGGTEST", resource->type);
   ASSERT_EQ("GREETING", resource->label);
@@ -71,4 +72,30 @@ TEST(TestOS_Embed, AddResource) {
   auto* memory = resource->lock();
   ASSERT_NE(nullptr, memory);
   ASSERT_EQ(0, std::memcmp(memory, "Hello world!", 12));
+  resource->unlock();
+
+  egg::ovum::os::embed::updateResourceFromMemory(cloned, "EGGTEST", "GREETING", nullptr, 0);
+  resource = egg::ovum::os::embed::findResourceByName(cloned, "EGGTEST", "GREETING");
+  ASSERT_EQ(nullptr, resource);
+}
+
+TEST(TestOS_Embed, UpdateResourceFromFile) {
+  auto tmpdir = egg::ovum::os::file::createTemporaryDirectory("egg-test-embed-", 100);
+  auto cloned = tmpdir + "cloned.exe";
+  egg::ovum::os::embed::cloneExecutable(cloned);
+
+  auto resource = egg::ovum::os::embed::findResourceByName(cloned, "EGGTEST", "JABBERWOCKY");
+  ASSERT_EQ(nullptr, resource);
+
+  egg::ovum::os::embed::updateResourceFromFile(cloned, "EGGTEST", "JABBERWOCKY", "~/cpp/data/jabberwocky.txt");
+
+  resource = egg::ovum::os::embed::findResourceByName(cloned, "EGGTEST", "JABBERWOCKY");
+  ASSERT_NE(nullptr, resource);
+  ASSERT_EQ("EGGTEST", resource->type);
+  ASSERT_EQ("JABBERWOCKY", resource->label);
+  ASSERT_EQ(1008u, resource->bytes);
+  auto* memory = resource->lock();
+  ASSERT_NE(nullptr, memory);
+  ASSERT_EQ(0, std::memcmp(memory, u8"’Twas brillig, and the slithy toves", 37));
+  resource->unlock();
 }

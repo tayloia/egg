@@ -13,7 +13,7 @@ namespace {
   void WIBBLE() {
     auto executable = egg::ovum::os::file::getExecutablePath();
     std::cout << "===" << std::endl;
-    auto resource = egg::ovum::os::embed::findResource(executable, "PROGBITS", ".comment");
+    auto resource = egg::ovum::os::embed::findResourceByName(executable, "PROGBITS", ".comment");
     if (resource != nullptr) {
       std::cout << resource->type << " " << resource->label << " " << resource->bytes << std::endl;
       auto locked = resource->lock();

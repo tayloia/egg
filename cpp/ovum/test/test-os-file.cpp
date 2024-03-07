@@ -65,3 +65,11 @@ TEST(TestOS_File, CreateTemporaryDirectory) {
   ASSERT_EQ('/', dir.back());
   ASSERT_EQ(egg::ovum::File::Kind::Directory, egg::ovum::File::getKind(dir));
 }
+
+TEST(TestOS_File, Slash) {
+  auto slash = egg::ovum::os::file::slash();
+  ASSERT_TRUE((slash == '/') || (slash == '\\'));
+  auto dotslash = egg::ovum::os::file::denormalizePath(".", true);
+  ASSERT_EQ(2u, dotslash.size());
+  ASSERT_EQ(slash, dotslash[1]);
+}
