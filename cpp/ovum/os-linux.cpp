@@ -1,13 +1,25 @@
 #include "ovum/ovum.h"
 #include "ovum/os-embed.h"
+#include "ovum/os-file.h"
 #include "ovum/os-process.h"
 
 #include <filesystem>
+#include <fstream>
 #include <regex>
 #include <fcntl.h>
 #include <sys/mman.h>
 
 namespace {
+  void objcopy(const std::string& command) {
+    auto exitcode = egg::ovum::os::process::plines(command, [&](const std::string&) {
+      // Do nothing
+    });
+    fflush(stdout);
+    if (exitcode != 0) {
+      throw std::runtime_error("Cannot spawn objcopy");
+    }
+  }
+
   struct ReadElf {
     // See https://github.com/lirongyuan/ELF-Reader-and-Loader/blob/master/elfinfo-mmap.c
     std::string name;
@@ -91,12 +103,28 @@ namespace {
 
 }
 
-void egg::ovum::os::embed::updateResource(const std::string& executable, const std::string& type, const std::string& label, const void* resource, size_t bytes) {
-  (void)executable;
-  (void)type;
-  (void)label;
-  (void)resource;
-  (void)bytes;
+void egg::ovum::os::embed::updateResourceFromMemory(const std::string& executable, const std::string& type, const std::string& label, const void* data, size_t bytes) {
+  if ((data == nullptr) || (bytes == 0)) {
+    objcopy("objcopy --remove-section " + label + " " + executable);
+  } else {
+    auto path = egg::ovum::os::file::createTemporaryFile("os-embed-", ".tmp", 100);
+    std::ofstream ofs{ path, std::ios::trunc | std::ios::binary };
+    if (data != nullptr) {
+      ofs.write(static_cast<const char*>(data), bytes);
+    }
+    ofs.close();
+    egg::ovum::os::embed::updateResourceFromFile(executable, type, label, path);
+  }
+}
+
+void egg::ovum::os::embed::updateResourceFromFile(const std::string& executable, const std::string& type, const std::string& label, const std::string& datapath) {
+  std::string option = "--add-section";
+  ReadElf::foreach(executable, [&](const ReadElf& elf) {
+    if ((elf.type == type) && (elf.name == label)) {
+      option = "--update-section";
+    }
+  });
+  objcopy("objcopy " + option + " " + label + "=" + datapath + " --set-section-flags " + label + "=contents,noload,readonly " + executable);
 }
 
 std::vector<egg::ovum::os::embed::Resource> egg::ovum::os::embed::findResources(const std::string& executable) {
@@ -107,17 +135,17 @@ std::vector<egg::ovum::os::embed::Resource> egg::ovum::os::embed::findResources(
   return resources;
 }
 
-std::vector<egg::ovum::os::embed::Resource> egg::ovum::os::embed::findResources(const std::string& executable, const std::string& type) {
+std::vector<egg::ovum::os::embed::Resource> egg::ovum::os::embed::findResourcesByType(const std::string& executable, const std::string& type) {
   std::vector<Resource> resources;
   ReadElf::foreach(executable, [&](const ReadElf& elf) {
     if (elf.type == type) {
       resources.push_back({ elf.type, elf.name, elf.size });
     }
   });
-  return {};
+  return resources;
 }
 
-std::shared_ptr<egg::ovum::os::embed::LockableResource> egg::ovum::os::embed::findResource(const std::string& executable, const std::string& type, const std::string& label) {
+std::shared_ptr<egg::ovum::os::embed::LockableResource> egg::ovum::os::embed::findResourceByName(const std::string& executable, const std::string& type, const std::string& label) {
   std::shared_ptr<LockableResource> found = nullptr;
   ReadElf::foreach(executable, [&](const ReadElf& elf) {
     if ((elf.type == type) && (elf.name == label)) {

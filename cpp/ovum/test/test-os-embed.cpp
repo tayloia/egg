@@ -41,32 +41,36 @@ TEST(TestOS_Embed, UpdateResourceFromMemory) {
 
   auto resources = egg::ovum::os::embed::findResources(cloned);
   auto before = resources.size();
-  ASSERT_EQ(1u, before);
+  ASSERT_LT(0u, before);
 
-  egg::ovum::os::embed::updateResourceFromMemory(cloned, "EGGTEST", "GREETING", "Hello world!", 12);
+  egg::ovum::os::embed::updateResourceFromMemory(cloned, "PROGBITS", "GREETING", "Hello world!", 12);
 
   resources = egg::ovum::os::embed::findResources(cloned);
   auto after = resources.size();
   ASSERT_EQ(before + 1, after);
   auto found = std::find_if(resources.begin(), resources.end(), [](const egg::ovum::os::embed::Resource& candidate) {
-    return candidate.type == "EGGTEST";
-    });
+    return candidate.label == "GREETING";
+  });
   ASSERT_NE(resources.end(), found);
-  ASSERT_EQ("EGGTEST", found->type);
+  ASSERT_EQ("PROGBITS", found->type);
   ASSERT_EQ("GREETING", found->label);
   ASSERT_EQ(12u, found->bytes);
 
-  resources = egg::ovum::os::embed::findResourcesByType(cloned, "EGGTEST");
-  ASSERT_EQ(1u, resources.size());
-  found = resources.begin();
-  ASSERT_NE(resources.end(), found);
-  ASSERT_EQ("EGGTEST", found->type);
-  ASSERT_EQ("GREETING", found->label);
-  ASSERT_EQ(12u, found->bytes);
+  resources = egg::ovum::os::embed::findResourcesByType(cloned, "PROGBITS");
+  ASSERT_FALSE(resources.empty());
+  auto count = 0;
+  for (auto& entry : resources) {
+    ASSERT_EQ("PROGBITS", entry.type);
+    if (entry.label == "GREETING") {
+      ASSERT_EQ(12u, entry.bytes);
+      count++;
+    }
+  }
+  ASSERT_EQ(1, count);
 
-  auto resource = egg::ovum::os::embed::findResourceByName(cloned, "EGGTEST", "GREETING");
+  auto resource = egg::ovum::os::embed::findResourceByName(cloned, "PROGBITS", "GREETING");
   ASSERT_NE(nullptr, resource);
-  ASSERT_EQ("EGGTEST", resource->type);
+  ASSERT_EQ("PROGBITS", resource->type);
   ASSERT_EQ("GREETING", resource->label);
   ASSERT_EQ(12u, resource->bytes);
   auto* memory = resource->lock();
@@ -74,8 +78,8 @@ TEST(TestOS_Embed, UpdateResourceFromMemory) {
   ASSERT_EQ(0, std::memcmp(memory, "Hello world!", 12));
   resource->unlock();
 
-  egg::ovum::os::embed::updateResourceFromMemory(cloned, "EGGTEST", "GREETING", nullptr, 0);
-  resource = egg::ovum::os::embed::findResourceByName(cloned, "EGGTEST", "GREETING");
+  egg::ovum::os::embed::updateResourceFromMemory(cloned, "PROGBITS", "GREETING", nullptr, 0);
+  resource = egg::ovum::os::embed::findResourceByName(cloned, "PROGBITS", "GREETING");
   ASSERT_EQ(nullptr, resource);
 }
 
@@ -84,18 +88,20 @@ TEST(TestOS_Embed, UpdateResourceFromFile) {
   auto cloned = tmpdir + "cloned.exe";
   egg::ovum::os::embed::cloneExecutable(cloned);
 
-  auto resource = egg::ovum::os::embed::findResourceByName(cloned, "EGGTEST", "JABBERWOCKY");
+  auto resource = egg::ovum::os::embed::findResourceByName(cloned, "PROGBITS", "JABBERWOCKY");
   ASSERT_EQ(nullptr, resource);
 
-  egg::ovum::os::embed::updateResourceFromFile(cloned, "EGGTEST", "JABBERWOCKY", "~/cpp/data/jabberwocky.txt");
+  auto datapath = egg::ovum::File::resolvePath("~/cpp/data/jabberwocky.txt");
+  egg::ovum::os::embed::updateResourceFromFile(cloned, "PROGBITS", "JABBERWOCKY", datapath);
 
-  resource = egg::ovum::os::embed::findResourceByName(cloned, "EGGTEST", "JABBERWOCKY");
+  resource = egg::ovum::os::embed::findResourceByName(cloned, "PROGBITS", "JABBERWOCKY");
   ASSERT_NE(nullptr, resource);
-  ASSERT_EQ("EGGTEST", resource->type);
+  ASSERT_EQ("PROGBITS", resource->type);
   ASSERT_EQ("JABBERWOCKY", resource->label);
   ASSERT_EQ(1008u, resource->bytes);
   auto* memory = resource->lock();
   ASSERT_NE(nullptr, memory);
-  ASSERT_EQ(0, std::memcmp(memory, u8"’Twas brillig, and the slithy toves", 37));
+  std::string data(static_cast<const char*>(memory) + 3, 34);
+  ASSERT_EQ("Twas brillig, and the slithy toves", data);
   resource->unlock();
 }

@@ -59,11 +59,18 @@ TEST(TestOS_File, GetExecutableDirectory) {
   ASSERT_EQ('/', dir.back());
 }
 
+TEST(TestOS_File, CreateTemporaryFile) {
+  auto path = egg::ovum::os::file::createTemporaryFile("egg-test-file-", ".tmp", 100);
+  ASSERT_GT(path.size(), 0u);
+  ASSERT_ENDSWITH(path, ".tmp");
+  ASSERT_EQ(egg::ovum::File::Kind::File, egg::ovum::File::getKind(path));
+}
+
 TEST(TestOS_File, CreateTemporaryDirectory) {
-  auto dir = egg::ovum::os::file::createTemporaryDirectory("egg-test-file-", 100);
-  ASSERT_GT(dir.size(), 0u);
-  ASSERT_EQ('/', dir.back());
-  ASSERT_EQ(egg::ovum::File::Kind::Directory, egg::ovum::File::getKind(dir));
+  auto path = egg::ovum::os::file::createTemporaryDirectory("egg-test-file-", 100);
+  ASSERT_GT(path.size(), 0u);
+  ASSERT_EQ('/', path.back());
+  ASSERT_EQ(egg::ovum::File::Kind::Directory, egg::ovum::File::getKind(path));
 }
 
 TEST(TestOS_File, Slash) {

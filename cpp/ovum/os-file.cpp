@@ -2,6 +2,7 @@
 #include "ovum/os-file.h"
 
 #include <filesystem>
+#include <fstream>
 #include <random>
 
 namespace {
@@ -66,6 +67,11 @@ namespace {
     }
     ~TemporaryDirectories() {
       this->purge();
+    }
+    static std::string remember(const std::filesystem::path& entry, bool directory) {
+      static TemporaryDirectories registry;
+      registry.add(entry);
+      return egg::ovum::os::file::normalizePath(entry.string(), directory);
     }
   };
 }
@@ -142,6 +148,23 @@ std::string egg::ovum::os::file::getExecutablePath() {
   return os::file::normalizePath(getExecutableFile(), false);
 }
 
+std::string egg::ovum::os::file::createTemporaryFile(const std::string& prefix, const std::string& suffix, size_t attempts) {
+  auto tmpdir = std::filesystem::temp_directory_path();
+  std::random_device randev{};
+  std::mt19937 prng{ randev() };
+  std::uniform_int_distribution<uint64_t> rand{ 0 };
+  for (size_t attempt = 0; attempt < attempts; ++attempt) {
+    std::stringstream ss;
+    ss << prefix << std::hex << rand(prng) << suffix;
+    auto path = tmpdir / ss.str();
+    std::ofstream ofs{ path };
+    if (ofs) {
+      return TemporaryDirectories::remember(path, false);
+    }
+  }
+  throw std::runtime_error("Failed to create temporary directory");
+}
+
 std::string egg::ovum::os::file::createTemporaryDirectory(const std::string& prefix, size_t attempts) {
   // See https://stackoverflow.com/a/58454949
   auto tmpdir = std::filesystem::temp_directory_path();
@@ -153,9 +176,7 @@ std::string egg::ovum::os::file::createTemporaryDirectory(const std::string& pre
     ss << prefix << std::hex << rand(prng);
     auto path = tmpdir / ss.str();
     if (std::filesystem::create_directory(path)) {
-      static TemporaryDirectories registry;
-      registry.add(path);
-      return egg::ovum::os::file::normalizePath(path.string(), true);
+      return TemporaryDirectories::remember(path, true);
     }
   }
   throw std::runtime_error("Failed to create temporary directory");
