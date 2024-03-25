@@ -111,8 +111,8 @@ include $(ALL_OBJS:.o=.d)
 $(OBJ_DIR)/cpp/ovum/test/% $(OBJ_DIR)/cpp/yolk/test/%: CXXFLAGS += -iquote ./thirdparty/googletest/include
 $(OBJ_DIR)/cpp/ovum/test/gtest.%: CXXFLAGS += -iquote ./thirdparty/googletest
 
-# These source files need additional include directories for Minzip
-$(OBJ_DIR)/cpp/ovum/os-zip.%: CXXFLAGS += -iquote ./thirdparty
+# These source files need additional include directories for miniz-cpp
+$(OBJ_DIR)/cpp/ovum/os-zip.%: CXXFLAGS += -iquote ./thirdparty -fpermissive
 
 # This source file ingests environmental data
 $(OBJ_DIR)/cpp/ovum/version.%: CXXFLAGS += -DEGG_COMMIT=\"$(shell git rev-parse HEAD)\" -DEGG_TIMESTAMP=\"$(shell date -u +\"%Y-%m-%d\ %H:%M:%SZ\")\"
@@ -136,12 +136,12 @@ bin: $(TEST_EXE) $(CLI_EXE)
 	$(call noop)
 
 # Pseudo-target to build and run the test suite
-test: $(TEST_EXE) $(CLI_EXE)
+test: bin
 	$(ECHO) Running tests $<
 	$(RUNTEST) $<
 
 # Pseudo-target to run valgrind
-valgrind: $(TEST_EXE)
+valgrind: bin
 	$(ECHO) Grinding tests $<
 	valgrind -v --leak-check=full --show-leak-kinds=all --track-origins=yes $(TEST_EXE)
 
@@ -151,13 +151,13 @@ test-cli: $(CLI_EXE)
 	$(CLI_EXE) test
 
 # Pseudo-target to run test coverage
-test-coverage: $(TEST_EXE)
+test-coverage: bin
 	$(ECHO) Running test coverage $<
 	$(SILENT)./coverage.sh $(TEST_EXE) $(OBJ_DIR) $(OBJ_ROOT)/html
 	$(SILENT)cmd.exe /C start $(OBJ_ROOT)/html/index.html
 
 # Pseudo-target to run gdb
-test-gdb: $(TEST_EXE)
+test-gdb: bin
 	$(ECHO) Debugging tests $<
 	gdb --batch --eval-command=run --eval-command=where --args $(TEST_EXE)
 

@@ -1,77 +1,29 @@
 #include "ovum/ovum.h"
 #include "ovum/os-zip.h"
-#include "ovum/minizip_ng.h"
+#include "ovum/miniz-cpp.h"
 
 namespace {
   using namespace egg::ovum::os::zip;
 
   class ZipFile : public IZip {
-    std::filesystem::path zipfile;
-    typedef struct UndefinedHandle* Handle;
-    Handle handle;
+    ZipFile(const ZipFile&) = delete;
+    ZipFile& operator=(const ZipFile&) = delete;
+  private:
+    std::filesystem::path path;
+    std::unique_ptr<miniz_cpp::zip_file> handle;
   public:
-    explicit ZipFile(const std::filesystem::path& zipfile)
-      : zipfile(zipfile),
+    explicit ZipFile(const std::filesystem::path& path)
+      : path(path),
         handle(nullptr) {
     }
-    virtual ~ZipFile() override {
-      if (this->handle != nullptr) {
-        ZipFile::handleClose(this->handle);
-      }
-    }
     virtual std::string getComment() override {
-      assert(this->handle != nullptr);
-      const char* comment = nullptr;
-      auto err = mz_zip_get_comment(this->handle, &comment);
-      switch (err) {
-      case MZ_OK:
-        return comment;
-      case MZ_EXIST_ERROR:
-        break;
-      default:
-        this->failed("mz_zip_get_comment", err);
-        break;
-      }
-      return {};
+      assert(handle != nullptr);
+      return this->handle->comment;
     }
     void open() {
       assert(this->handle == nullptr);
-      this->handle = ZipFile::handleOpen(this->zipfile.string().c_str());
-      if (this->handle == nullptr) {
-        throw std::runtime_error("Cannot open zip");
-      }
-    }
-  private:
-    void failed(const char* api, int32_t retval) {
-      if (retval != MZ_OK) {
-        throw std::runtime_error(api);
-      }
-    }
-    static Handle handleOpen(const char* path) {
-      // WIBBLE this leaks blocks under Linux
-      auto stream = mz_stream_os_create();
-      if (stream == nullptr) {
-        return nullptr;
-      }
-      if (mz_stream_open(stream, path, MZ_OPEN_MODE_READ) != MZ_OK) {
-        mz_stream_delete(&stream);
-        return nullptr;
-      }
-      auto handle = mz_zip_create();
-      if (handle == nullptr) {
-        mz_stream_delete(&stream);
-        return nullptr;
-      }
-      auto err = mz_zip_open(handle, stream, MZ_OPEN_MODE_READ);
-      if (err != MZ_OK) {
-        mz_zip_delete(&handle);
-        return nullptr;
-      }
-      return static_cast<Handle>(handle);
-    }
-    static void handleClose(void* handle) {
-      mz_zip_close(handle);
-      mz_zip_delete(&handle);
+      this->handle = std::make_unique<miniz_cpp::zip_file>(this->path.string());
+      assert(this->handle != nullptr);
     }
   };
 
