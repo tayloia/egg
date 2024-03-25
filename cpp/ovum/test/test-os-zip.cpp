@@ -28,3 +28,15 @@ TEST(TestOS_Zip, GetComment) {
   ASSERT_NE(nullptr, zip);
   ASSERT_EQ("Twas brillig, and the slithy toves", zip->getComment());
 }
+
+TEST(TestOS_Zip, GetFileEntry) {
+  auto factory = egg::ovum::os::zip::createFactory();
+  ASSERT_NE(nullptr, factory);
+  auto zip = factory->openFile(egg::ovum::File::resolvePath("~/cpp/data/egg.zip"));
+  ASSERT_NE(nullptr, zip);
+  auto entry = zip->getFileEntry("poem/jabberwocky.txt");
+  ASSERT_EQ("poem/jabberwocky.txt", entry->getName());
+  ASSERT_EQ(493u, entry->getCompressedBytes());
+  ASSERT_EQ(1008u, entry->getUncompressedBytes());
+  ASSERT_EQ(0xC4458520u, entry->getCRC32());
+}
