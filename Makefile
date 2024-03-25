@@ -137,28 +137,28 @@ bin: $(TEST_EXE) $(CLI_EXE)
 
 # Pseudo-target to build and run the test suite
 test: bin
-	$(ECHO) Running tests $<
-	$(RUNTEST) $<
+	$(ECHO) Running tests $(TEST_EXE)
+	$(RUNTEST) $(TEST_EXE)
 
 # Pseudo-target to run valgrind
 valgrind: bin
-	$(ECHO) Grinding tests $<
+	$(ECHO) Grinding tests $(TEST_EXE)
 	valgrind -v --leak-check=full --show-leak-kinds=all --track-origins=yes $(TEST_EXE)
 
 # Pseudo-target to run command-line tests
 test-cli: $(CLI_EXE)
-	$(ECHO) Testing $<
+	$(ECHO) Testing $(CLI_EXE)
 	$(CLI_EXE) test
 
 # Pseudo-target to run test coverage
 test-coverage: bin
-	$(ECHO) Running test coverage $<
+	$(ECHO) Running test coverage $(TEST_EXE)
 	$(SILENT)./coverage.sh $(TEST_EXE) $(OBJ_DIR) $(OBJ_ROOT)/html
 	$(SILENT)cmd.exe /C start $(OBJ_ROOT)/html/index.html
 
 # Pseudo-target to run gdb
 test-gdb: bin
-	$(ECHO) Debugging tests $<
+	$(ECHO) Debugging tests $(TEST_EXE)
 	gdb --batch --eval-command=run --eval-command=where --args $(TEST_EXE)
 
 # Pseudo-target to clean the intermediates for the current configuration
