@@ -2,8 +2,6 @@
 #include "ovum/os-embed.h"
 #include "ovum/os-file.h"
 
-#include <filesystem>
-
 std::string egg::ovum::os::embed::getExecutableFilename() {
   auto executable = os::file::getExecutablePath();
   auto slash = executable.rfind('/');

@@ -3,7 +3,6 @@
 #include "ovum/os-file.h"
 #include "ovum/os-process.h"
 
-#include <filesystem>
 #include <fstream>
 #include <regex>
 #include <fcntl.h>

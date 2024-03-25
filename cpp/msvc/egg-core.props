@@ -4,11 +4,12 @@
   <PropertyGroup Label="UserMacros">
     <EggRoot>$(SolutionDir)..\..</EggRoot>
     <GoogleTest>$(EggRoot)\thirdparty\googletest</GoogleTest>
+    <ThirdParty>$(EggRoot)\thirdparty</ThirdParty>
   </PropertyGroup>
   <PropertyGroup>
     <OutDir>$(EggRoot)\bin\msvc\$(ProjectName).$(Configuration.ToLower()).$(PlatformTarget.ToLower())\</OutDir>
     <IntDir>$(EggRoot)\obj\msvc\$(ProjectName).$(Configuration.ToLower()).$(PlatformTarget.ToLower())\</IntDir>
-    <IncludePath>$(EggRoot)\cpp;$(GoogleTest)\include;$(IncludePath)</IncludePath>
+    <IncludePath>$(EggRoot)\cpp;$(GoogleTest)\include;$(ThirdParty);$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Label="Configuration">
     <SpectreMitigation>Spectre</SpectreMitigation>
@@ -42,6 +43,9 @@
     </BuildMacro>
     <BuildMacro Include="GoogleTest">
       <Value>$(GoogleTest)</Value>
+    </BuildMacro>
+    <BuildMacro Include="ThirdParty">
+      <Value>$(ThirdParty)</Value>
     </BuildMacro>
   </ItemGroup>
 </Project>

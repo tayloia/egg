@@ -2,7 +2,6 @@
 #include "ovum/file.h"
 #include "ovum/os-file.h"
 
-#include <filesystem>
 #include <fstream>
 
 std::string egg::ovum::File::normalizePath(const std::string& path, bool trailingSlash) {

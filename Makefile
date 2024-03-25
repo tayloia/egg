@@ -111,6 +111,9 @@ include $(ALL_OBJS:.o=.d)
 $(OBJ_DIR)/cpp/ovum/test/% $(OBJ_DIR)/cpp/yolk/test/%: CXXFLAGS += -iquote ./thirdparty/googletest/include
 $(OBJ_DIR)/cpp/ovum/test/gtest.%: CXXFLAGS += -iquote ./thirdparty/googletest
 
+# These source files need additional include directories for Minzip
+$(OBJ_DIR)/cpp/ovum/os-zip.%: CXXFLAGS += -iquote ./thirdparty
+
 # This source file ingests environmental data
 $(OBJ_DIR)/cpp/ovum/version.%: CXXFLAGS += -DEGG_COMMIT=\"$(shell git rev-parse HEAD)\" -DEGG_TIMESTAMP=\"$(shell date -u +\"%Y-%m-%d\ %H:%M:%SZ\")\"
 
