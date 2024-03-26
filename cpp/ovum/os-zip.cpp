@@ -14,9 +14,9 @@ namespace {
     miniz_cpp::zip_info info;
     std::stringstream stream;
   public:
-    ZipFileEntry(std::shared_ptr<miniz_cpp::zip_file> handle, miniz_cpp::zip_info&& info)
+    ZipFileEntry(std::shared_ptr<miniz_cpp::zip_file> handle, const miniz_cpp::zip_info& info)
       : handle(handle),
-        info(std::move(info)) {
+        info(info) {
       assert(this->handle != nullptr);
     }
     virtual std::string getName() const override {
@@ -45,19 +45,31 @@ namespace {
     Zip& operator=(const Zip&) = delete;
   private:
     std::shared_ptr<miniz_cpp::zip_file> handle;
+    std::vector<miniz_cpp::zip_info> info;
   public:
     Zip()
-      : handle(nullptr) {
+      : handle(nullptr),
+        info() {
     }
     virtual std::string getComment() override {
       assert(this->handle != nullptr);
       return this->handle->comment;
     }
-    virtual std::shared_ptr<IZipFileEntry> getFileEntry(const std::string& subpath) override {
+    virtual size_t getFileEntryCount() override {
       assert(this->handle != nullptr);
-      miniz_cpp::zip_info info;
+      return this->info.size();
+    }
+    virtual std::shared_ptr<IZipFileEntry> getFileEntryByIndex(size_t index) override {
+      assert(this->handle != nullptr);
+      if (index < this->info.size()) {
+        return std::make_shared<ZipFileEntry>(this->handle, this->info[index]);
+      }
+      return nullptr;
+    }
+    virtual std::shared_ptr<IZipFileEntry> getFileEntryByName(const std::string& subpath) override {
+      assert(this->handle != nullptr);
       try {
-        info = this->handle->getinfo(subpath);
+        return std::make_shared<ZipFileEntry>(this->handle, this->handle->getinfo(subpath));
       }
       catch (std::runtime_error& exception) {
         if (std::strcmp(exception.what(), "not found") == 0) {
@@ -65,12 +77,16 @@ namespace {
         }
         throw;
       }
-      return std::make_shared<ZipFileEntry>(this->handle, std::move(info));
     }
     void openFile(const std::filesystem::path& path) {
+      this->prepare(std::make_shared<miniz_cpp::zip_file>(path.string()));
+    }
+  private:
+    void prepare(const std::shared_ptr<miniz_cpp::zip_file>& zip) {
       assert(this->handle == nullptr);
-      this->handle = std::make_shared<miniz_cpp::zip_file>(path.string());
+      this->handle = zip;
       assert(this->handle != nullptr);
+      this->info = this->handle->infolist();
     }
   };
 

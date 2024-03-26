@@ -2,6 +2,8 @@
 #include "ovum/file.h"
 #include "ovum/os-zip.h"
 
+#include <iostream>
+
 namespace {
   std::string slurp(std::istream& stream) {
     std::stringstream ss;
@@ -51,12 +53,33 @@ TEST(TestOS_Zip, GetComment) {
   ASSERT_EQ("Twas brillig, and the slithy toves", zip->getComment());
 }
 
-TEST(TestOS_Zip, GetFileEntry) {
+TEST(TestOS_Zip, GetFileEntryByIndex) {
   auto factory = egg::ovum::os::zip::createFactory();
   ASSERT_NE(nullptr, factory);
   auto zip = factory->openFile(egg::ovum::File::resolvePath("~/cpp/data/egg.zip"));
   ASSERT_NE(nullptr, zip);
-  auto entry = zip->getFileEntry("poem/jabberwocky.txt");
+  auto count = zip->getFileEntryCount();
+  ASSERT_EQ(4u, count);
+  size_t jabberwockies = 0;
+  for (size_t index = 0; index < count; ++index) {
+    auto entry = zip->getFileEntryByIndex(index);
+    ASSERT_NE(nullptr, entry);
+    std::cout << entry->getName() << std::endl;
+    ASSERT_FALSE(entry->getName().empty());
+    if (entry->getName() == "poem/jabberwocky.txt") {
+      ++jabberwockies;
+    }
+    ASSERT_LE(entry->getCompressedBytes(), entry->getUncompressedBytes());
+  }
+  ASSERT_EQ(1u, jabberwockies);
+}
+
+TEST(TestOS_Zip, GetFileEntryByName) {
+  auto factory = egg::ovum::os::zip::createFactory();
+  ASSERT_NE(nullptr, factory);
+  auto zip = factory->openFile(egg::ovum::File::resolvePath("~/cpp/data/egg.zip"));
+  ASSERT_NE(nullptr, zip);
+  auto entry = zip->getFileEntryByName("poem/jabberwocky.txt");
   ASSERT_NE(nullptr, entry);
   ASSERT_EQ("poem/jabberwocky.txt", entry->getName());
   ASSERT_EQ(493u, entry->getCompressedBytes());
@@ -64,12 +87,12 @@ TEST(TestOS_Zip, GetFileEntry) {
   ASSERT_EQ(0xC4458520u, entry->getCRC32());
 }
 
-TEST(TestOS_Zip, GetFileEntryMissing) {
+TEST(TestOS_Zip, GetFileEntryByNameMissing) {
   auto factory = egg::ovum::os::zip::createFactory();
   ASSERT_NE(nullptr, factory);
   auto zip = factory->openFile(egg::ovum::File::resolvePath("~/cpp/data/egg.zip"));
   ASSERT_NE(nullptr, zip);
-  auto entry = zip->getFileEntry("missing.txt");
+  auto entry = zip->getFileEntryByName("missing.txt");
   ASSERT_EQ(nullptr, entry);
 }
 
@@ -78,7 +101,7 @@ TEST(TestOS_Zip, GetReadStream) {
   ASSERT_NE(nullptr, factory);
   auto zip = factory->openFile(egg::ovum::File::resolvePath("~/cpp/data/egg.zip"));
   ASSERT_NE(nullptr, zip);
-  auto entry = zip->getFileEntry("poem/jabberwocky.txt");
+  auto entry = zip->getFileEntryByName("poem/jabberwocky.txt");
   ASSERT_NE(nullptr, entry);
   auto& stream = entry->getReadStream();
   auto actual = slurp(stream);

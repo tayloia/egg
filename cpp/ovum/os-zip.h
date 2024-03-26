@@ -14,7 +14,9 @@ namespace egg::ovum::os::zip {
     // Interface
     virtual ~IZip() = 0;
     virtual std::string getComment() = 0;
-    virtual std::shared_ptr<IZipFileEntry> getFileEntry(const std::string& path) = 0;
+    virtual size_t getFileEntryCount() = 0;
+    virtual std::shared_ptr<IZipFileEntry> getFileEntryByIndex(size_t index) = 0;
+    virtual std::shared_ptr<IZipFileEntry> getFileEntryByName(const std::string& path) = 0;
   };
   class IZipFactory {
   public:
