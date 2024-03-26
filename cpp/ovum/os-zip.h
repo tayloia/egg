@@ -7,6 +7,7 @@ namespace egg::ovum::os::zip {
     virtual uint64_t getCompressedBytes() const = 0;
     virtual uint64_t getUncompressedBytes() const = 0;
     virtual uint32_t getCRC32() const = 0;
+    virtual std::istream& getReadStream() = 0;
   };
   class IZip {
   public:
