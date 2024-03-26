@@ -17,12 +17,12 @@ namespace {
     if (egg::ovum::os::file::slash() == '\\') {
       // e.g. "c:/project/egg/bin/msvc/yolk-test.debug.x64/yolk-test.exe"
       std::string needle{ "/yolk-test." };
-      replaceFirst(exe, needle, "/cli.");
-      replaceFirst(exe, needle, "/egg.");
+      replaceFirst(exe, needle, "/egg-stub.");
+      replaceFirst(exe, needle, "/egg-stub.");
     } else {
       // e.g. "/mnt/c/Project/egg/bin/wsl/gcc/release/egg-testsuite.exe"
       std::string needle{ "/egg-testsuite" };
-      replaceFirst(exe, needle, "/egg");
+      replaceFirst(exe, needle, "/egg-stub");
     }
     return egg::ovum::os::file::denormalizePath(exe, false);
   }

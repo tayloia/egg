@@ -19,9 +19,6 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="cli.vcxproj">
-      <Project>{1f2b7d35-7c01-446a-b258-1d43a2224d9f}</Project>
-    </ProjectReference>
     <ProjectReference Include="yolk.vcxproj">
       <Project>{05a72ea2-0b14-4e92-86f1-c98e7fdffbba}</Project>
     </ProjectReference>

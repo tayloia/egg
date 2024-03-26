@@ -43,7 +43,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "syntax", "syntax", "{76A260
 		..\www\v1\syntax\syntax.pdf = ..\www\v1\syntax\syntax.pdf
 	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cli", "cli.vcxproj", "{1F2B7D35-7C01-446A-B258-1D43A2224D9F}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "egg-stub", "egg-stub.vcxproj", "{1F2B7D35-7C01-446A-B258-1D43A2224D9F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
