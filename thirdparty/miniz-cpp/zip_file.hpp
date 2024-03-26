@@ -5646,7 +5646,7 @@ private:
             }
         }
         
-        if(position == 3)
+        if(position < 4)
         {
             throw std::runtime_error("didn't find end of central directory signature");
         }
