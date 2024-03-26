@@ -129,10 +129,10 @@
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(EggRoot)\build.cmd CONFIGURATION=debug test</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(EggRoot)\build.cmd CONFIGURATION=release test</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(EggRoot)\build.cmd CONFIGURATION=release test</Command>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(EggRoot)\bin\wsl\gcc\debug\egg-testsuite.exe.log;%(Outputs)</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(EggRoot)\bin\wsl\gcc\release\egg-testsuite.exe.log;%(Outputs)</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(EggRoot)\bin\wsl\gcc\debug\egg-testsuite.exe.log;%(Outputs)</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(EggRoot)\bin\wsl\gcc\release\egg-testsuite.exe.log;%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(EggRoot)\bin\wsl\gcc\debug\egg-test.exe.log;%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(EggRoot)\bin\wsl\gcc\release\egg-test.exe.log;%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(EggRoot)\bin\wsl\gcc\debug\egg-test.exe.log;%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(EggRoot)\bin\wsl\gcc\release\egg-test.exe.log;%(Outputs)</Outputs>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Making with make/gcc...</Message>
       <Message Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Making with make/gcc...</Message>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Making with make/gcc...</Message>

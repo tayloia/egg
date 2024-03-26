@@ -55,7 +55,7 @@ BIN_DIR = $(BIN_ROOT)/$(CONFIGURATION)
 
 EGG_SRCS = $(call sources,cpp/ovum/*.cpp cpp/yolk/*.cpp)
 TEST_SRCS = $(call sources,cpp/ovum/test/*.cpp cpp/yolk/test/*.cpp)
-STUB_SRCS = $(call sources,cpp/cli/*.cpp)
+STUB_SRCS = $(call sources,cpp/stub/*.cpp)
 
 EGG_OBJS = $(call objects,$(EGG_SRCS))
 TEST_OBJS = $(call objects,$(TEST_SRCS))
@@ -64,7 +64,7 @@ STUB_OBJS = $(call objects,$(STUB_SRCS))
 ALL_OBJS = $(EGG_OBJS) $(TEST_OBJS) $(STUB_OBJS)
 ALL_DIRS = $(call directories,$(ALL_OBJS)) $(BIN_DIR)/.
 
-TEST_EXE = $(BIN_DIR)/egg-testsuite.exe
+TEST_EXE = $(BIN_DIR)/egg-test.exe
 STUB_EXE = $(BIN_DIR)/egg-stub.exe
 CLI_EXE = $(BIN_DIR)/egg.exe
 

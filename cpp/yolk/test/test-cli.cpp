@@ -20,8 +20,8 @@ namespace {
       replaceFirst(exe, needle, "/egg-stub.");
       replaceFirst(exe, needle, "/egg-stub.");
     } else {
-      // e.g. "/mnt/c/Project/egg/bin/wsl/gcc/release/egg-testsuite.exe"
-      std::string needle{ "/egg-testsuite" };
+      // e.g. "/mnt/c/Project/egg/bin/wsl/gcc/release/egg-test.exe"
+      std::string needle{ "/egg-test" };
       replaceFirst(exe, needle, "/egg-stub");
     }
     return egg::ovum::os::file::denormalizePath(exe, false);

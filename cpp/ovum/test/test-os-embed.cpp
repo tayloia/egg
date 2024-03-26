@@ -6,7 +6,7 @@
 namespace {
   std::string expectedStub() {
     if (egg::ovum::os::file::slash() == '/') {
-      return "egg-testsuite";
+      return "egg-test";
     }
     return "ovum-test";
   }
