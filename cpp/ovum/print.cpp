@@ -1,4 +1,5 @@
 #include "ovum/ovum.h"
+#include "ovum/exception.h"
 #include "ovum/utf.h"
 
 #include <iomanip>
@@ -107,6 +108,9 @@ void egg::ovum::Print::write(std::ostream& stream, ILogger::Source value, const 
     break;
   case ILogger::Source::Runtime:
     stream << "<RUNTIME>";
+    break;
+  case ILogger::Source::Command:
+    stream << "<COMMAND>";
     break;
   case ILogger::Source::User:
     stream << "<USER>";
@@ -374,6 +378,10 @@ void egg::ovum::Print::write(std::ostream& stream, ILogger::Severity value, cons
     stream << "<SEVERITY:" << int(value) << ">";
     break;
   }
+}
+
+void egg::ovum::Print::write(std::ostream& stream, const Exception& value, const Options&) {
+  stream << "<WHAT=" << value.what() << "><REASON=" << value.reason() << "><WHERE=" << value.where() << ">";
 }
 
 void egg::ovum::Print::ascii(std::ostream& stream, const std::string& value, char quote) {

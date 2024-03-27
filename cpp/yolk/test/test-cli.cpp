@@ -36,6 +36,15 @@ namespace {
   }
 }
 
+TEST(TestCLI, UnknownCommand) {
+  std::stringstream ss;
+  auto exitcode = egg::ovum::os::process::pexec(ss, executable() + " unknown");
+  ASSERT_EQ(2, exitcode);
+  auto actual = ss.str();
+  auto expected = "Usage: WIBBLE\n";
+  ASSERT_EQ(expected, actual);
+}
+
 TEST(TestCLI, Version) {
   std::stringstream ss;
   ss << egg::ovum::Version() << '\n';

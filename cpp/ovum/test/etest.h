@@ -55,6 +55,9 @@ namespace egg::test {
       case Source::Runtime:
         buffer = "<RUNTIME>";
         break;
+      case Source::Command:
+        buffer = "<COMMAND>";
+        break;
       case Source::User:
         break;
       }

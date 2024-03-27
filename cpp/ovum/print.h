@@ -1,4 +1,5 @@
 namespace egg::ovum {
+  class Exception;
   class HardObject;
   class HardValue;
   class IValue;
@@ -42,6 +43,7 @@ namespace egg::ovum {
     static void write(std::ostream& stream, ValueMutationOp value, const Options& options);
     static void write(std::ostream& stream, TypeUnaryOp value, const Options& options);
     static void write(std::ostream& stream, TypeBinaryOp value, const Options& options);
+    static void write(std::ostream& stream, const Exception& value, const Options& options);
 
     // Print string to stream
     static void ascii(std::ostream& stream, const std::string& value, char quote);

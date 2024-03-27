@@ -2,6 +2,5 @@
 #include "yolk/stub.h"
 
 int main(int argc, char* argv[], char* envp[]) {
-  egg::yolk::Stub stub(argc, argv, envp);
-  return stub.main();
+  return egg::yolk::IStub::main(argc, argv, envp);
 }

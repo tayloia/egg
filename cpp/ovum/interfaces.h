@@ -142,7 +142,8 @@ namespace egg::ovum {
     enum class Source {
       Compiler = 1 << 0,
       Runtime = 1 << 1,
-      User = 1 << 2
+      Command = 1 << 2,
+      User = 1 << 3
     };
     enum class Severity {
       None = 0,
