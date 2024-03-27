@@ -1,6 +1,7 @@
 #include "yolk/yolk.h"
 #include "yolk/stub.h"
 #include "ovum/exception.h"
+#include "ovum/os-file.h"
 #include "ovum/version.h"
 
 #include <cctype>
@@ -92,8 +93,21 @@ namespace {
       if ((this->arguments.size() == 2) && (this->arguments[1] == "version")) {
         return this->cmdVersion();
       }
-      this->error("Usage: WIBBLE");
+      this->error("Usage: " + this->appname() + " [<general-option>]... <command> [<command-option>|<command-argument>]...");
       return ExitCode::Usage;
+    }
+    std::string appname() {
+      std::string arg0;
+      if (!this->arguments.empty()) {
+        arg0 = os::file::getExecutableName(this->arguments.front(), true);
+      }
+      if (arg0.empty()) {
+        arg0 = os::file::getExecutableName(os::file::getExecutablePath(), true);
+      }
+      if (arg0.empty()) {
+        arg0 = "egg";
+      }
+      return arg0;
     }
     void error(const std::string& message) {
       if ((this->logger != nullptr) && (this->allocator != nullptr)) {
@@ -105,18 +119,19 @@ namespace {
     }
     void error(const std::exception& exception) {
       if ((this->logger != nullptr) && (this->allocator != nullptr)) {
-        auto utf8 = StringBuilder::concat(*this->allocator, "Exception: ", exception.what());
+        auto utf8 = StringBuilder::concat(*this->allocator, this->appname(), ": Exception: ", exception.what());
         this->logger->log(Source::Command, Severity::Error, utf8);
       } else {
-        std::cerr << "Exception: " << exception.what() << std::endl;
+        std::cerr << this->appname() << ": Exception: " << exception.what() << std::endl;
       }
     }
     void error(const Exception& exception) {
       if ((this->logger != nullptr) && (this->allocator != nullptr)) {
         StringBuilder sb;
-        sb << exception;
+        sb << this->appname() << ": " << exception;
         this->logger->log(Source::Command, Severity::Error, sb.build(*this->allocator));
       } else {
+        std::cerr << this->appname() << ": ";
         Print::write(std::cerr, exception, Print::Options::DEFAULT);
         std::cerr << std::endl;
       }
@@ -149,7 +164,7 @@ int egg::yolk::IStub::main(int argc, char* argv[], char* envp[]) noexcept {
   } catch (const std::exception& exception) {
     stub.error(exception);
   } catch (...) {
-    stub.error("Fatal exception");
+    stub.error(stub.appname() + ": Fatal exception");
   }
   return static_cast<int>(exitcode);
 }

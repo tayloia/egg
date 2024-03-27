@@ -148,6 +148,27 @@ std::string egg::ovum::os::file::getExecutablePath() {
   return os::file::normalizePath(getExecutableFile(), false);
 }
 
+std::string egg::ovum::os::file::getExecutableName(const std::string& path, bool removeExe) {
+  // Gets the name of the currently-running executable
+  std::string name;
+  auto slash = path.find_last_of("/\\");
+  if (slash == std::string::npos) {
+    name = path;
+  } else {
+    name = path.substr(slash + 1);
+  }
+  if (removeExe) {
+    auto length = name.size();
+    if (length > 4) {
+      const char* p = name.data() + length - 4;
+      if ((p[0] == '.') && (std::tolower(p[1]) == 'e') && (std::tolower(p[2]) == 'x') && (std::tolower(p[3]) == 'e')) {
+        name.erase(length - 4);
+      }
+    }
+  }
+  return name;
+}
+
 std::string egg::ovum::os::file::createTemporaryFile(const std::string& prefix, const std::string& suffix, size_t attempts) {
   auto tmpdir = std::filesystem::temp_directory_path();
   std::random_device randev{};

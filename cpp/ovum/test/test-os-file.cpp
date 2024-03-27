@@ -59,6 +59,39 @@ TEST(TestOS_File, GetExecutableDirectory) {
   ASSERT_EQ('/', dir.back());
 }
 
+TEST(TestOS_File, GetExecutableName) {
+  // Posix style
+  ASSERT_EQ("", egg::ovum::os::file::getExecutableName("", false));
+  ASSERT_EQ("", egg::ovum::os::file::getExecutableName("/path/to/", false));
+  ASSERT_EQ(".exe", egg::ovum::os::file::getExecutableName("/path/to/.exe", false));
+  ASSERT_EQ("executable", egg::ovum::os::file::getExecutableName("/path/to/executable", false));
+  ASSERT_EQ("executable.exe", egg::ovum::os::file::getExecutableName("/path/to/executable.exe", false));
+  ASSERT_EQ("EXECUTABLE", egg::ovum::os::file::getExecutableName("/PATH/TO/EXECUTABLE", false));
+  ASSERT_EQ("EXECUTABLE.EXE", egg::ovum::os::file::getExecutableName("/PATH/TO/EXECUTABLE.EXE", false));
+  ASSERT_EQ("", egg::ovum::os::file::getExecutableName("", true));
+  ASSERT_EQ("", egg::ovum::os::file::getExecutableName("/path/to/", true));
+  ASSERT_EQ(".exe", egg::ovum::os::file::getExecutableName("/path/to/.exe", true));
+  ASSERT_EQ("executable", egg::ovum::os::file::getExecutableName("/path/to/executable", true));
+  ASSERT_EQ("executable", egg::ovum::os::file::getExecutableName("/path/to/executable.exe", true));
+  ASSERT_EQ("EXECUTABLE", egg::ovum::os::file::getExecutableName("/PATH/TO/EXECUTABLE", true));
+  ASSERT_EQ("EXECUTABLE", egg::ovum::os::file::getExecutableName("/PATH/TO/EXECUTABLE.EXE", true));
+  // Windows style
+  ASSERT_EQ("", egg::ovum::os::file::getExecutableName("", false));
+  ASSERT_EQ("", egg::ovum::os::file::getExecutableName("\\path\\to\\", false));
+  ASSERT_EQ(".exe", egg::ovum::os::file::getExecutableName("\\path\\to\\.exe", false));
+  ASSERT_EQ("executable", egg::ovum::os::file::getExecutableName("\\path\\to\\executable", false));
+  ASSERT_EQ("executable.exe", egg::ovum::os::file::getExecutableName("\\path\\to\\executable.exe", false));
+  ASSERT_EQ("EXECUTABLE", egg::ovum::os::file::getExecutableName("\\PATH\\TO\\EXECUTABLE", false));
+  ASSERT_EQ("EXECUTABLE.EXE", egg::ovum::os::file::getExecutableName("\\PATH\\TO\\EXECUTABLE.EXE", false));
+  ASSERT_EQ("", egg::ovum::os::file::getExecutableName("", true));
+  ASSERT_EQ("", egg::ovum::os::file::getExecutableName("\\path\\to\\", true));
+  ASSERT_EQ(".exe", egg::ovum::os::file::getExecutableName("\\path\\to\\.exe", true));
+  ASSERT_EQ("executable", egg::ovum::os::file::getExecutableName("\\path\\to\\executable", true));
+  ASSERT_EQ("executable", egg::ovum::os::file::getExecutableName("\\path\\to\\executable.exe", true));
+  ASSERT_EQ("EXECUTABLE", egg::ovum::os::file::getExecutableName("\\PATH\\TO\\EXECUTABLE", true));
+  ASSERT_EQ("EXECUTABLE", egg::ovum::os::file::getExecutableName("\\PATH\\TO\\EXECUTABLE.EXE", true));
+}
+
 TEST(TestOS_File, CreateTemporaryFile) {
   auto path = egg::ovum::os::file::createTemporaryFile("egg-test-file-", ".tmp", 100);
   ASSERT_GT(path.size(), 0u);

@@ -21,8 +21,8 @@ namespace {
       replaceFirst(exe, needle, "/egg-stub.");
     } else {
       // e.g. "/mnt/c/Project/egg/bin/wsl/gcc/release/egg-test.exe"
-      std::string needle{ "/egg-test" };
-      replaceFirst(exe, needle, "/egg-stub");
+      std::string needle{ "/egg-test." };
+      replaceFirst(exe, needle, "/egg-stub.");
     }
     return egg::ovum::os::file::denormalizePath(exe, false);
   }
@@ -41,7 +41,7 @@ TEST(TestCLI, UnknownCommand) {
   auto exitcode = egg::ovum::os::process::pexec(ss, executable() + " unknown");
   ASSERT_EQ(2, exitcode);
   auto actual = ss.str();
-  auto expected = "Usage: WIBBLE\n";
+  auto expected = "Usage: egg-stub [<general-option>]... <command> [<command-option>|<command-argument>]...\n";
   ASSERT_EQ(expected, actual);
 }
 
