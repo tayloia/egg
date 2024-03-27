@@ -21,17 +21,17 @@ namespace {
 
   class Stub : public egg::yolk::IStub {
   private:
+    struct Command {
+      std::string command;
+      std::string usage;
+      CommandHandler handler;
+    };
     std::vector<std::string> arguments;
     std::map<std::string, std::string, LessCaseInsensitive> environment;
+    std::map<std::string, Command> commands;
     IAllocator* allocator = nullptr;
     ILogger* logger = nullptr;
   public:
-    virtual IStub& withArguments(int argc, char* argv[]) override {
-      for (auto argi = 0; argi < argc; ++argi) {
-        this->arguments.push_back((argv[argi] == nullptr) ? std::string() : argv[argi]);
-      }
-      return *this;
-    }
     virtual void log(Source source, Severity severity, const String& message) override {
       if (this->logger != nullptr) {
         this->logger->log(source, severity, message);
@@ -73,6 +73,12 @@ namespace {
       buffer += message.toUTF8();
       std::cout << buffer << std::endl;
     }
+    virtual IStub& withArguments(int argc, char* argv[]) override {
+      for (auto argi = 0; argi < argc; ++argi) {
+        this->arguments.push_back((argv[argi] == nullptr) ? std::string() : argv[argi]);
+      }
+      return *this;
+    }
     virtual IStub& withEnvironment(char* envp[]) override {
       for (auto envi = 0; envp[envi] != nullptr; ++envi) {
         auto equals = std::strchr(envp[envi], '=');
@@ -86,14 +92,33 @@ namespace {
       }
       return *this;
     }
+    virtual IStub& withCommand(const std::string& command, const std::string& usage, const CommandHandler& handler) override {
+      this->commands.emplace(std::piecewise_construct, std::forward_as_tuple(command), std::forward_as_tuple(command, usage, handler));
+      return *this;
+    }
+    virtual IStub& withBuiltinCommands() override {
+      this->withBuiltin(&Stub::cmdVersion, "version");
+      return *this;
+    }
     virtual ExitCode main() override {
-      if (this->arguments.size() < 2) {
+      auto index = this->parseGeneralOptions();
+      if (index >= this->arguments.size()) {
+        // No command supplied
         return this->cmdEmpty();
       }
-      if ((this->arguments.size() == 2) && (this->arguments[1] == "version")) {
-        return this->cmdVersion();
+      const auto& command = this->arguments[index];
+      auto found = this->commands.find(command);
+      if (found != this->commands.end()) {
+        return found->second.handler(index);
       }
-      this->error("Usage: " + this->appname() + " [<general-option>]... <command> [<command-option>|<command-argument>]...");
+      if ((this->logger != nullptr) && (this->allocator != nullptr)) {
+        std::stringstream ss;
+        this->usage(ss);
+        this->logger->log(Source::Command, Severity::Error, String::fromUTF8(*this->allocator, ss.str().c_str()));
+      } else {
+        this->usage(std::cerr);
+        std::cerr << std::endl;
+      }
       return ExitCode::Usage;
     }
     std::string appname() {
@@ -137,6 +162,26 @@ namespace {
       }
     }
   private:
+    using MemberHandler = ExitCode(Stub::*)(size_t);
+    void withBuiltin(const MemberHandler& memberHandler, const std::string& usage) {
+      auto commandHandler = std::bind(memberHandler, this, std::placeholders::_1);
+      auto space = usage.find(' ');
+      if (space == std::string::npos) {
+        this->withCommand(usage, usage, commandHandler);
+      } else {
+        this->withCommand(usage.substr(0, space), usage, commandHandler);
+      }
+    }
+    size_t parseGeneralOptions() {
+      size_t index = 1;
+      while (index < this->arguments.size()) {
+        const auto& argument = this->arguments[index];
+        if (!argument.starts_with('-')) {
+          break;
+        }
+      }
+      return index;
+    }
     ExitCode cmdEmpty() {
       std::cout << Version() << std::endl;
       for (auto& arg : this->arguments) {
@@ -147,9 +192,15 @@ namespace {
       }
       return ExitCode::OK;
     }
-    ExitCode cmdVersion() {
+    ExitCode cmdVersion(size_t) {
       std::cout << Version() << std::endl;
       return ExitCode::OK;
+    }
+    void usage(std::ostream& os) {
+      os << "Usage: " << this->appname() << " [<general-option>]... <command> [<command-option>|<command-argument>]...";
+      for (const auto& command : this->commands) {
+        os << "\n  " << command.second.usage;
+      }
     }
   };
 }
@@ -158,7 +209,7 @@ int egg::yolk::IStub::main(int argc, char* argv[], char* envp[]) noexcept {
   auto exitcode = ExitCode::Error;
   Stub stub;
   try {
-    exitcode = stub.withArguments(argc, argv).withEnvironment(envp).main();
+    exitcode = stub.withArguments(argc, argv).withEnvironment(envp).withBuiltinCommands().main();
   } catch (const Exception& exception) {
     stub.error(exception);
   } catch (const std::exception& exception) {

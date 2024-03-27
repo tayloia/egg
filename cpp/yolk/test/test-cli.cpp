@@ -42,7 +42,7 @@ TEST(TestCLI, UnknownCommand) {
   ASSERT_EQ(2, exitcode);
   auto actual = ss.str();
   auto expected = "Usage: egg-stub [<general-option>]... <command> [<command-option>|<command-argument>]...\n";
-  ASSERT_EQ(expected, actual);
+  ASSERT_STARTSWITH(actual, expected);
 }
 
 TEST(TestCLI, Version) {
