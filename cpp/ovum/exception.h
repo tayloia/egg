@@ -1,8 +1,9 @@
 namespace egg::ovum {
   class Exception : public std::runtime_error, public std::map<std::string, std::string> {
   public:
-    explicit Exception(const std::string& reason, const std::source_location location = std::source_location::current());
-    Exception(const std::string& reason, const std::string& where);
+    explicit Exception(const char* fmt, const std::source_location location = std::source_location::current());
+    explicit Exception(const std::string& fmt, const std::source_location location = std::source_location::current());
+    Exception(const std::string& reason, const std::string& file, size_t line, size_t column = 0);
     virtual const std::string& reason() const {
       return this->get("reason");
     }
@@ -10,6 +11,10 @@ namespace egg::ovum {
       return this->get("where");
     }
     virtual const char* what() const noexcept override;
+    Exception& with(const std::string& key, const std::string& value) {
+      this->emplace(key, value);
+      return *this;
+    }
     const std::string& get(const std::string& key) const {
       auto found = this->find(key);
       if (found != this->end()) {

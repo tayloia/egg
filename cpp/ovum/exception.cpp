@@ -33,14 +33,21 @@ namespace {
   }
 }
 
-egg::ovum::Exception::Exception(const std::string& reason, const std::source_location location)
-  : Exception(reason, formatWhere(formatResource(location.file_name(), 3), location.line())) {
+egg::ovum::Exception::Exception(const char* fmt, const std::source_location location)
+  : std::runtime_error(fmt) {
+  this->emplace("where", formatWhere(formatResource(location.file_name(), 3), location.line()));
 }
 
-egg::ovum::Exception::Exception(const std::string& reason, const std::string& where)
-  : std::runtime_error(where + ": " + reason) {
+egg::ovum::Exception::Exception(const std::string& fmt, const std::source_location location)
+  : std::runtime_error(fmt) {
+  // WIBBLE retire
+  this->emplace("where", formatWhere(formatResource(location.file_name(), 3), location.line()));
+}
+
+egg::ovum::Exception::Exception(const std::string& reason, const std::string& file, size_t line, size_t column)
+  : std::runtime_error("{where}: {reason}") {
   this->emplace("reason", reason);
-  this->emplace("where", where);
+  this->emplace("where", formatWhere(file, line, column));
 }
 
 const char* egg::ovum::Exception::what() const noexcept {
@@ -82,14 +89,14 @@ std::string egg::ovum::Exception::format(const char* fmt) const {
 }
 
 egg::ovum::SyntaxException::SyntaxException(const std::string& reason, const std::string& resource, const SourceLocation& location, const std::string& token)
-  : Exception(reason, formatWhere(resource, location.line, location.column)),
+  : Exception(reason, resource, location.line, location.column),
     range_value({ location, location }) {
   this->emplace("token", token);
   this->emplace("resource", resource);
 }
 
 egg::ovum::SyntaxException::SyntaxException(const std::string& reason, const std::string& resource, const SourceRange& range, const std::string& token)
-  : Exception(reason, formatWhere(resource, range.begin.line, range.begin.column)),
+  : Exception(reason, resource, range.begin.line, range.begin.column),
     range_value({ range.begin, range.end }) {
   this->emplace("token", token);
   this->emplace("resource", resource);
