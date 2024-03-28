@@ -135,7 +135,7 @@ namespace {
         }
       }
       catch (SyntaxException& exception) {
-        const auto& reason = exception.reason();
+        const auto& reason = exception.get("reason");
         auto message = String::fromUTF8(this->allocator, reason.data(), reason.size());
         this->issues.emplace_back(Issue::Severity::Error, message, exception.range());
         root = nullptr;

@@ -7,14 +7,30 @@ TEST(TestException, Throw) {
 }
 
 TEST(TestException, Catch) {
-  std::string expected_file = "ovum/test/test-exception.cpp";
-  size_t expected_line = __LINE__ + 2; // where the throw occurs
   try {
-    throw egg::ovum::Exception("{where}: Hello world");
+    throw egg::ovum::Exception("Hello world");
   } catch (const egg::ovum::Exception& exception) {
-    auto where = expected_file + '(' + std::to_string(expected_line) + ')';
+    ASSERT_STREQ("Hello world", exception.what());
+  }
+}
+
+TEST(TestException, HereImplicit) {
+  try {
+    throw egg::ovum::Exception("{where}: Hello world").here();
+  } catch (const egg::ovum::Exception& exception) {
+    auto where = "ovum/test/test-exception.cpp(" + std::to_string(__LINE__ - 2) + ')';
     ASSERT_EQ(where + ": Hello world", exception.what());
-    ASSERT_EQ(where, exception.where());
+    ASSERT_EQ(where, exception.get("where"));
+  }
+}
+
+TEST(TestException, HereExplicit) {
+  try {
+    throw egg::ovum::Exception("{where}: Hello world").here("file", 2, 3);
+  } catch (const egg::ovum::Exception& exception) {
+    std::string where = "file(2,3)";
+    ASSERT_EQ(where + ": Hello world", exception.what());
+    ASSERT_EQ(where, exception.get("where"));
   }
 }
 
@@ -45,9 +61,8 @@ TEST(TestException, Print) {
                   "  alpha=<ALPHA>\n"
                   "  beta=<BETA>\n"
                   "  gamma=<GAMMA>\n"
-                  "  what=<FORMAT>\n"
-                  "  where=";
-  ASSERT_STARTSWITH(actual, expected);
+                  "  what=<FORMAT>";
+  ASSERT_EQ(actual, expected);
 }
 
 TEST(TestException, With) {

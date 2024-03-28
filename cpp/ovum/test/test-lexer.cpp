@@ -51,7 +51,7 @@ namespace {
   }
   void lexerThrowContains(ILexer& lexer, const std::string& needle) {
     LexerItem item;
-    ASSERT_THROW_E(lexer.next(item), Exception, ASSERT_CONTAINS(e.reason(), needle))
+    ASSERT_THROW_E(lexer.next(item), Exception, ASSERT_CONTAINS(e.get("reason"), needle))
   }
 }
 

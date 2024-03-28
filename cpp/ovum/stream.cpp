@@ -15,11 +15,11 @@ namespace {
     do {
       auto b = stream.get();
       if (b < 0) {
-        throw egg::ovum::Exception("Invalid UTF-8 encoding (truncated continuation): " + stream.getResourceName());
+        throw egg::ovum::Exception("Invalid UTF-8 encoding (truncated continuation): '{resource}'").with("resource", stream.getResourceName());
       }
       b ^= 0x80;
       if (b > 0x3F) {
-        throw egg::ovum::Exception("Invalid UTF-8 encoding (invalid continuation): " + stream.getResourceName());
+        throw egg::ovum::Exception("Invalid UTF-8 encoding (invalid continuation): '{resource}'").with("resource", stream.getResourceName());
       }
       value = (value << 6) | b;
     } while (--count);
@@ -32,7 +32,7 @@ namespace {
       return b;
     }
     if (b < 0xC0) {
-      throw egg::ovum::Exception("Invalid UTF-8 encoding (unexpected continuation): " + stream.getResourceName());
+      throw egg::ovum::Exception("Invalid UTF-8 encoding (unexpected continuation): '{resource}'").with("resource", stream.getResourceName());
     }
     if (b < 0xE0) {
       // One continuation byte
@@ -46,7 +46,7 @@ namespace {
       // Three continuation bytes
       return readContinuation(stream, b & 0x07, 3);
     }
-    throw egg::ovum::Exception("Invalid UTF-8 encoding (bad lead byte): " + stream.getResourceName());
+    throw egg::ovum::Exception("Invalid UTF-8 encoding (bad lead byte): '{resource}'").with("resource", stream.getResourceName());
   }
 }
 
