@@ -26,9 +26,16 @@ namespace {
       std::string usage;
       CommandHandler handler;
     };
+    struct Option {
+      std::string option;
+      std::string usage;
+      OptionHandler handler;
+      size_t occurrences;
+    };
     std::vector<std::string> arguments;
     std::map<std::string, std::string, LessCaseInsensitive> environment;
     std::map<std::string, Command> commands;
+    std::map<std::string, Option> options;
     IAllocator* allocator = nullptr;
     ILogger* logger = nullptr;
   public:
@@ -96,12 +103,21 @@ namespace {
       this->commands.emplace(std::piecewise_construct, std::forward_as_tuple(command), std::forward_as_tuple(command, usage, handler));
       return *this;
     }
-    virtual IStub& withBuiltinCommands() override {
-      this->withBuiltin(&Stub::cmdVersion, "version");
+    virtual IStub& withOption(const std::string& option, const std::string& usage, const OptionHandler& handler) override {
+      this->options.emplace(std::piecewise_construct, std::forward_as_tuple(option), std::forward_as_tuple(option, usage, handler));
+      return *this;
+    }
+    virtual IStub& withBuiltins() override {
+      this->withBuiltinOption(&Stub::optVerbose, "verbose=<WIBBLE>");
+      this->withBuiltinCommand(&Stub::cmdVersion, "version");
       return *this;
     }
     virtual ExitCode main() override {
       auto index = this->parseGeneralOptions();
+      if (index == 0) {
+        // Bad option error already spewed
+        return ExitCode::Usage;
+      }
       if (index >= this->arguments.size()) {
         // No command supplied
         return this->cmdEmpty();
@@ -111,14 +127,7 @@ namespace {
       if (found != this->commands.end()) {
         return found->second.handler(index);
       }
-      if ((this->logger != nullptr) && (this->allocator != nullptr)) {
-        std::stringstream ss;
-        this->usage(ss);
-        this->logger->log(Source::Command, Severity::Error, String::fromUTF8(*this->allocator, ss.str().c_str()));
-      } else {
-        this->usage(std::cerr);
-        std::cerr << std::endl;
-      }
+      this->badUsage("Unknown command: '" + command + "'");
       return ExitCode::Usage;
     }
     std::string appname() {
@@ -162,25 +171,66 @@ namespace {
       }
     }
   private:
-    using MemberHandler = ExitCode(Stub::*)(size_t);
-    void withBuiltin(const MemberHandler& memberHandler, const std::string& usage) {
-      auto commandHandler = std::bind(memberHandler, this, std::placeholders::_1);
+    using CommandMember = ExitCode(Stub::*)(size_t);
+    using OptionMember = bool(Stub::*)(const std::string&, const std::string*);
+    void withBuiltinCommand(const CommandMember& member, const std::string& usage) {
+      auto handler = std::bind(member, this, std::placeholders::_1);
       auto space = usage.find(' ');
       if (space == std::string::npos) {
-        this->withCommand(usage, usage, commandHandler);
+        this->withCommand(usage, usage, handler);
       } else {
-        this->withCommand(usage.substr(0, space), usage, commandHandler);
+        this->withCommand(usage.substr(0, space), usage, handler);
+      }
+    }
+    void withBuiltinOption(const OptionMember& member, const std::string& usage) {
+      auto handler = std::bind(member, this, std::placeholders::_1, std::placeholders::_2);
+      auto equals = usage.find_first_of("=[");
+      if (equals == std::string::npos) {
+        this->withOption(usage, usage, handler);
+      } else {
+        this->withOption(usage.substr(0, equals), usage, handler);
       }
     }
     size_t parseGeneralOptions() {
       size_t index = 1;
       while (index < this->arguments.size()) {
         const auto& argument = this->arguments[index];
-        if (!argument.starts_with('-')) {
+        if (!argument.starts_with("--")) {
           break;
+        }
+        auto equals = argument.find('=');
+        if ((equals < 3) || (equals == std::string::npos)) {
+          // '--option' or '--=...'
+          if (!this->parseGeneralOption(argument.substr(2), nullptr)) {
+            // Bad option
+            return 0;
+          }
+        } else {
+          // '--option=...'
+          std::string value = argument.substr(equals + 1);
+          if (!this->parseGeneralOption(argument.substr(2, equals - 2), &value)) {
+            // Bad option
+            return 0;
+          }
         }
       }
       return index;
+    }
+    bool parseGeneralOption(const std::string& option, const std::string* value) {
+      auto found = this->options.find(option);
+      if (found == this->options.end()) {
+        this->badUsage("Unknown general option: '--" + option + "'");
+        return false;
+      }
+      found->second.occurrences++;
+      return found->second.handler(option, value);
+    }
+    bool optVerbose(const std::string& option, const std::string*) {
+      if (this->options[option].occurrences > 1) {
+        this->badUsage("Duplicated general option: '--" + option + "'");
+        return false;
+      }
+      return true;
     }
     ExitCode cmdEmpty() {
       std::cout << Version() << std::endl;
@@ -196,6 +246,20 @@ namespace {
       std::cout << Version() << std::endl;
       return ExitCode::OK;
     }
+    void badUsage(const std::string& message) {
+      if ((this->logger != nullptr) && (this->allocator != nullptr)) {
+        std::stringstream ss;
+        ss << this->appname() << ": " << message << '\n';
+        this->logger->log(Source::Command, Severity::Error, String::fromUTF8(*this->allocator, ss.str().c_str()));
+        ss.clear();
+        this->usage(ss);
+        this->logger->log(Source::Command, Severity::Information, String::fromUTF8(*this->allocator, ss.str().c_str()));
+      } else {
+        std::cerr << this->appname() << ": " << message << '\n';
+        this->usage(std::cerr);
+        std::cerr << std::endl;
+      }
+    }
     void usage(std::ostream& os) {
       os << "Usage: " << this->appname() << " [<general-option>]... <command> [<command-option>|<command-argument>]...";
       for (const auto& command : this->commands) {
@@ -209,7 +273,7 @@ int egg::yolk::IStub::main(int argc, char* argv[], char* envp[]) noexcept {
   auto exitcode = ExitCode::Error;
   Stub stub;
   try {
-    exitcode = stub.withArguments(argc, argv).withEnvironment(envp).withBuiltinCommands().main();
+    exitcode = stub.withArguments(argc, argv).withEnvironment(envp).withBuiltins().main();
   } catch (const Exception& exception) {
     stub.error(exception);
   } catch (const std::exception& exception) {

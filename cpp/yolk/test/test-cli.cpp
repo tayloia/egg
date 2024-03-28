@@ -41,7 +41,28 @@ TEST(TestCLI, UnknownCommand) {
   auto exitcode = egg::ovum::os::process::pexec(ss, executable() + " unknown");
   ASSERT_EQ(2, exitcode);
   auto actual = ss.str();
-  auto expected = "Usage: egg-stub [<general-option>]... <command> [<command-option>|<command-argument>]...\n";
+  auto expected = "egg-stub: Unknown command: 'unknown'\n"
+                  "Usage: egg-stub [<general-option>]... <command> [<command-option>|<command-argument>]...\n";
+  ASSERT_STARTSWITH(actual, expected);
+}
+
+TEST(TestCLI, UnknownOption) {
+  std::stringstream ss;
+  auto exitcode = egg::ovum::os::process::pexec(ss, executable() + " --unknown");
+  ASSERT_EQ(2, exitcode);
+  auto actual = ss.str();
+  auto expected = "egg-stub: Unknown general option: '--unknown'\n"
+                  "Usage: egg-stub [<general-option>]... <command> [<command-option>|<command-argument>]...\n";
+  ASSERT_STARTSWITH(actual, expected);
+}
+
+TEST(TestCLI, DuplicatedVerbose) {
+  std::stringstream ss;
+  auto exitcode = egg::ovum::os::process::pexec(ss, executable() + " --verbose --verbose");
+  ASSERT_EQ(2, exitcode);
+  auto actual = ss.str();
+  auto expected = "egg-stub: Duplicated general option: '--verbose'\n"
+    "Usage: egg-stub [<general-option>]... <command> [<command-option>|<command-argument>]...\n";
   ASSERT_STARTSWITH(actual, expected);
 }
 
