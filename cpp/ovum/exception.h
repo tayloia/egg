@@ -5,9 +5,8 @@ namespace egg::ovum {
     std::string where_value;
   public:
     Exception(const std::string& what, const std::string& reason, const std::string& where);
-    Exception(const std::string& reason);
+    explicit Exception(const std::string& reason, const std::source_location location = std::source_location::current());
     Exception(const std::string& reason, const std::string& where);
-    Exception(const std::string& reason, const std::string& file, size_t line);
     virtual const std::string& reason() const {
       return this->reason_value;
     }
@@ -35,11 +34,3 @@ namespace egg::ovum {
     }
   };
 }
-
-#define EGG_THROW(message) throw egg::ovum::Exception(message, __FILE__, __LINE__)
-
-#if defined(NDEBUG)
-// WIBBLE
-#else
-// WIBBLE
-#endif

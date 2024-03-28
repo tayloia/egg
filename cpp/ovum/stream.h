@@ -10,7 +10,7 @@ namespace egg::ovum {
     FileStream(const std::string& unresolved, const std::string& resolved, ios_base::openmode mode)
       : std::fstream(resolved, mode) {
       if (this->fail()) {
-        EGG_THROW("Failed to open file for reading: " + unresolved);
+        throw egg::ovum::Exception("Failed to open file for reading: " + unresolved);
       }
     }
     explicit FileStream(const std::string& path, ios_base::openmode mode = ios_base::in | ios_base::binary)
@@ -34,7 +34,7 @@ namespace egg::ovum {
         return int(uint8_t(ch));
       }
       if (this->stream.bad()) {
-        EGG_THROW("Failed to read byte from binary file: " + this->resource);
+        throw egg::ovum::Exception("Failed to read byte from binary file: " + this->resource);
       }
       return -1;
     }

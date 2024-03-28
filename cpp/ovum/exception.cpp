@@ -18,12 +18,12 @@ egg::ovum::Exception::Exception(const std::string& what, const std::string& reas
   : std::runtime_error(what), reason_value(reason), where_value(where) {
 }
 
-egg::ovum::Exception::Exception(const std::string& reason, const std::string& where)
-  : std::runtime_error(where + ": " + reason), reason_value(reason), where_value(where) {
+egg::ovum::Exception::Exception(const std::string& reason, const std::source_location location)
+  : Exception(reason, File::normalizePath(location.file_name()) + "(" + std::to_string(location.line()) + ")") {
 }
 
-egg::ovum::Exception::Exception(const std::string& reason, const std::string& file, size_t line)
-  : Exception(reason, File::normalizePath(file) + "(" + std::to_string(line) + ")") {
+egg::ovum::Exception::Exception(const std::string& reason, const std::string& where)
+  : std::runtime_error(where + ": " + reason), reason_value(reason), where_value(where) {
 }
 
 egg::ovum::SyntaxException::SyntaxException(const std::string& reason, const std::string& resource, const SourceLocation& location, const std::string& token)
