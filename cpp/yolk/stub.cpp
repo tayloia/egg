@@ -41,47 +41,47 @@ namespace {
     Configuration configuration;
     IAllocator* allocator = nullptr;
     ILogger* logger = nullptr;
+    std::vector<size_t> breadcrumbs;
   public:
     virtual void log(Source source, Severity severity, const String& message) override {
       if (this->logger != nullptr) {
         this->logger->log(source, severity, message);
         return;
       }
-      std::string buffer;
+      std::string origin;
       switch (source) {
       case Source::Compiler:
-        buffer = "<COMPILER>";
+        origin = "<COMPILER>";
         break;
       case Source::Runtime:
-        buffer = "<RUNTIME>";
+        origin = "<RUNTIME>";
         break;
       case Source::Command:
-        buffer = "<COMMAND>";
+        origin = "<COMMAND>";
         break;
       case Source::User:
         break;
       }
       switch (severity) {
       case Severity::None:
+        std::cout << origin << message.toUTF8() << std::endl;
         break;
       case Severity::Debug:
-        buffer += "<DEBUG>";
+        std::cout << origin << "<DEBUG>" << message.toUTF8() << std::endl;
         break;
       case Severity::Verbose:
-        buffer += "<VERBOSE>";
+        std::cout << origin << "<VERBOSE>" << message.toUTF8() << std::endl;
         break;
       case Severity::Information:
-        buffer += "<INFORMATION>";
+        std::cout << origin << "<INFORMATION>" << message.toUTF8() << std::endl;
         break;
       case Severity::Warning:
-        buffer += "<WARNING>";
+        std::cerr << origin << "<WARNING>" << message.toUTF8() << std::endl;
         break;
       case Severity::Error:
-        buffer += "<ERROR>";
+        std::cerr << origin << "<ERROR>" << message.toUTF8() << std::endl;
         break;
       }
-      buffer += message.toUTF8();
-      std::cout << buffer << std::endl;
     }
     virtual IStub& withArguments(int argc, char* argv[]) override {
       for (auto argi = 0; argi < argc; ++argi) {
@@ -129,6 +129,7 @@ namespace {
       const auto& command = this->arguments[index];
       auto found = this->commands.find(command);
       if (found != this->commands.end()) {
+        this->breadcrumbs.push_back(index);
         return found->second.handler(index);
       }
       this->badUsage("Unknown command: '" + command + "'");
@@ -148,31 +149,22 @@ namespace {
       return arg0;
     }
     void error(const std::string& message) {
-      if ((this->logger != nullptr) && (this->allocator != nullptr)) {
-        auto utf8 = String::fromUTF8(*this->allocator, message.c_str());
-        this->logger->log(Source::Command, Severity::Error, utf8);
-      } else {
-        std::cerr << message << std::endl;
-      }
+      this->redirect(Source::Command, Severity::Error, [=, this](std::ostream& os) {
+        this->printBreadcrumbs(os);
+        os << message;
+      });
     }
     void error(const std::exception& exception) {
-      if ((this->logger != nullptr) && (this->allocator != nullptr)) {
-        auto utf8 = StringBuilder::concat(*this->allocator, this->appname(), ": Exception: ", exception.what());
-        this->logger->log(Source::Command, Severity::Error, utf8);
-      } else {
-        std::cerr << this->appname() << ": Exception: " << exception.what() << std::endl;
-      }
+      this->redirect(Source::Command, Severity::Error, [=, this](std::ostream& os) {
+        this->printBreadcrumbs(os);
+        os << "Exception: " << exception.what();
+      });
     }
     void error(const Exception& exception) {
-      if ((this->logger != nullptr) && (this->allocator != nullptr)) {
-        StringBuilder sb;
-        sb << this->appname() << ": " << exception;
-        this->logger->log(Source::Command, Severity::Error, sb.build(*this->allocator));
-      } else {
-        std::cerr << this->appname() << ": ";
-        Print::write(std::cerr, exception, Print::Options::DEFAULT);
-        std::cerr << std::endl;
-      }
+      this->redirect(Source::Command, Severity::Error, [=, this](std::ostream& os) {
+        this->printBreadcrumbs(os);
+        Print::write(os, exception, Print::Options::DEFAULT);
+      });
     }
   private:
     using CommandMember = ExitCode(Stub::*)(size_t);
@@ -263,8 +255,9 @@ namespace {
       return ExitCode::OK;
     }
     void badUsage(const std::string& message) {
-      this->redirect(Source::Command, Severity::Error, [=,this](std::ostream& os) {
-        os << this->appname() << ": " << message;
+      this->redirect(Source::Command, Severity::Error, [=, this](std::ostream& os) {
+        this->printBreadcrumbs(os);
+        os << message;
       });
       this->redirect(Source::Command, Severity::Information, [this](std::ostream& os) {
         this->printUsage(os);
@@ -285,13 +278,20 @@ namespace {
         os << "\n    " << command.second.usage;
       }
     }
+    void printBreadcrumbs(std::ostream& os) {
+      os << this->appname();
+      for (auto breadcrumb : this->breadcrumbs) {
+        os << ' ' << this->arguments[breadcrumb];
+      }
+      os << ": ";
+    }
     void redirect(Source source, Severity severity, const std::function<void(std::ostream&)>& callback) {
       if ((this->logger != nullptr) && (this->allocator != nullptr)) {
         // Use our attached logger
         std::stringstream ss;
         callback(ss);
-        this->logger->log(source, severity, String::fromUTF8(*this->allocator, ss.str().c_str()));
-      } else if ((severity == Severity::Error) || (severity == Severity::Warning)) {
+        this->logger->log(source, severity, this->makeString(ss.str()));
+      } else if (Bits::hasAnySet(severity, Bits::set(Severity::Warning, Severity::Error))) {
         // Send to stderr
         callback(std::cerr);
         std::cerr << std::endl;
@@ -300,6 +300,10 @@ namespace {
         callback(std::cout);
         std::cout << std::endl;
       }
+    }
+    String makeString(const std::string& utf8) const {
+      assert(this->allocator != nullptr);
+      return String::fromUTF8(*this->allocator, utf8.data(), utf8.size());
     }
   };
 }
@@ -314,7 +318,7 @@ int egg::yolk::IStub::main(int argc, char* argv[], char* envp[]) noexcept {
   } catch (const std::exception& exception) {
     stub.error(exception);
   } catch (...) {
-    stub.error(stub.appname() + ": Fatal exception");
+    stub.error("Fatal exception");
   }
   return static_cast<int>(exitcode);
 }
