@@ -1,5 +1,4 @@
 #include "ovum/ovum.h"
-#include "ovum/exception.h"
 #include "ovum/file.h"
 #include "ovum/stream.h"
 #include "ovum/utf.h"

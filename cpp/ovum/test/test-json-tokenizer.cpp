@@ -1,5 +1,4 @@
 #include "ovum/test.h"
-#include "ovum/exception.h"
 #include "ovum/lexer.h"
 #include "ovum/json-tokenizer.h"
 

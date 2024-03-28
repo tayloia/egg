@@ -1,5 +1,4 @@
 #include "ovum/ovum.h"
-#include "ovum/exception.h"
 #include "ovum/file.h"
 
 namespace {
@@ -80,6 +79,12 @@ std::string egg::ovum::Exception::format(const char* fmt) const {
     }
   }
   return result;
+}
+
+egg::ovum::InternalException::InternalException(const std::string& reason, const std::source_location location)
+  : Exception("{where}: {reason}") {
+  this->emplace("reason", reason);
+  this->emplace("where", formatWhere(formatResource(location.file_name(), 3), location.line()));
 }
 
 egg::ovum::SyntaxException::SyntaxException(const std::string& reason, const std::string& resource, const SourceLocation& location, const std::string& token)

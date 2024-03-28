@@ -15,7 +15,7 @@ namespace {
     });
     fflush(stdout);
     if (exitcode != 0) {
-      throw std::runtime_error("Cannot spawn objcopy");
+      throw egg::ovum::Exception("Cannot spawn objcopy: '{command}'").with("command", command);
     }
   }
 
@@ -28,7 +28,8 @@ namespace {
     size_t size;
     static void foreach(const std::string& executable, std::function<void(const ReadElf&)> callback) {
       std::regex pattern{ "\\s+\\[\\s*\\d+\\]\\s(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+).*" };
-      auto exitcode = egg::ovum::os::process::plines("readelf -SW " + executable, [&](const std::string& line) {
+      auto command = "readelf -SW " + executable;
+      auto exitcode = egg::ovum::os::process::plines(command, [&](const std::string& line) {
         std::smatch match;
         if (std::regex_match(line, match, pattern)) {
           ReadElf elf;
@@ -41,7 +42,7 @@ namespace {
         }
         });
       if (exitcode != 0) {
-        throw std::runtime_error("Cannot spawn readelf");
+        throw egg::ovum::Exception("Cannot spawn readelf: '{command}'").with("command", command);
       }
     }
     static size_t hex(const std::string& text) {
@@ -83,19 +84,19 @@ namespace {
       size_t pagesize = ::getpagesize();
       auto fd = ::open(this->path.c_str(), O_RDONLY);
       if (fd < 0) {
-        throw std::runtime_error("Cannot open ELF resource executable");
+        throw egg::ovum::Exception("Cannot open ELF resource executable: '{path}'").with("path", this->path);
       }
       align = this->offset % pagesize;
       auto* mapped = ::mmap(nullptr, this->bytes + align, PROT_READ, MAP_PRIVATE, fd, this->offset - align);
       ::close(fd);
       if (mapped == MAP_FAILED) {
-        throw std::runtime_error("Cannot map ELF resource");
+        throw egg::ovum::Exception("Cannot map ELF resource: '{path}'").with("path", this->path);
       }
       return mapped;
     }
     void unmap(void* mapped) const {
       if (::munmap(mapped, this->bytes)) {
-        throw std::runtime_error("Cannot unmap ELF resource");
+        throw egg::ovum::Exception("Cannot unmap ELF resource: '{path}'").with("path", this->path);
       }
     }
   };

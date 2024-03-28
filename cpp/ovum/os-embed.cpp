@@ -22,6 +22,6 @@ std::string egg::ovum::os::embed::getExecutableStub() {
 void egg::ovum::os::embed::cloneExecutable(const std::string& target) {
   auto source = os::file::getExecutablePath();
   if (!std::filesystem::copy_file(os::file::denormalizePath(source, false), os::file::denormalizePath(target, false))) {
-    throw std::runtime_error("Cannot clone executable file");
+    throw Exception("Cannot clone executable file").with("source", source).with("target", target);
   }
 }

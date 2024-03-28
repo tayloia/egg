@@ -183,7 +183,7 @@ std::string egg::ovum::os::file::createTemporaryFile(const std::string& prefix, 
       return TemporaryDirectories::remember(path, false);
     }
   }
-  throw std::runtime_error("Failed to create temporary directory");
+  throw Exception("Failed to create temporary file: '{path}'").with("path", prefix + '*' + suffix);
 }
 
 std::string egg::ovum::os::file::createTemporaryDirectory(const std::string& prefix, size_t attempts) {
@@ -200,7 +200,7 @@ std::string egg::ovum::os::file::createTemporaryDirectory(const std::string& pre
       return TemporaryDirectories::remember(path, true);
     }
   }
-  throw std::runtime_error("Failed to create temporary directory");
+  throw Exception("Failed to create temporary directory: '{path}'").with("path", prefix + '*');
 }
 
 char egg::ovum::os::file::slash() {

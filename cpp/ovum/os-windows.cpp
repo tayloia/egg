@@ -66,7 +66,7 @@ namespace {
     auto wexecutable = widen(egg::ovum::os::file::denormalizePath(executable, false));
     auto handle = ::BeginUpdateResource(wexecutable.c_str(), deleteExisting);
     if (handle == NULL) {
-      throw std::runtime_error("Cannot open executable file for resource writing");
+      throw egg::ovum::Exception("Cannot open executable file for resource writing: '{path}'").with("path", executable);
     }
     return handle;
   }
@@ -75,12 +75,12 @@ namespace {
     auto wlabel = widen(label);
     WORD language = MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL);
     if (!::UpdateResource(handle, wtype.c_str(), wlabel.c_str(), language, LPVOID(data), DWORD(bytes))) {
-      throw std::runtime_error("Cannot update resource in executable file");
+      throw egg::ovum::Exception("Cannot update resource in executable file: '{type}/{label}'").with("type", type).with("label", label);
     }
   }
   void endUpdateResource(HANDLE handle, bool discard) {
     if (!::EndUpdateResource(handle, discard)) {
-      throw std::runtime_error("Cannot write resource changes to executable file");
+      throw egg::ovum::Exception("Cannot commit resource changes to executable file");
     }
   }
   HMODULE loadLibrary(const std::string& executable) {
@@ -121,7 +121,7 @@ namespace {
   }
   void freeLibrary(HMODULE module) {
     if (!::FreeLibrary(module)) {
-      throw std::runtime_error("Cannot free resource library executable file");
+      throw egg::ovum::Exception("Cannot free resource library handle");
     }
   }
 }

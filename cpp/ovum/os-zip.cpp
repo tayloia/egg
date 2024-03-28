@@ -102,10 +102,8 @@ namespace {
       }
       catch (std::exception&) {
         auto status = std::filesystem::status(zipfile);
-        if (std::filesystem::exists(status)) {
-          throw std::runtime_error("Invalid zip file: " + egg::ovum::os::file::normalizePath(zipfile.string(), false));
-        }
-        throw std::runtime_error("Zip file not found: " + egg::ovum::os::file::normalizePath(zipfile.string(), false));
+        auto* what = std::filesystem::exists(status) ? "Invalid zip file: '{path}'" : "Zip file not found: '{path}'";
+        throw egg::ovum::Exception(what).with("path", egg::ovum::os::file::normalizePath(zipfile.string(), false));
       }
       return zip;
     }

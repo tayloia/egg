@@ -1,5 +1,4 @@
 #include "ovum/ovum.h"
-#include "ovum/exception.h"
 #include "ovum/file.h"
 #include "ovum/lexer.h"
 #include "ovum/stream.h"
@@ -281,7 +280,7 @@ namespace {
       auto kind = IVMTypeResolver::Kind::Type;
       auto type = this->deduceType(mnode, context, kind);
       if ((type != nullptr) && (kind != IVMTypeResolver::Kind::Type)) {
-        throw std::logic_error("Cannot deduce type expression");
+        throw InternalException("Cannot deduce type expression");
       }
       return type;
     }
@@ -289,7 +288,7 @@ namespace {
       auto kind = IVMTypeResolver::Kind::Value;
       auto type = this->deduceType(mnode, context, kind);
       if ((type != nullptr) && (kind != IVMTypeResolver::Kind::Value)) {
-        throw std::logic_error("Cannot deduce type of expression");
+        throw InternalException("Cannot deduce type of expression");
       }
       return type;
     }

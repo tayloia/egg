@@ -415,7 +415,7 @@ egg::ovum::String egg::ovum::String::substring(IAllocator& allocator, size_t beg
   auto q = p;
   if (!q.skipForward(codepoints)) {
     // Malformed string
-    throw std::runtime_error("Malformed UTF-8 string");
+    throw Exception("Malformed UTF-8 string");
   }
   auto bytes = size_t(q.get() - p.get());
   return String::fromUTF8(allocator, p.get(), bytes, codepoints);
@@ -572,7 +572,7 @@ egg::ovum::String egg::ovum::String::fromUTF8(IAllocator& allocator, const void*
     codepoints = UTF8::measure(data, data + bytes);
   }
   if (codepoints > bytes) {
-    throw std::invalid_argument("String: Invalid UTF-8 input data");
+    throw Exception("Invalid UTF-8 input data");
   }
   auto* memory = allocator.create<MemoryContiguous>(bytes, allocator, bytes, IMemory::Tag{ codepoints });
   assert(memory != nullptr);

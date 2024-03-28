@@ -1,6 +1,5 @@
 #include "yolk/yolk.h"
 #include "yolk/stub.h"
-#include "ovum/exception.h"
 #include "ovum/os-file.h"
 #include "ovum/version.h"
 

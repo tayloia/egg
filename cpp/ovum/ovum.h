@@ -29,4 +29,5 @@
 #include "ovum/function.h"
 #include "ovum/os-memory.h"
 #include "ovum/basket.h"
+#include "ovum/exception.h"
 #include "ovum/vm.h"
