@@ -6,6 +6,7 @@ namespace egg::ovum {
     const char* commit;
     const char* timestamp;
     Version();
+    static std::string semver();
   };
   std::ostream& operator<<(std::ostream& stream, const Version& version);
 }

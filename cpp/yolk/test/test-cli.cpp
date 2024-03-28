@@ -56,19 +56,35 @@ TEST(TestCLI, UnknownOption) {
   ASSERT_STARTSWITH(actual, expected);
 }
 
-TEST(TestCLI, DuplicatedVerbose) {
+TEST(TestCLI, DuplicatedOption) {
   std::stringstream ss;
-  auto exitcode = egg::ovum::os::process::pexec(ss, executable() + " --verbose --verbose");
+  auto exitcode = egg::ovum::os::process::pexec(ss, executable() + " --log-level=debug --log-level=none");
   ASSERT_EQ(2, exitcode);
   auto actual = ss.str();
-  auto expected = "egg-stub: Duplicated general option: '--verbose'\n"
-    "Usage: egg-stub [<general-option>]... <command> [<command-option>|<command-argument>]...\n";
+  auto expected = "egg-stub: Duplicated general option: '--log-level'\n"
+                  "Usage: egg-stub [<general-option>]... <command> [<command-option>|<command-argument>]...\n";
   ASSERT_STARTSWITH(actual, expected);
+}
+
+TEST(TestCLI, Empty) {
+  auto actual = spawn("");
+  auto expected = "Welcome to egg v" + egg::ovum::Version::semver() + "\n"
+                  "Try 'egg-stub help' for more information\n";
+  ASSERT_EQ(expected, actual);
+}
+
+TEST(TestCLI, Help) {
+  auto actual = spawn("help");
+  ASSERT_STARTSWITH(actual, "Usage: egg-stub [<general-option>]... <command> [<command-option>|<command-argument>]...\n");
+  ASSERT_CONTAINS(actual, "\n  <general-option> is any of:\n");
+  ASSERT_CONTAINS(actual, "\n    --log-level=debug|verbose|information|warning|error|none\n");
+  ASSERT_CONTAINS(actual, "\n  <command> is one of:\n");
+  ASSERT_CONTAINS(actual, "\n    help\n");
 }
 
 TEST(TestCLI, Version) {
   std::stringstream ss;
-  ss << egg::ovum::Version() << '\n';
+  ss << "egg v" << egg::ovum::Version() << '\n';
   auto expected = ss.str();
   auto actual = spawn("version");
   ASSERT_EQ(expected, actual);

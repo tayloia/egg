@@ -111,9 +111,8 @@ namespace {
       return *this;
     }
     virtual IStub& withBuiltins() override {
-      this->withBuiltinOption(&Stub::optVerbose, "verbose");
-      this->withBuiltinOption(&Stub::optQuiet, "quiet");
-      this->withBuiltinOption(&Stub::optLogLevel, "log-level=debug|verbose|information|warning|error");
+      this->withBuiltinOption(&Stub::optLogLevel, "log-level=debug|verbose|information|warning|error|none");
+      this->withBuiltinCommand(&Stub::cmdHelp, "help");
       this->withBuiltinCommand(&Stub::cmdVersion, "version");
       return *this;
     }
@@ -230,66 +229,76 @@ namespace {
       found->second.occurrences++;
       return found->second.handler(option, value);
     }
-    bool optVerbose(const std::string& option, const std::string* value) {
+    bool optLogLevel(const std::string& option, const std::string* value) {
       if (this->options[option].occurrences > 1) {
         this->badUsage("Duplicated general option: '--" + option + "'");
         return false;
       }
-      if (this->options["quiet"].occurrences > 0) {
-        this->badUsage("General options '--verbose' and '--quiet' are mutually-exclusive");
-        return false;
-      }
-      if (this->options["log-level"].occurrences > 0) {
-        this->badUsage("General options '--verbose' and '--log-level' are mutually-exclusive");
-        return false;
-      }
-      if (value != nullptr) {
-        this->badUsage("General option '--verbose' does not expect a value");
+      if (value == nullptr) {
+        this->badUsage("Missing value for general option '--" + option + "'");
         return false;
       }
       this->configuration.verbose = Severity::Verbose;
       return true;
     }
-    bool optQuiet(const std::string& option, const std::string*) {
-      this->badUsage("General option '--" + option + "' is not yet supported");
-      return false;
-    }
-    bool optLogLevel(const std::string& option, const std::string*) {
-      this->badUsage("General option '--" + option + "' is not yet supported");
-      return false;
-    }
     ExitCode cmdEmpty() {
-      std::cout << Version() << std::endl;
-      for (auto& arg : this->arguments) {
-        std::cout << arg << std::endl;
-      }
-      for (auto& env : this->environment) {
-        std::cout << env.first << " = " << env.second << std::endl;
-      }
+      this->redirect(Source::Command, Severity::Information, [this](std::ostream& os) {
+        os << "Welcome to egg v" << Version::semver() << "\n";
+        os << "Try '" << this->appname() << " help' for more information";
+      });
+      return ExitCode::OK;
+    }
+    ExitCode cmdHelp(size_t) {
+      this->redirect(Source::Command, Severity::Information, [this](std::ostream& os) {
+        this->printUsage(os);
+        this->printGeneralOptions(os);
+        this->printCommands(os);
+      });
       return ExitCode::OK;
     }
     ExitCode cmdVersion(size_t) {
-      std::cout << Version() << std::endl;
+      this->redirect(Source::Command, Severity::Information, [](std::ostream& os) {
+        os << "egg v" << Version();
+      });
       return ExitCode::OK;
     }
     void badUsage(const std::string& message) {
-      if ((this->logger != nullptr) && (this->allocator != nullptr)) {
-        std::stringstream ss;
-        ss << this->appname() << ": " << message << '\n';
-        this->logger->log(Source::Command, Severity::Error, String::fromUTF8(*this->allocator, ss.str().c_str()));
-        ss.clear();
-        this->usage(ss);
-        this->logger->log(Source::Command, Severity::Information, String::fromUTF8(*this->allocator, ss.str().c_str()));
-      } else {
-        std::cerr << this->appname() << ": " << message << '\n';
-        this->usage(std::cerr);
-        std::cerr << std::endl;
+      this->redirect(Source::Command, Severity::Error, [=,this](std::ostream& os) {
+        os << this->appname() << ": " << message;
+      });
+      this->redirect(Source::Command, Severity::Information, [this](std::ostream& os) {
+        this->printUsage(os);
+      });
+    }
+    void printUsage(std::ostream& os) {
+      os << "Usage: " << this->appname() << " [<general-option>]... <command> [<command-option>|<command-argument>]...";
+    }
+    void printGeneralOptions(std::ostream& os) {
+      os << "\n  <general-option> is any of:";
+      for (const auto& option : this->options) {
+        os << "\n    --" << option.second.usage;
       }
     }
-    void usage(std::ostream& os) {
-      os << "Usage: " << this->appname() << " [<general-option>]... <command> [<command-option>|<command-argument>]...";
+    void printCommands(std::ostream& os) {
+      os << "\n  <command> is one of:";
       for (const auto& command : this->commands) {
-        os << "\n  " << command.second.usage;
+        os << "\n    " << command.second.usage;
+      }
+    }
+    void redirect(Source source, Severity severity, const std::function<void(std::ostream&)>& callback) {
+      if ((this->logger != nullptr) && (this->allocator != nullptr)) {
+        // Use our attached logger
+        std::stringstream ss;
+        callback(ss);
+        this->logger->log(source, severity, String::fromUTF8(*this->allocator, ss.str().c_str()));
+      } else if ((severity == Severity::Error) || (severity == Severity::Warning)) {
+        // Send to stderr
+        callback(std::cerr);
+        std::cerr << std::endl;
+      } else {
+        // Send to stdout
+        callback(std::cout);
+        std::cout << std::endl;
       }
     }
   };
