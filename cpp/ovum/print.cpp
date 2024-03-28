@@ -381,7 +381,10 @@ void egg::ovum::Print::write(std::ostream& stream, ILogger::Severity value, cons
 }
 
 void egg::ovum::Print::write(std::ostream& stream, const Exception& value, const Options&) {
-  stream << "<WHAT=" << value.what() << "><REASON=" << value.reason() << "><WHERE=" << value.where() << ">";
+  stream << value.what();
+  for (auto& field : value) {
+    stream << "\n  " << field.first << '=' << field.second;
+  }
 }
 
 void egg::ovum::Print::ascii(std::ostream& stream, const std::string& value, char quote) {

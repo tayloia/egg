@@ -1,7 +1,5 @@
 namespace egg::ovum {
   class Exception : public std::runtime_error, public std::map<std::string, std::string> {
-  private:
-    Exception(const std::string& what, const std::string& reason, const std::string& where);
   public:
     explicit Exception(const std::string& reason, const std::source_location location = std::source_location::current());
     Exception(const std::string& reason, const std::string& where);
@@ -34,21 +32,20 @@ namespace egg::ovum {
       }
       return false;
     }
+    std::string format(const char* fmt) const;
   };
 
   class SyntaxException : public Exception {
   private:
-    std::string token_value;
-    std::string resource_value;
     SourceRange range_value;
   public:
     SyntaxException(const std::string& reason, const std::string& resource, const SourceLocation& location, const std::string& token = {});
     SyntaxException(const std::string& reason, const std::string& resource, const SourceRange& range, const std::string& token = {});
     virtual const std::string& token() const {
-      return this->token_value;
+      return this->get("token");
     }
     virtual const std::string& resource() const {
-      return this->resource_value;
+      return this->get("resource");
     }
     virtual const SourceRange& range() const {
       return this->range_value;
