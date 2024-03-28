@@ -32,10 +32,14 @@ namespace {
       OptionHandler handler;
       size_t occurrences;
     };
+    struct Configuration {
+      Severity verbose = Severity::Information;
+    };
     std::vector<std::string> arguments;
     std::map<std::string, std::string, LessCaseInsensitive> environment;
     std::map<std::string, Command> commands;
     std::map<std::string, Option> options;
+    Configuration configuration;
     IAllocator* allocator = nullptr;
     ILogger* logger = nullptr;
   public:
@@ -108,7 +112,9 @@ namespace {
       return *this;
     }
     virtual IStub& withBuiltins() override {
-      this->withBuiltinOption(&Stub::optVerbose, "verbose=<WIBBLE>");
+      this->withBuiltinOption(&Stub::optVerbose, "verbose");
+      this->withBuiltinOption(&Stub::optQuiet, "quiet");
+      this->withBuiltinOption(&Stub::optLogLevel, "log-level=debug|verbose|information|warning|error");
       this->withBuiltinCommand(&Stub::cmdVersion, "version");
       return *this;
     }
@@ -225,12 +231,33 @@ namespace {
       found->second.occurrences++;
       return found->second.handler(option, value);
     }
-    bool optVerbose(const std::string& option, const std::string*) {
+    bool optVerbose(const std::string& option, const std::string* value) {
       if (this->options[option].occurrences > 1) {
         this->badUsage("Duplicated general option: '--" + option + "'");
         return false;
       }
+      if (this->options["quiet"].occurrences > 0) {
+        this->badUsage("General options '--verbose' and '--quiet' are mutually-exclusive");
+        return false;
+      }
+      if (this->options["log-level"].occurrences > 0) {
+        this->badUsage("General options '--verbose' and '--log-level' are mutually-exclusive");
+        return false;
+      }
+      if (value != nullptr) {
+        this->badUsage("General option '--verbose' does not expect a value");
+        return false;
+      }
+      this->configuration.verbose = Severity::Verbose;
       return true;
+    }
+    bool optQuiet(const std::string& option, const std::string*) {
+      this->badUsage("General option '--" + option + "' is not yet supported");
+      return false;
+    }
+    bool optLogLevel(const std::string& option, const std::string*) {
+      this->badUsage("General option '--" + option + "' is not yet supported");
+      return false;
     }
     ExitCode cmdEmpty() {
       std::cout << Version() << std::endl;
