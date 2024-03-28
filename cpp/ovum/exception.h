@@ -1,17 +1,38 @@
 namespace egg::ovum {
-  class Exception : public std::runtime_error {
+  class Exception : public std::runtime_error, public std::map<std::string, std::string> {
   private:
-    std::string reason_value;
-    std::string where_value;
-  public:
     Exception(const std::string& what, const std::string& reason, const std::string& where);
+  public:
     explicit Exception(const std::string& reason, const std::source_location location = std::source_location::current());
     Exception(const std::string& reason, const std::string& where);
     virtual const std::string& reason() const {
-      return this->reason_value;
+      return this->get("reason");
     }
     virtual const std::string& where() const {
-      return this->where_value;
+      return this->get("where");
+    }
+    virtual const char* what() const noexcept override;
+    const std::string& get(const std::string& key) const {
+      auto found = this->find(key);
+      if (found != this->end()) {
+        return found->second;
+      }
+      throw std::runtime_error("key not found: " + key);
+    }
+    std::string get(const std::string& key, const std::string& defval) const {
+      auto found = this->find(key);
+      if (found != this->end()) {
+        return found->second;
+      }
+      return defval;
+    }
+    bool query(const std::string& key, std::string& value) const {
+      auto found = this->find(key);
+      if (found != this->end()) {
+        value = found->second;
+        return true;
+      }
+      return false;
     }
   };
 
