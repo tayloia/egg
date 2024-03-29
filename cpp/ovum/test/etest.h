@@ -8,9 +8,7 @@ namespace egg::test {
       NoAllocations,
       AtLeastOneAllocation
     };
-  private:
     Expectation expectation;
-  public:
     explicit Allocator(Expectation expectation = Expectation::AtLeastOneAllocation) : expectation(expectation) {}
     ~Allocator() {
       this->validate();
@@ -45,8 +43,10 @@ namespace egg::test {
   public:
     std::string resource;
     std::ostringstream logged;
+    std::map<Severity, size_t> counts;
     Logger() = default;
     virtual void log(Source source, Severity severity, const egg::ovum::String& message) override {
+      this->counts[severity]++;
       std::string buffer;
       switch (source) {
       case Source::Compiler:

@@ -32,20 +32,20 @@ namespace {
       size_t occurrences;
     };
     struct Configuration {
+      IAllocator* allocator = nullptr;
+      ILogger* logger = nullptr;
       Severity verbose = Severity::Information; // WIBBLE
     };
     std::vector<std::string> arguments;
     std::map<std::string, std::string, LessCaseInsensitive> environment;
     std::map<std::string, Command> commands;
     std::map<std::string, Option> options;
-    Configuration configuration;
-    IAllocator* allocator = nullptr;
-    ILogger* logger = nullptr;
     std::vector<size_t> breadcrumbs;
+    Configuration configuration;
   public:
     virtual void log(Source source, Severity severity, const String& message) override {
-      if (this->logger != nullptr) {
-        this->logger->log(source, severity, message);
+      if (this->configuration.logger != nullptr) {
+        this->configuration.logger->log(source, severity, message);
         return;
       }
       std::string origin;
@@ -83,27 +83,20 @@ namespace {
         break;
       }
     }
+    virtual IStub& withAllocator(IAllocator& target) override {
+      this->configuration.allocator = &target;
+      return *this;
+    }
+    virtual IStub& withLogger(ILogger& target) override {
+      this->configuration.logger = &target;
+      return *this;
+    }
     virtual IStub& withArgument(const std::string& argument) override {
       this->arguments.push_back(argument);
       return *this;
     }
-    virtual IStub& withArguments(int argc, char* argv[]) override {
-      for (auto argi = 0; argi < argc; ++argi) {
-        this->arguments.push_back((argv[argi] == nullptr) ? std::string() : argv[argi]);
-      }
-      return *this;
-    }
-    virtual IStub& withEnvironment(char* envp[]) override {
-      for (auto envi = 0; envp[envi] != nullptr; ++envi) {
-        auto equals = std::strchr(envp[envi], '=');
-        if (equals == nullptr) {
-          // KEY
-          this->environment[envp[envi]] = {};
-        } else if (equals > envp[envi]) {
-          // KEY=VALUE
-          this->environment[std::string(envp[envi], equals)] = equals + 1;
-        }
-      }
+    virtual IStub& withEnvironment(const std::string& key, const std::string& value) override {
+      this->environment.emplace(key, value);
       return *this;
     }
     virtual IStub& withCommand(const std::string& command, const std::string& usage, const CommandHandler& handler) override {
@@ -186,6 +179,25 @@ namespace {
         Print::write(os, exception, Print::Options::DEFAULT);
       });
     }
+    Stub& withArguments(int argc, char* argv[]) {
+      for (auto argi = 0; argi < argc; ++argi) {
+        this->arguments.push_back((argv[argi] == nullptr) ? std::string() : argv[argi]);
+      }
+      return *this;
+    }
+    Stub& withEnvironments(char* envp[]) {
+      for (auto envi = 0; envp[envi] != nullptr; ++envi) {
+        auto equals = std::strchr(envp[envi], '=');
+        if (equals == nullptr) {
+          // KEY
+          this->environment[envp[envi]] = {};
+        } else if (equals > envp[envi]) {
+          // KEY=VALUE
+          this->environment[std::string(envp[envi], equals)] = equals + 1;
+        }
+      }
+      return *this;
+    }
   private:
     using CommandMember = ExitCode(Stub::*)(size_t);
     using OptionMember = bool(Stub::*)(const std::string&, const std::string*);
@@ -266,6 +278,7 @@ namespace {
         this->configuration.verbose = Severity::None;
       } else {
         this->badGeneralOption(option, value);
+        return false;
       }
       return true;
     }
@@ -305,13 +318,13 @@ namespace {
         if (value == nullptr) {
           os << "Missing general option: '--" << option << "'";
         } else {
-          os << "Bad general option: '--" << option << "=" << *value << "'";
+          os << "Invalid general option: '--" << option << "=" << *value << "'";
         }
       });
       auto known = this->options.find(option);
       if (known != this->options.end()) {
         this->redirect(Source::Command, Severity::Information, [=](std::ostream& os) {
-          os << "\nOption usage: --" << known->second.usage;
+          os << "Option usage: '--" << known->second.usage << "'";
         });
       }
     }
@@ -338,11 +351,11 @@ namespace {
       os << ": ";
     }
     void redirect(Source source, Severity severity, const std::function<void(std::ostream&)>& callback) {
-      if ((this->logger != nullptr) && (this->allocator != nullptr)) {
+      if ((this->configuration.logger != nullptr) && (this->configuration.allocator != nullptr)) {
         // Use our attached logger
         std::stringstream ss;
         callback(ss);
-        this->logger->log(source, severity, this->makeString(ss.str()));
+        this->configuration.logger->log(source, severity, this->makeString(ss.str()));
       } else if (Bits::hasAnySet(severity, Bits::set(Severity::Warning, Severity::Error))) {
         // Send to stderr
         callback(std::cerr);
@@ -354,8 +367,8 @@ namespace {
       }
     }
     String makeString(const std::string& utf8) const {
-      assert(this->allocator != nullptr);
-      return String::fromUTF8(*this->allocator, utf8.data(), utf8.size());
+      assert(this->configuration.allocator != nullptr);
+      return String::fromUTF8(*this->configuration.allocator, utf8.data(), utf8.size());
     }
   };
 }
@@ -364,7 +377,7 @@ int egg::yolk::IStub::main(int argc, char* argv[], char* envp[]) noexcept {
   auto exitcode = ExitCode::Error;
   Stub stub;
   try {
-    exitcode = stub.withArguments(argc, argv).withEnvironment(envp).withBuiltins().main();
+    exitcode = stub.withArguments(argc, argv).withEnvironments(envp).withBuiltins().main();
   } catch (const Exception& exception) {
     stub.error(exception);
   } catch (const std::exception& exception) {

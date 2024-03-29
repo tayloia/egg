@@ -1,6 +1,48 @@
 #include "yolk/test.h"
 #include "yolk/stub.h"
 
+namespace {
+  std::string toString(egg::yolk::IStub::ExitCode exitcode) {
+    switch (exitcode) {
+    case egg::yolk::IStub::ExitCode::OK:
+      return "OK";
+    case egg::yolk::IStub::ExitCode::Error:
+      return "Error";
+    case egg::yolk::IStub::ExitCode::Usage:
+      return  "Usage";
+    }
+    return std::to_string(std::underlying_type_t<egg::yolk::IStub::ExitCode>(exitcode));
+  }
+
+  struct Stub {
+    egg::test::Allocator allocator;
+    egg::test::Logger logger;
+    std::unique_ptr<egg::yolk::IStub> stub;
+    explicit Stub(std::initializer_list<std::string> argv)
+      : stub(egg::yolk::IStub::make()) {
+      this->stub->withAllocator(this->allocator);
+      this->stub->withLogger(this->logger);
+      this->stub->withBuiltins();
+      for (const auto& arg : argv) {
+        this->stub->withArgument(arg);
+      }
+    }
+    egg::yolk::IStub& operator*() {
+      return *this->stub;
+    }
+    egg::yolk::IStub* operator->() {
+      return this->stub.get();
+    }
+    std::string expect(egg::yolk::IStub::ExitCode expected) {
+      auto actual = this->stub->main();
+      if (actual != expected) {
+        return "[exitcode actual=" + toString(actual) + ", expected = " + toString(expected) + "]";
+      }
+      return this->logger.logged.str();
+    }
+  };
+}
+
 TEST(TestStub, Main) {
   char arg0[] = "arg0";
   char* argv[] = { arg0, nullptr };
@@ -9,23 +51,45 @@ TEST(TestStub, Main) {
   ASSERT_EQ(0, exitcode);
 }
 
-TEST(TestStub, Empty) {
+TEST(TestStub, Make) {
   auto stub = egg::yolk::IStub::make();
   auto exitcode = stub->main();
   ASSERT_EQ(egg::yolk::IStub::ExitCode::OK, exitcode);
 }
 
 TEST(TestStub, CommandMissing) {
-  auto stub = egg::yolk::IStub::make();
-  stub->withArgument("/path/to/executable.exe");
-  auto exitcode = stub->main();
-  ASSERT_EQ(egg::yolk::IStub::ExitCode::OK, exitcode);
+  Stub stub{ "/path/to/executable.exe" };
+  auto logged = stub.expect(egg::yolk::IStub::ExitCode::OK);
+  ASSERT_CONTAINS(logged, "Welcome to egg");
+  ASSERT_EQ(1u, stub.logger.counts.size());
+  ASSERT_EQ(1u, stub.logger.counts[egg::ovum::ILogger::Severity::Information]);
 }
 
 TEST(TestStub, CommandUnknown) {
-  auto stub = egg::yolk::IStub::make();
-  stub->withArgument("/path/to/executable.exe");
-  stub->withArgument("unknown");
-  auto exitcode = stub->main();
-  ASSERT_EQ(egg::yolk::IStub::ExitCode::Usage, exitcode);
+  Stub stub{ "/path/to/executable.exe", "unknown" };
+  auto logged = stub.expect(egg::yolk::IStub::ExitCode::Usage);
+  ASSERT_STARTSWITH(logged, "<COMMAND><ERROR>executable: Unknown command: 'unknown'\n<COMMAND><INFORMATION>Usage: executable ");
+  ASSERT_EQ(2u, stub.logger.counts.size());
+  ASSERT_EQ(1u, stub.logger.counts[egg::ovum::ILogger::Severity::Error]);
+  ASSERT_EQ(1u, stub.logger.counts[egg::ovum::ILogger::Severity::Information]);
+}
+
+TEST(TestStub, GeneralOptionUnknown) {
+  Stub stub{ "/path/to/executable.exe", "--unknown" };
+  auto logged = stub.expect(egg::yolk::IStub::ExitCode::Usage);
+  ASSERT_STARTSWITH(logged, "<COMMAND><ERROR>executable: Unknown general option: '--unknown'\n<COMMAND><INFORMATION>Usage: executable ");
+  ASSERT_EQ(2u, stub.logger.counts.size());
+  ASSERT_EQ(1u, stub.logger.counts[egg::ovum::ILogger::Severity::Error]);
+  ASSERT_EQ(1u, stub.logger.counts[egg::ovum::ILogger::Severity::Information]);
+}
+
+TEST(TestStub, LogLevelUnknown) {
+  Stub stub{ "/path/to/executable.exe", "--log-level=unknown" };
+  auto logged = stub.expect(egg::yolk::IStub::ExitCode::Usage);
+  auto expected = "<COMMAND><ERROR>executable: Invalid general option: '--log-level=unknown'\n"
+                  "<COMMAND><INFORMATION>Option usage: '--log-level=debug|verbose|information|warning|error|none'\n";
+  ASSERT_EQ(expected, logged);
+  ASSERT_EQ(2u, stub.logger.counts.size());
+  ASSERT_EQ(1u, stub.logger.counts[egg::ovum::ILogger::Severity::Error]);
+  ASSERT_EQ(1u, stub.logger.counts[egg::ovum::ILogger::Severity::Information]);
 }
