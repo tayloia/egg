@@ -136,3 +136,12 @@ TEST(TestStub, LogLevelNone) {
   auto logged = stub.expect(egg::yolk::IStub::ExitCode::OK);
   ASSERT_EQ("", logged);
 }
+
+TEST(TestStub, ProfileAll) {
+  Stub stub{ "/path/to/executable.exe", "--profile" };
+  auto logged = stub.expect(egg::yolk::IStub::ExitCode::OK);
+  auto expected = stub.WELCOME +
+                  "<COMMAND><INFORMATION>PROFILE: TIME: WIBBLE\n"
+                  "<COMMAND><INFORMATION>PROFILE: MEMORY: WIBBLE\n";
+  ASSERT_EQ(expected, logged);
+}

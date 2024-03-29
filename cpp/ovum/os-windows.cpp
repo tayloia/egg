@@ -4,9 +4,11 @@
 #include "ovum/os-file.h"
 
 #include <windows.h>
+#include <psapi.h>
 
 namespace {
   using namespace egg::ovum::os::embed;
+  using namespace egg::ovum::os::memory;
 
   struct WindowsLockableResource : public LockableResource {
     HMODULE module;
@@ -124,6 +126,184 @@ namespace {
       throw egg::ovum::Exception("Cannot free resource library handle");
     }
   }
+  struct InternalSnapshot_PWSI {
+    uint64_t executable;
+    uint64_t readonly;
+    uint64_t writable;
+    uint64_t other;
+    bool take(const PSAPI_WORKING_SET_INFORMATION& pwsi) {
+      this->executable = 0;
+      this->readonly = 0;
+      this->writable = 0;
+      this->other = 0;
+      for (size_t i = 0; i < pwsi.NumberOfEntries; ++i) {
+        const PSAPI_WORKING_SET_BLOCK& pwsb = pwsi.WorkingSetInfo[i];
+        switch (pwsb.Protection) {
+        case 0:
+          // The page is not accessed
+          this->other++;
+          break;
+        case 1:
+          // Read-only
+          this->readonly++;
+          break;
+        case 2:
+          // Executable
+          this->executable++;
+          break;
+        case 3:
+          // Executable and read-only
+          this->executable++;
+          break;
+        case 4:
+          // Read/write
+          this->writable++;
+          break;
+        case 5:
+          // Copy-on-write
+          this->writable++;
+          break;
+        case 6:
+          // Executable and read/write
+          this->executable++;
+          break;
+        case 7:
+          // Executable and copy-on-write
+          this->executable++;
+          break;
+        case 8:
+          // The page is not accessed
+          this->other++;
+          break;
+        case 9:
+          // Non-cacheable and read-only
+          this->readonly++;
+          break;
+        case 10:
+          // Non-cacheable and executable
+          this->executable++;
+          break;
+        case 11:
+          // Non-cacheable, executable, and read-only
+          this->executable++;
+          break;
+        case 12:
+          // Non-cacheable and read/write
+          this->writable++;
+          break;
+        case 13:
+          // Non-cacheable and copy-on-write
+          this->writable++;
+          break;
+        case 14:
+          // Non-cacheable, executable, and read/write
+          this->executable++;
+          break;
+        case 15:
+          // Non-cacheable, executable, and copy-on-write
+          this->executable++;
+          break;
+        case 16:
+          // The page is not accessed
+          this->other++;
+          break;
+        case 17:
+          // Guard page and read-only
+          this->readonly++;
+          break;
+        case 18:
+          // Guard page and executable
+          this->executable++;
+          break;
+        case 19:
+          // Guard page, executable, and read-only
+          this->executable++;
+          break;
+        case 20:
+          // Guard page and read/write
+          this->writable++;
+          break;
+        case 21:
+          // Guard page and copy-on-write
+          this->writable++;
+          break;
+        case 22:
+          // Guard page, executable, and read/write
+          this->executable++;
+          break;
+        case 23:
+          // Guard page, executable, and copy-on-write
+          this->executable++;
+          break;
+        case 24:
+          // The page is not accessed
+          this->other++;
+          break;
+        case 25:
+          // Non-cacheable, guard page, and read-only
+          this->readonly++;
+          break;
+        case 26:
+          // Non-cacheable, guard page, and executable
+          this->executable++;
+          break;
+        case 27:
+          // Non-cacheable, guard page, executable, and read-only
+          this->executable++;
+          break;
+        case 28:
+          // Non-cacheable, guard page, and read/write
+          this->writable++;
+          break;
+        case 29:
+          // Non-cacheable, guard page, and copy-on-write
+          this->writable++;
+          break;
+        case 30:
+          // Non-cacheable, guard page, executable, and read/write
+          this->executable++;
+          break;
+        case 31:
+          // Non-cacheable, guard page, executable, and copy-on-write
+          this->executable++;
+          break;
+        }
+      }
+      this->executable *= 0x1000;
+      this->readonly *= 0x1000;
+      this->writable *= 0x1000;
+      this->other *= 0x1000;
+      return true;
+    }
+    static bool take(InternalSnapshot_PWSI& snapshot) {
+      std::vector<uint8_t> buffer;
+      size_t entries = 1;
+      do {
+        auto bytes = offsetof(PSAPI_WORKING_SET_INFORMATION, WorkingSetInfo[entries]);
+        buffer.resize(bytes);
+        auto* base = reinterpret_cast<PSAPI_WORKING_SET_INFORMATION*>(buffer.data());
+        if (::QueryWorkingSet(::GetCurrentProcess(), base, DWORD(bytes))) {
+          return snapshot.take(*base);
+        }
+        entries = base->NumberOfEntries;
+      } while (::GetLastError() == ERROR_BAD_LENGTH);
+      return false;
+    }
+  };
+  struct InternalSnapshot_PMCE {
+    PROCESS_MEMORY_COUNTERS_EX pcme;
+    static bool take(InternalSnapshot_PMCE& snapshot) {
+      return ::GetProcessMemoryInfo(::GetCurrentProcess(), reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&snapshot.pcme), sizeof(snapshot.pcme));
+    }
+  };
+  struct InternalSnapshot : public InternalSnapshot_PMCE {
+    InternalSnapshot_PWSI pwsi;
+  };
+  bool takeSnapshot(InternalSnapshot& snapshot) {
+    return InternalSnapshot_PMCE::take(snapshot) && InternalSnapshot_PWSI::take(snapshot.pwsi);
+  }
+  // Filled by 'egg::ovum::os::memory::initialize()'
+  InternalSnapshot initialSnapshot{};
 }
 
 void egg::ovum::os::embed::updateResourceFromMemory(const std::string& executable, const std::string& type, const std::string& label, const void* data, size_t bytes) {
@@ -183,4 +363,77 @@ std::shared_ptr<egg::ovum::os::embed::LockableResource> egg::ovum::os::embed::fi
   // The library handle is freed by RAII in ~LockableResource()
   auto handle = loadLibrary(executable);
   return findResourceName(handle, type, label);
+}
+
+#include <iostream>
+void WIBBLE() {
+  // Open current process
+  HANDLE hProcess = ::OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, ::GetCurrentProcessId());
+  if (hProcess) {
+    PROCESS_MEMORY_COUNTERS ProcessMemoryCounters;
+
+    memset(&ProcessMemoryCounters, 0, sizeof(ProcessMemoryCounters));
+
+    // Set size of structure
+    ProcessMemoryCounters.cb = sizeof(ProcessMemoryCounters);
+
+    // Get memory usage
+    if (::GetProcessMemoryInfo(hProcess,
+      &ProcessMemoryCounters,
+      sizeof(ProcessMemoryCounters)) == TRUE) {
+      std::cout << std::setfill('0') << std::hex
+        << "PageFaultCount: 0x" << std::setw(8)
+        << ProcessMemoryCounters.PageFaultCount << std::endl
+        << "PeakWorkingSetSize: 0x" << std::setw(8)
+        << ProcessMemoryCounters.PeakWorkingSetSize << std::endl
+        << "WorkingSetSize: 0x" << std::setw(8)
+        << ProcessMemoryCounters.WorkingSetSize << std::endl
+        << "QuotaPeakPagedPoolUsage: 0x" << std::setw(8)
+        << ProcessMemoryCounters.QuotaPeakPagedPoolUsage << std::endl
+        << "QuotaPagedPoolUsage: 0x" << std::setw(8)
+        << ProcessMemoryCounters.QuotaPagedPoolUsage << std::endl
+        << "QuotaPeakNonPagedPoolUsage: 0x" << std::setw(8)
+        << ProcessMemoryCounters.QuotaPeakNonPagedPoolUsage << std::endl
+        << "QuotaNonPagedPoolUsage: 0x" << std::setw(8)
+        << ProcessMemoryCounters.QuotaNonPagedPoolUsage << std::endl
+        << "PagefileUsage: 0x" << std::setw(8)
+        << ProcessMemoryCounters.PagefileUsage << std::endl
+        << "PeakPagefileUsage: 0x" << std::setw(8)
+        << ProcessMemoryCounters.PeakPagefileUsage << std::endl;
+    } else
+      std::cout << "Could not get memory usage (Error: "
+      << ::GetLastError() << ")" << std::endl;
+
+    // Close process
+    ::CloseHandle(hProcess);
+  } else {
+    std::cout << "Could not open process (Error " << ::GetLastError() << ")" << std::endl;
+  }
+}
+
+void egg::ovum::os::memory::initialize() noexcept {
+  //WIBBLE();
+  assert(initialSnapshot.pwsi.executable == 0);
+  if (!takeSnapshot(initialSnapshot)) {
+    initialSnapshot.pwsi.executable = 0;
+  }
+}
+
+egg::ovum::os::memory::Snapshot egg::ovum::os::memory::snapshot() {
+  // See https://stackoverflow.com/a/33228050
+  if (initialSnapshot.pwsi.executable == 0) {
+    throw egg::ovum::Exception("Failed to get initial process working set information");
+  }
+  InternalSnapshot internal;
+  if (!takeSnapshot(internal)) {
+    throw egg::ovum::Exception("Cannot get current process working set information");
+  }
+  Snapshot pwsi{ 0 };
+  pwsi.codeCurrentBytes = internal.pwsi.executable;
+  pwsi.dataCurrentBytes = internal.pwsi.readonly;
+  pwsi.heapCurrentBytes = internal.pwsi.writable + internal.pwsi.other; // WIBBLE
+  Snapshot pcme{ 0 };
+  pcme.heapCurrentBytes = internal.pcme.PrivateUsage;
+  pcme.dataCurrentBytes = internal.pwsi.executable + internal.pwsi.readonly + internal.pwsi.writable;
+  return {};
 }

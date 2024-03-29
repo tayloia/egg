@@ -1,4 +1,16 @@
 namespace egg::ovum::os::memory {
+  struct Snapshot {
+    uint64_t codeCurrentBytes;
+    uint64_t dataCurrentBytes;
+    uint64_t heapCurrentBytes;
+    uint64_t heapMinimumBytes;
+    uint64_t heapMaximumBytes;
+    uint64_t heapTotalAllocatedBytes;
+    uint64_t heapTotalDeallocatedBytes;
+  };
+  void initialize() noexcept;
+  Snapshot snapshot();
+
 #if EGG_PLATFORM == EGG_PLATFORM_MSVC
   // Microsoft-style run-time
   inline void* alloc(size_t bytes, size_t alignment) {

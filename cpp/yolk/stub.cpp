@@ -35,6 +35,8 @@ namespace {
       IAllocator* allocator = nullptr;
       ILogger* logger = nullptr;
       Severity loglevel = Configuration::makeLogLevelMask(Severity::Information);
+      bool profileMemory = false;
+      bool profileTime = false;
       // Helpers
       static Severity makeLogLevelMask(Severity severity) {
         if (severity == Severity::None) {
@@ -122,6 +124,7 @@ namespace {
     }
     virtual IStub& withBuiltins() override {
       this->withBuiltinOption(&Stub::optLogLevel, "log-level=debug|verbose|information|warning|error|none");
+      this->withBuiltinOption(&Stub::optProfile, "profile[=memory|time|all]");
       this->withBuiltinCommand(&Stub::cmdHelp, "help");
       this->withBuiltinCommand(&Stub::cmdVersion, "version");
       return *this;
@@ -150,17 +153,19 @@ namespace {
       }
       if (index >= this->arguments.size()) {
         // No command supplied
-        return this->cmdEmpty();
+        auto handler = std::bind(&Stub::cmdMissing, this, std::placeholders::_1);
+        return this->runCommand(handler);
       }
       const auto& command = this->arguments[index];
       auto found = this->commands.find(command);
       if (found != this->commands.end()) {
         this->breadcrumbs.push_back(index);
-        return found->second.handler(index);
+        return this->runCommand(found->second.handler);
       }
       this->badUsage("Unknown command: '" + command + "'");
       return ExitCode::Usage;
     }
+    ExitCode runCommand(const CommandHandler& handler);
     std::string appname() {
       std::string arg0;
       if (!this->arguments.empty()) {
@@ -211,8 +216,26 @@ namespace {
       }
       return *this;
     }
+    void redirect(Source source, Severity severity, const std::function<void(std::ostream&)>& callback) {
+      if (this->configuration.isLogging(severity)) {
+        if ((this->configuration.logger != nullptr) && (this->configuration.allocator != nullptr)) {
+          // Use our attached logger
+          std::stringstream ss;
+          callback(ss);
+          this->configuration.logger->log(source, severity, this->makeString(ss.str()));
+        } else if (Bits::hasAnySet(severity, Bits::set(Severity::Warning, Severity::Error))) {
+          // Send to stderr
+          callback(std::cerr);
+          std::cerr << std::endl;
+        } else {
+          // Send to stdout
+          callback(std::cout);
+          std::cout << std::endl;
+        }
+      }
+    }
   private:
-    using CommandMember = ExitCode(Stub::*)(size_t);
+    using CommandMember = ExitCode(Stub::*)(const IStub&);
     using OptionMember = bool(Stub::*)(const std::string&, const std::string*);
     void withBuiltinCommand(const CommandMember& member, const std::string& usage) {
       auto handler = std::bind(member, this, std::placeholders::_1);
@@ -293,14 +316,28 @@ namespace {
       }
       return true;
     }
-    ExitCode cmdEmpty() {
+    bool optProfile(const std::string& option, const std::string* value) {
+      if ((value == nullptr) || (*value == "all")) {
+        this->configuration.profileMemory = true;
+        this->configuration.profileTime = true;
+      } else if (*value == "memory") {
+        this->configuration.profileMemory = true;
+      } else if (*value == "time") {
+        this->configuration.profileTime = true;
+      } else {
+        this->badGeneralOption(option, value);
+        return false;
+      }
+      return true;
+    }
+    ExitCode cmdMissing(const IStub&) {
       this->redirect(Source::Command, Severity::Information, [this](std::ostream& os) {
         os << "Welcome to egg v" << Version::semver() << "\n";
         os << "Try '" << this->appname() << " help' for more information";
       });
       return ExitCode::OK;
     }
-    ExitCode cmdHelp(size_t) {
+    ExitCode cmdHelp(const IStub&) {
       this->redirect(Source::Command, Severity::Information, [this](std::ostream& os) {
         this->printUsage(os);
         this->printGeneralOptions(os);
@@ -308,7 +345,7 @@ namespace {
       });
       return ExitCode::OK;
     }
-    ExitCode cmdVersion(size_t) {
+    ExitCode cmdVersion(const IStub&) {
       this->redirect(Source::Command, Severity::Information, [](std::ostream& os) {
         os << "egg v" << Version();
       });
@@ -361,29 +398,56 @@ namespace {
       }
       os << ": ";
     }
-    void redirect(Source source, Severity severity, const std::function<void(std::ostream&)>& callback) {
-      if (this->configuration.isLogging(severity)) {
-        if ((this->configuration.logger != nullptr) && (this->configuration.allocator != nullptr)) {
-          // Use our attached logger
-          std::stringstream ss;
-          callback(ss);
-          this->configuration.logger->log(source, severity, this->makeString(ss.str()));
-        } else if (Bits::hasAnySet(severity, Bits::set(Severity::Warning, Severity::Error))) {
-          // Send to stderr
-          callback(std::cerr);
-          std::cerr << std::endl;
-        } else {
-          // Send to stdout
-          callback(std::cout);
-          std::cout << std::endl;
-        }
-      }
-    }
     String makeString(const std::string& utf8) const {
       assert(this->configuration.allocator != nullptr);
       return String::fromUTF8(*this->configuration.allocator, utf8.data(), utf8.size());
     }
   };
+
+  struct ProfileMemory {
+    void initialize(Stub&) {
+    }
+    void report(std::ostream& os, Stub&) {
+      os << "PROFILE: MEMORY: WIBBLE";
+    }
+  };
+
+  struct ProfileTime {
+    void initialize(Stub&) {
+    }
+    void report(std::ostream& os, Stub&) {
+      os << "PROFILE: TIME: WIBBLE";
+    }
+  };
+
+  template<typename T>
+  class Profile final {
+  private:
+    Stub* stub;
+    T profile;
+  public:
+    explicit Profile(Stub* stub)
+      : stub(stub),
+        profile() {
+      if (this->stub != nullptr) {
+        this->profile.initialize(*this->stub);
+      }
+    }
+    ~Profile() {
+      if (this->stub != nullptr) {
+        this->stub->redirect(ILogger::Source::Command, ILogger::Severity::Information, [this](std::ostream& os) {
+          this->profile.report(os, *this->stub);
+        });
+      }
+    }
+  };
+
+  Stub::ExitCode Stub::runCommand(const CommandHandler& handler) {
+    // Use RAII to ensure reporting even under exceptions
+    Profile<ProfileMemory> profileMemory{ this->configuration.profileMemory ? this : nullptr };
+    Profile<ProfileTime> profileTime{ this->configuration.profileTime ? this : nullptr };
+    return handler(*this);
+  }
 }
 
 int egg::yolk::IStub::main(int argc, char* argv[], char* envp[]) noexcept {

@@ -7,7 +7,7 @@ namespace egg::yolk {
       Error = 1,
       Usage = 2
     };
-    using CommandHandler = std::function<ExitCode(size_t)>;
+    using CommandHandler = std::function<ExitCode(const IStub&)>;
     using OptionHandler = std::function<bool(const std::string&, const std::string*)>;
     // Construction interface
     virtual ~IStub() = default;

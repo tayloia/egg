@@ -23,3 +23,15 @@ TEST(TestOS_Memory, Size) {
   egg::ovum::os::memory::free(allocated, alignment);
   ASSERT_EQ(1u, size);
 }
+
+TEST(TestOS_Memory, Snapshot) {
+  auto snapshot = egg::ovum::os::memory::snapshot();
+  ASSERT_GT(snapshot.codeCurrentBytes, 0u);
+  ASSERT_GT(snapshot.dataCurrentBytes, 0u);
+  ASSERT_GT(snapshot.heapMinimumBytes, 0u);
+  ASSERT_GE(snapshot.heapCurrentBytes, snapshot.heapMinimumBytes);
+  ASSERT_GE(snapshot.heapMaximumBytes, snapshot.heapCurrentBytes);
+  ASSERT_GT(snapshot.heapTotalDeallocatedBytes, 0u);
+  ASSERT_GE(snapshot.heapTotalAllocatedBytes, snapshot.heapTotalDeallocatedBytes);
+}
+
