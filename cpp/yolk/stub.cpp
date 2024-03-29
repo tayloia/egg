@@ -32,7 +32,7 @@ namespace {
       size_t occurrences;
     };
     struct Configuration {
-      Severity verbose = Severity::Information;
+      Severity verbose = Severity::Information; // WIBBLE
     };
     std::vector<std::string> arguments;
     std::map<std::string, std::string, LessCaseInsensitive> environment;
@@ -83,6 +83,10 @@ namespace {
         break;
       }
     }
+    virtual IStub& withArgument(const std::string& argument) override {
+      this->arguments.push_back(argument);
+      return *this;
+    }
     virtual IStub& withArguments(int argc, char* argv[]) override {
       for (auto argi = 0; argi < argc; ++argi) {
         this->arguments.push_back((argv[argi] == nullptr) ? std::string() : argv[argi]);
@@ -115,6 +119,22 @@ namespace {
       this->withBuiltinCommand(&Stub::cmdHelp, "help");
       this->withBuiltinCommand(&Stub::cmdVersion, "version");
       return *this;
+    }
+    virtual size_t getArgumentCount() const override {
+      return this->arguments.size();
+    }
+    virtual size_t getArgumentCommand() const override {
+      if (this->breadcrumbs.empty()) {
+        return this->breadcrumbs.front();
+      }
+      return 0;
+    }
+    virtual const std::string* queryArgument(size_t index) const override {
+      return (index < this->arguments.size()) ? &this->arguments[index] : nullptr;
+    }
+    virtual const std::string* queryEnvironment(const std::string& key) const override {
+      auto found = this->environment.find(key);
+      return (found != this->environment.end()) ? &found->second : nullptr;
     }
     virtual ExitCode main() override {
       auto index = this->parseGeneralOptions();
@@ -227,10 +247,26 @@ namespace {
         return false;
       }
       if (value == nullptr) {
-        this->badUsage("Missing value for general option '--" + option + "'");
+        this->badGeneralOption(option, value);
         return false;
       }
-      this->configuration.verbose = Severity::Verbose;
+      if (*value == "debug") {
+        this->configuration.verbose = Severity::Verbose;
+      } else if (*value == "verbose") {
+        this->configuration.verbose = Severity::Information;
+      } else if (*value == "information") {
+        this->configuration.verbose = Severity::Information;
+      } else if (*value == "warning") {
+        this->configuration.verbose = Severity::Warning;
+      } else if (*value == "error") {
+        this->configuration.verbose = Severity::Error;
+      } else if (*value == "none") {
+        this->configuration.verbose = Severity::None;
+      } else if (*value == "debug|verbose|information|warning|error|none") {
+        this->configuration.verbose = Severity::None;
+      } else {
+        this->badGeneralOption(option, value);
+      }
       return true;
     }
     ExitCode cmdEmpty() {
@@ -262,6 +298,22 @@ namespace {
       this->redirect(Source::Command, Severity::Information, [this](std::ostream& os) {
         this->printUsage(os);
       });
+    }
+    void badGeneralOption(const std::string& option, const std::string* value) {
+      this->redirect(Source::Command, Severity::Error, [=, this](std::ostream& os) {
+        this->printBreadcrumbs(os);
+        if (value == nullptr) {
+          os << "Missing general option: '--" << option << "'";
+        } else {
+          os << "Bad general option: '--" << option << "=" << *value << "'";
+        }
+      });
+      auto known = this->options.find(option);
+      if (known != this->options.end()) {
+        this->redirect(Source::Command, Severity::Information, [=](std::ostream& os) {
+          os << "\nOption usage: --" << known->second.usage;
+        });
+      }
     }
     void printUsage(std::ostream& os) {
       os << "Usage: " << this->appname() << " [<general-option>]... <command> [<command-option>|<command-argument>]...";
@@ -321,4 +373,8 @@ int egg::yolk::IStub::main(int argc, char* argv[], char* envp[]) noexcept {
     stub.error("Fatal exception");
   }
   return static_cast<int>(exitcode);
+}
+
+std::unique_ptr<egg::yolk::IStub> egg::yolk::IStub::make() {
+  return std::make_unique<Stub>();
 }
