@@ -1,5 +1,6 @@
 #include "yolk/test.h"
 #include "yolk/stub.h"
+#include "ovum/version.h"
 
 namespace {
   std::string toString(egg::yolk::IStub::ExitCode exitcode) {
@@ -15,6 +16,9 @@ namespace {
   }
 
   struct Stub {
+    const std::string WELCOME =
+      "<COMMAND><INFORMATION>Welcome to egg v" + egg::ovum::Version::semver() + "\n"
+      "Try 'executable help' for more information\n";
     egg::test::Allocator allocator;
     egg::test::Logger logger;
     std::unique_ptr<egg::yolk::IStub> stub;
@@ -36,7 +40,7 @@ namespace {
     std::string expect(egg::yolk::IStub::ExitCode expected) {
       auto actual = this->stub->main();
       if (actual != expected) {
-        return "[exitcode actual=" + toString(actual) + ", expected = " + toString(expected) + "]";
+        return "[exitcode actual=" + toString(actual) + ", expected=" + toString(expected) + "]";
       }
       return this->logger.logged.str();
     }
@@ -60,7 +64,7 @@ TEST(TestStub, Make) {
 TEST(TestStub, CommandMissing) {
   Stub stub{ "/path/to/executable.exe" };
   auto logged = stub.expect(egg::yolk::IStub::ExitCode::OK);
-  ASSERT_CONTAINS(logged, "Welcome to egg");
+  ASSERT_EQ(stub.WELCOME, logged);
   ASSERT_EQ(1u, stub.logger.counts.size());
   ASSERT_EQ(1u, stub.logger.counts[egg::ovum::ILogger::Severity::Information]);
 }
@@ -92,4 +96,43 @@ TEST(TestStub, LogLevelUnknown) {
   ASSERT_EQ(2u, stub.logger.counts.size());
   ASSERT_EQ(1u, stub.logger.counts[egg::ovum::ILogger::Severity::Error]);
   ASSERT_EQ(1u, stub.logger.counts[egg::ovum::ILogger::Severity::Information]);
+}
+
+TEST(TestStub, LogLevelDebug) {
+  Stub stub{ "/path/to/executable.exe", "--log-level=debug" };
+  auto logged = stub.expect(egg::yolk::IStub::ExitCode::OK);
+  ASSERT_EQ(stub.WELCOME, logged);
+}
+
+TEST(TestStub, LogLevelVerbose) {
+  Stub stub{ "/path/to/executable.exe", "--log-level=verbose" };
+  auto logged = stub.expect(egg::yolk::IStub::ExitCode::OK);
+  ASSERT_EQ(stub.WELCOME, logged);
+}
+
+TEST(TestStub, LogLevelInformation) {
+  Stub stub{ "/path/to/executable.exe", "--log-level=information" };
+  auto logged = stub.expect(egg::yolk::IStub::ExitCode::OK);
+  ASSERT_EQ(stub.WELCOME, logged);
+}
+
+TEST(TestStub, LogLevelWarning) {
+  Stub stub{ "/path/to/executable.exe", "--log-level=warning" };
+  stub.allocator.expectation = egg::test::Allocator::Expectation::NoAllocations;
+  auto logged = stub.expect(egg::yolk::IStub::ExitCode::OK);
+  ASSERT_EQ("", logged);
+}
+
+TEST(TestStub, LogLevelError) {
+  Stub stub{ "/path/to/executable.exe", "--log-level=error" };
+  stub.allocator.expectation = egg::test::Allocator::Expectation::NoAllocations;
+  auto logged = stub.expect(egg::yolk::IStub::ExitCode::OK);
+  ASSERT_EQ("", logged);
+}
+
+TEST(TestStub, LogLevelNone) {
+  Stub stub{ "/path/to/executable.exe", "--log-level=none" };
+  stub.allocator.expectation = egg::test::Allocator::Expectation::NoAllocations;
+  auto logged = stub.expect(egg::yolk::IStub::ExitCode::OK);
+  ASSERT_EQ("", logged);
 }

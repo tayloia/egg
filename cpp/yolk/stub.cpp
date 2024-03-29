@@ -34,7 +34,19 @@ namespace {
     struct Configuration {
       IAllocator* allocator = nullptr;
       ILogger* logger = nullptr;
-      Severity verbose = Severity::Information; // WIBBLE
+      Severity loglevel = Configuration::makeLogLevelMask(Severity::Information);
+      // Helpers
+      static Severity makeLogLevelMask(Severity severity) {
+        if (severity == Severity::None) {
+          return Severity::None;
+        }
+        assert(Bits::hasOneSet(severity));
+        auto underlying = Bits::underlying(severity);
+        return Severity(underlying | (underlying - 1));
+      }
+      bool isLogging(Severity severity) const {
+        return Bits::hasAnySet(this->loglevel, severity);
+      }
     };
     std::vector<std::string> arguments;
     std::map<std::string, std::string, LessCaseInsensitive> environment;
@@ -64,6 +76,7 @@ namespace {
       }
       switch (severity) {
       case Severity::None:
+      default:
         std::cout << origin << message.toUTF8() << std::endl;
         break;
       case Severity::Debug:
@@ -220,8 +233,8 @@ namespace {
       }
     }
     size_t parseGeneralOptions() {
-      size_t index = 1;
-      while (index < this->arguments.size()) {
+      size_t index = 0;
+      while (++index < this->arguments.size()) {
         const auto& argument = this->arguments[index];
         if (!argument.starts_with("--")) {
           break;
@@ -263,19 +276,17 @@ namespace {
         return false;
       }
       if (*value == "debug") {
-        this->configuration.verbose = Severity::Verbose;
+        this->configuration.loglevel = Configuration::makeLogLevelMask(Severity::Debug);
       } else if (*value == "verbose") {
-        this->configuration.verbose = Severity::Information;
+        this->configuration.loglevel = Configuration::makeLogLevelMask(Severity::Verbose);
       } else if (*value == "information") {
-        this->configuration.verbose = Severity::Information;
+        this->configuration.loglevel = Configuration::makeLogLevelMask(Severity::Information);
       } else if (*value == "warning") {
-        this->configuration.verbose = Severity::Warning;
+        this->configuration.loglevel = Configuration::makeLogLevelMask(Severity::Warning);
       } else if (*value == "error") {
-        this->configuration.verbose = Severity::Error;
+        this->configuration.loglevel = Configuration::makeLogLevelMask(Severity::Error);
       } else if (*value == "none") {
-        this->configuration.verbose = Severity::None;
-      } else if (*value == "debug|verbose|information|warning|error|none") {
-        this->configuration.verbose = Severity::None;
+        this->configuration.loglevel = Configuration::makeLogLevelMask(Severity::None);
       } else {
         this->badGeneralOption(option, value);
         return false;
@@ -351,19 +362,21 @@ namespace {
       os << ": ";
     }
     void redirect(Source source, Severity severity, const std::function<void(std::ostream&)>& callback) {
-      if ((this->configuration.logger != nullptr) && (this->configuration.allocator != nullptr)) {
-        // Use our attached logger
-        std::stringstream ss;
-        callback(ss);
-        this->configuration.logger->log(source, severity, this->makeString(ss.str()));
-      } else if (Bits::hasAnySet(severity, Bits::set(Severity::Warning, Severity::Error))) {
-        // Send to stderr
-        callback(std::cerr);
-        std::cerr << std::endl;
-      } else {
-        // Send to stdout
-        callback(std::cout);
-        std::cout << std::endl;
+      if (this->configuration.isLogging(severity)) {
+        if ((this->configuration.logger != nullptr) && (this->configuration.allocator != nullptr)) {
+          // Use our attached logger
+          std::stringstream ss;
+          callback(ss);
+          this->configuration.logger->log(source, severity, this->makeString(ss.str()));
+        } else if (Bits::hasAnySet(severity, Bits::set(Severity::Warning, Severity::Error))) {
+          // Send to stderr
+          callback(std::cerr);
+          std::cerr << std::endl;
+        } else {
+          // Send to stdout
+          callback(std::cout);
+          std::cout << std::endl;
+        }
       }
     }
     String makeString(const std::string& utf8) const {

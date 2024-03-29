@@ -147,11 +147,11 @@ namespace egg::ovum {
     };
     enum class Severity {
       None = 0,
-      Debug = 1 << 0,
-      Verbose = 1 << 1,
+      Error = 1 << 0,
+      Warning = 1 << 1,
       Information = 1 << 2,
-      Warning = 1 << 3,
-      Error = 1 << 4
+      Verbose = 1 << 3,
+      Debug = 1 << 4
     };
     // Interface
     virtual ~ILogger() {}
