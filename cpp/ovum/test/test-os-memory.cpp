@@ -26,12 +26,10 @@ TEST(TestOS_Memory, Size) {
 
 TEST(TestOS_Memory, Snapshot) {
   auto snapshot = egg::ovum::os::memory::snapshot();
-  ASSERT_GT(snapshot.codeCurrentBytes, 0u);
-  ASSERT_GT(snapshot.dataCurrentBytes, 0u);
-  ASSERT_GT(snapshot.heapMinimumBytes, 0u);
-  ASSERT_GE(snapshot.heapCurrentBytes, snapshot.heapMinimumBytes);
-  ASSERT_GE(snapshot.heapMaximumBytes, snapshot.heapCurrentBytes);
-  ASSERT_GT(snapshot.heapTotalDeallocatedBytes, 0u);
-  ASSERT_GE(snapshot.heapTotalAllocatedBytes, snapshot.heapTotalDeallocatedBytes);
+  ASSERT_GT(snapshot.currentBytesR, 0u);
+  ASSERT_GT(snapshot.currentBytesW, 0u);
+  ASSERT_GT(snapshot.currentBytesX, 0u);
+  ASSERT_EQ(snapshot.currentBytesTotal, snapshot.currentBytesR + snapshot.currentBytesW + snapshot.currentBytesX);
+  ASSERT_GE(snapshot.peakBytesW, snapshot.currentBytesW);
+  ASSERT_GE(snapshot.peakBytesTotal, snapshot.currentBytesTotal);
 }
-

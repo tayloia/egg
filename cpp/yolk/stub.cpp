@@ -408,7 +408,14 @@ namespace {
     void initialize(Stub&) {
     }
     void report(std::ostream& os, Stub&) {
-      os << "PROFILE: MEMORY: WIBBLE";
+      auto snapshot = egg::ovum::os::memory::snapshot();
+      os << "profile: memory:" <<
+        " r=" << snapshot.currentBytesR <<
+        " w=" << snapshot.currentBytesW <<
+        " x=" << snapshot.currentBytesX <<
+        " total=" << snapshot.currentBytesTotal <<
+        " peak-w=" << snapshot.peakBytesW <<
+        " peak-total=" << snapshot.peakBytesTotal;
     }
   };
 

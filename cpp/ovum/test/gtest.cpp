@@ -30,7 +30,6 @@
 #endif
 
 int egg::test::main(int argc, char** argv) {
-  egg::ovum::os::memory::initialize();
   testing::InitGoogleTest(&argc, argv);
   // If you see '!! This test has probably CRASHED !!' when not debugging set the following to 'false'
   testing::GTEST_FLAG(break_on_failure) = false;

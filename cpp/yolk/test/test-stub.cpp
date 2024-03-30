@@ -140,8 +140,7 @@ TEST(TestStub, LogLevelNone) {
 TEST(TestStub, ProfileAll) {
   Stub stub{ "/path/to/executable.exe", "--profile" };
   auto logged = stub.expect(egg::yolk::IStub::ExitCode::OK);
-  auto expected = stub.WELCOME +
-                  "<COMMAND><INFORMATION>PROFILE: TIME: WIBBLE\n"
-                  "<COMMAND><INFORMATION>PROFILE: MEMORY: WIBBLE\n";
-  ASSERT_EQ(expected, logged);
+  ASSERT_STARTSWITH(logged, stub.WELCOME);
+  ASSERT_CONTAINS(logged, "\n<COMMAND><INFORMATION>profile: memory: ");
+  ASSERT_CONTAINS(logged, "\n<COMMAND><INFORMATION>PROFILE: TIME: WIBBLE\n");
 }
