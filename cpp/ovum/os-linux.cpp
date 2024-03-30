@@ -8,8 +8,6 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 
-#include <iostream> // WIBBLE
-
 namespace {
   void objcopy(const std::string& command) {
     auto exitcode = egg::ovum::os::process::plines(command, [&](const std::string&) {
@@ -103,9 +101,7 @@ namespace {
   };
   void extractStatus(const std::string& line, const std::string& label, uint64_t& value, uint64_t scale) {
     if (line.starts_with(label)) {
-      std::cout << "extractStatus: " << (line.data() + label.size()) << std::endl;
-      std::cout << "extractStatus: " << label << std::atoll(line.data() + label.size()) << std::endl;
-      value += std::atoll(line.data() + label.size()) * scale;
+      value = std::atoll(line.data() + label.size()) * scale;
     }
   }
 }
@@ -166,17 +162,14 @@ std::shared_ptr<egg::ovum::os::embed::LockableResource> egg::ovum::os::embed::fi
 egg::ovum::os::memory::Snapshot egg::ovum::os::memory::snapshot() {
   // Try 'memusage /mnt/c/Project/egg/bin/wsl/gcc/release/egg-stub.exe --profile=memory'
   // See https://stackoverflow.com/a/64166
-  Snapshot snapshot{ 0, 0, 0, 0, 0, 0 };
+  Snapshot snapshot{ 0, 0, 0, 0 };
   std::ifstream ifs{ "/proc/self/status" };
   std::string line;
   while (std::getline(ifs, line)) {
     extractStatus(line, "VmPeak:\t", snapshot.peakBytesTotal, 1024);
     extractStatus(line, "VmSize:\t", snapshot.currentBytesTotal, 1024);
-    extractStatus(line, "VmHWM:\t", snapshot.peakBytesW, 1024);
-    extractStatus(line, "VmRSS:\t", snapshot.currentBytesW, 1024);
-    // WIBBLE extractStatus(line, "VmExe:\t", snapshot.currentBytesX, 1024);
-    extractStatus(line, "VmLib:\t", snapshot.currentBytesX, 1024);
+    extractStatus(line, "VmHWM:\t", snapshot.peakBytesData, 1024);
+    extractStatus(line, "VmRSS:\t", snapshot.currentBytesData, 1024);
   }
-  snapshot.currentBytesR = snapshot.currentBytesTotal - snapshot.currentBytesW - snapshot.currentBytesX;
   return snapshot;
 }

@@ -410,11 +410,9 @@ namespace {
     void report(std::ostream& os, Stub&) {
       auto snapshot = egg::ovum::os::memory::snapshot();
       os << "profile: memory:" <<
-        " r=" << snapshot.currentBytesR <<
-        " w=" << snapshot.currentBytesW <<
-        " x=" << snapshot.currentBytesX <<
+        " data=" << snapshot.currentBytesData <<
         " total=" << snapshot.currentBytesTotal <<
-        " peak-w=" << snapshot.peakBytesW <<
+        " peak-data=" << snapshot.peakBytesData <<
         " peak-total=" << snapshot.peakBytesTotal;
     }
   };

@@ -1,10 +1,8 @@
 namespace egg::ovum::os::memory {
   struct Snapshot {
-    uint64_t currentBytesR;
-    uint64_t currentBytesW;
-    uint64_t currentBytesX;
+    uint64_t currentBytesData;
     uint64_t currentBytesTotal;
-    uint64_t peakBytesW;
+    uint64_t peakBytesData;
     uint64_t peakBytesTotal;
   };
   Snapshot snapshot();

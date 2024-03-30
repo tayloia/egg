@@ -126,31 +126,8 @@ namespace {
       throw egg::ovum::Exception("Cannot free resource library handle");
     }
   }
-  size_t countWorkingSetBlocks(const PSAPI_WORKING_SET_INFORMATION& pwsi, ULONG_PTR mask) {
-    size_t count = 0;
-    for (size_t i = 0; i < pwsi.NumberOfEntries; ++i) {
-      const PSAPI_WORKING_SET_BLOCK& pwsb = pwsi.WorkingSetInfo[i];
-      if ((pwsb.Protection & mask) != 0) {
-        ++count;
-      }
-    }
-    return count;
-  }
-  const PSAPI_WORKING_SET_INFORMATION* getWorkingSetInformation(std::vector<uint8_t>& buffer) {
-    size_t entries = 1;
-    do {
-      auto bytes = offsetof(PSAPI_WORKING_SET_INFORMATION, WorkingSetInfo[entries]);
-      buffer.resize(bytes);
-      auto* pwsi = reinterpret_cast<PSAPI_WORKING_SET_INFORMATION*>(buffer.data());
-      if (::QueryWorkingSet(::GetCurrentProcess(), pwsi, DWORD(bytes))) {
-        return pwsi;
-      }
-      entries = pwsi->NumberOfEntries;
-    } while (::GetLastError() == ERROR_BAD_LENGTH);
-    return nullptr;
-  }
-  bool getProcessMemoryInfo(PROCESS_MEMORY_COUNTERS_EX& pcme) {
-    return ::GetProcessMemoryInfo(::GetCurrentProcess(), reinterpret_cast<PROCESS_MEMORY_COUNTERS*>(&pcme), sizeof(pcme));
+  bool getProcessMemoryInfo(PROCESS_MEMORY_COUNTERS& pmc) {
+    return ::GetProcessMemoryInfo(::GetCurrentProcess(), &pmc, sizeof(pmc));
   }
 }
 
@@ -215,31 +192,14 @@ std::shared_ptr<egg::ovum::os::embed::LockableResource> egg::ovum::os::embed::fi
 
 egg::ovum::os::memory::Snapshot egg::ovum::os::memory::snapshot() {
   // See https://stackoverflow.com/a/33228050
-  PROCESS_MEMORY_COUNTERS_EX pcme;
-  if (!getProcessMemoryInfo(pcme)) {
+  PROCESS_MEMORY_COUNTERS pmc;
+  if (!getProcessMemoryInfo(pmc)) {
     throw egg::ovum::Exception("Cannot get current process memory information");
   }
-  std::vector<uint8_t> buffer;
-  auto* pwsi = getWorkingSetInformation(buffer);
-  if (pwsi == nullptr) {
-    throw egg::ovum::Exception("Cannot get current process working set information");
-  }
-  uint64_t executableBytes = countWorkingSetBlocks(*pwsi, 0x02) * 0x1000;
   Snapshot snapshot;
-  snapshot.currentBytesR = pcme.WorkingSetSize - executableBytes - pcme.PagefileUsage;
-  snapshot.currentBytesW = pcme.PagefileUsage;
-  snapshot.currentBytesX = executableBytes;
-  snapshot.currentBytesTotal = pcme.WorkingSetSize;
-  snapshot.peakBytesW = pcme.PeakPagefileUsage;
-  snapshot.peakBytesTotal = pcme.PeakWorkingSetSize;
+  snapshot.currentBytesData = pmc.PagefileUsage;
+  snapshot.currentBytesTotal = pmc.WorkingSetSize;
+  snapshot.peakBytesData = pmc.PeakPagefileUsage;
+  snapshot.peakBytesTotal = pmc.PeakWorkingSetSize;
   return snapshot;
 }
-
-/* TEST(TestOS_Memory, Snapshot) Windows 2024-03-30 10:30
-currentBytesR		  2478080		unsigned __int64
-currentBytesW		  2088960		unsigned __int64
-currentBytesX		  7532544		unsigned __int64
-currentBytesTotal	12099584	unsigned __int64
-peakBytesW		    2113536		unsigned __int64
-peakBytesTotal		12099584	unsigned __int64
-*/
