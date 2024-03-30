@@ -3,6 +3,7 @@
 #include "ovum/os-file.h"
 #include "ovum/os-process.h"
 
+#include <chrono>
 #include <fstream>
 #include <regex>
 #include <fcntl.h>
@@ -10,7 +11,8 @@
 #include <sys/times.h>
 
 namespace {
-  auto clockStart = ::times(nullptr);
+  auto chronoStart = std::chrono::high_resolution_clock::now();
+  uint64_t clockTicksPerSecond = ::sysconf(_SC_CLK_TCK);
   void objcopy(const std::string& command) {
     auto exitcode = egg::ovum::os::process::plines(command, [&](const std::string&) {
       // Do nothing
@@ -107,7 +109,6 @@ namespace {
     }
   }
   uint64_t extractMicroseconds(clock_t clock) {
-    uint64_t clockTicksPerSecond = ::sysconf(_SC_CLK_TCK);
     return (uint64_t(clock) * 1000000 + (clockTicksPerSecond / 2)) / clockTicksPerSecond;
   }
 }
@@ -182,10 +183,11 @@ egg::ovum::os::memory::Snapshot egg::ovum::os::memory::snapshot() {
 
 egg::ovum::os::process::Snapshot egg::ovum::os::process::snapshot() {
   tms tms;
-  auto clockNow = ::times(&tms);
+  ::times(&tms);
   Snapshot snapshot;
   snapshot.microsecondsUser = extractMicroseconds(tms.tms_utime);
   snapshot.microsecondsSystem = extractMicroseconds(tms.tms_stime);
-  snapshot.microsecondsElapsed = extractMicroseconds(clockNow - clockStart);
+  auto chronoNow = std::chrono::high_resolution_clock::now();
+  snapshot.microsecondsElapsed = std::chrono::duration_cast<std::chrono::microseconds>(chronoNow - chronoStart).count();
   return snapshot;
 }
