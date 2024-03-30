@@ -142,5 +142,5 @@ TEST(TestStub, ProfileAll) {
   auto logged = stub.expect(egg::yolk::IStub::ExitCode::OK);
   ASSERT_STARTSWITH(logged, stub.WELCOME);
   ASSERT_CONTAINS(logged, "\n<COMMAND><INFORMATION>profile: memory: ");
-  ASSERT_CONTAINS(logged, "\n<COMMAND><INFORMATION>PROFILE: TIME: WIBBLE\n");
+  ASSERT_CONTAINS(logged, "\n<COMMAND><INFORMATION>profile: time: ");
 }

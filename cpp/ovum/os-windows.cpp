@@ -2,6 +2,7 @@
 #include "ovum/file.h"
 #include "ovum/os-embed.h"
 #include "ovum/os-file.h"
+#include "ovum/os-process.h"
 
 #include <windows.h>
 #include <psapi.h>
@@ -129,6 +130,27 @@ namespace {
   bool getProcessMemoryInfo(PROCESS_MEMORY_COUNTERS& pmc) {
     return ::GetProcessMemoryInfo(::GetCurrentProcess(), &pmc, sizeof(pmc));
   }
+  uint64_t getMicroseconds(const FILETIME& filetime) {
+    // FILETIME is quantized to 100 nanoseconds
+    uint64_t high = filetime.dwHighDateTime;
+    uint64_t low = filetime.dwLowDateTime;
+    return ((high << 32) + low + 5) / 10;
+  }
+  bool getProcessTimes(egg::ovum::os::process::Snapshot& snapshot) {
+    FILETIME creation, exit, kernel, user, now;
+    if (!::GetProcessTimes(::GetCurrentProcess(), &creation, &exit, &kernel, &user)) {
+      return false;
+    }
+    SYSTEMTIME system;
+    ::GetSystemTime(&system);
+    if (!::SystemTimeToFileTime(&system, &now)) {
+      return false;
+    }
+    snapshot.microsecondsUser = getMicroseconds(user);
+    snapshot.microsecondsSystem = getMicroseconds(kernel);
+    snapshot.microsecondsElapsed = getMicroseconds(now) - getMicroseconds(creation);
+    return true;
+  }
 }
 
 void egg::ovum::os::embed::updateResourceFromMemory(const std::string& executable, const std::string& type, const std::string& label, const void* data, size_t bytes) {
@@ -201,5 +223,13 @@ egg::ovum::os::memory::Snapshot egg::ovum::os::memory::snapshot() {
   snapshot.currentBytesTotal = pmc.WorkingSetSize;
   snapshot.peakBytesData = pmc.PeakPagefileUsage;
   snapshot.peakBytesTotal = pmc.PeakWorkingSetSize;
+  return snapshot;
+}
+
+egg::ovum::os::process::Snapshot egg::ovum::os::process::snapshot() {
+  Snapshot snapshot;
+  if (!getProcessTimes(snapshot)) {
+    throw egg::ovum::Exception("Cannot get current process memory information");
+  }
   return snapshot;
 }

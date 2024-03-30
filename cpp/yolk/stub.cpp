@@ -1,6 +1,7 @@
 #include "yolk/yolk.h"
 #include "yolk/stub.h"
 #include "ovum/os-file.h"
+#include "ovum/os-process.h"
 #include "ovum/version.h"
 
 #include <cctype>
@@ -405,9 +406,7 @@ namespace {
   };
 
   struct ProfileMemory {
-    void initialize(Stub&) {
-    }
-    void report(std::ostream& os, Stub&) {
+    static void report(std::ostream& os) {
       auto snapshot = egg::ovum::os::memory::snapshot();
       os << "profile: memory:" <<
         " data=" << snapshot.currentBytesData <<
@@ -418,10 +417,12 @@ namespace {
   };
 
   struct ProfileTime {
-    void initialize(Stub&) {
-    }
-    void report(std::ostream& os, Stub&) {
-      os << "PROFILE: TIME: WIBBLE";
+    static void report(std::ostream& os) {
+      auto snapshot = egg::ovum::os::process::snapshot();
+      os << "profile: time:" <<
+        " user=" << snapshot.microsecondsUser <<
+        " system=" << snapshot.microsecondsSystem <<
+        " elapsed=" << snapshot.microsecondsElapsed;
     }
   };
 
@@ -429,20 +430,13 @@ namespace {
   class Profile final {
   private:
     Stub* stub;
-    T profile;
   public:
     explicit Profile(Stub* stub)
-      : stub(stub),
-        profile() {
-      if (this->stub != nullptr) {
-        this->profile.initialize(*this->stub);
-      }
+      : stub(stub) {
     }
     ~Profile() {
       if (this->stub != nullptr) {
-        this->stub->redirect(ILogger::Source::Command, ILogger::Severity::Information, [this](std::ostream& os) {
-          this->profile.report(os, *this->stub);
-        });
+        this->stub->redirect(ILogger::Source::Command, ILogger::Severity::Information, T::report);
       }
     }
   };

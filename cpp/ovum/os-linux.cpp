@@ -7,8 +7,10 @@
 #include <regex>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/times.h>
 
 namespace {
+  auto clockStart = ::times(nullptr);
   void objcopy(const std::string& command) {
     auto exitcode = egg::ovum::os::process::plines(command, [&](const std::string&) {
       // Do nothing
@@ -104,6 +106,10 @@ namespace {
       value = std::atoll(line.data() + label.size()) * scale;
     }
   }
+  uint64_t extractMicroseconds(clock_t clock) {
+    uint64_t clockTicksPerSecond = ::sysconf(_SC_CLK_TCK);
+    return (uint64_t(clock) * 1000000 + (clockTicksPerSecond / 2)) / clockTicksPerSecond;
+  }
 }
 
 void egg::ovum::os::embed::updateResourceFromMemory(const std::string& executable, const std::string& type, const std::string& label, const void* data, size_t bytes) {
@@ -166,10 +172,20 @@ egg::ovum::os::memory::Snapshot egg::ovum::os::memory::snapshot() {
   std::ifstream ifs{ "/proc/self/status" };
   std::string line;
   while (std::getline(ifs, line)) {
-    extractStatus(line, "VmPeak:\t", snapshot.peakBytesTotal, 1024);
-    extractStatus(line, "VmSize:\t", snapshot.currentBytesTotal, 1024);
-    extractStatus(line, "VmHWM:\t", snapshot.peakBytesData, 1024);
-    extractStatus(line, "VmRSS:\t", snapshot.currentBytesData, 1024);
+    extractStatus(line, "VmPeak:", snapshot.peakBytesTotal, 1024);
+    extractStatus(line, "VmSize:", snapshot.currentBytesTotal, 1024);
+    extractStatus(line, "VmHWM:", snapshot.peakBytesData, 1024);
+    extractStatus(line, "VmRSS:", snapshot.currentBytesData, 1024);
   }
+  return snapshot;
+}
+
+egg::ovum::os::process::Snapshot egg::ovum::os::process::snapshot() {
+  tms tms;
+  auto clockNow = ::times(&tms);
+  Snapshot snapshot;
+  snapshot.microsecondsUser = extractMicroseconds(tms.tms_utime);
+  snapshot.microsecondsSystem = extractMicroseconds(tms.tms_stime);
+  snapshot.microsecondsElapsed = extractMicroseconds(clockNow - clockStart);
   return snapshot;
 }
