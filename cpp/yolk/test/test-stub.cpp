@@ -141,6 +141,7 @@ TEST(TestStub, ProfileAll) {
   Stub stub{ "/path/to/executable.exe", "--profile" };
   auto logged = stub.expect(egg::yolk::IStub::ExitCode::OK);
   ASSERT_STARTSWITH(logged, stub.WELCOME);
-  ASSERT_CONTAINS(logged, "\n<COMMAND><INFORMATION>profile: memory: ");
   ASSERT_CONTAINS(logged, "\n<COMMAND><INFORMATION>profile: time: ");
+  ASSERT_CONTAINS(logged, "\n<COMMAND><INFORMATION>profile: memory: ");
+  ASSERT_CONTAINS(logged, "\n<COMMAND><INFORMATION>profile: allocator: ");
 }

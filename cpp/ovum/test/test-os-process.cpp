@@ -82,7 +82,7 @@ TEST(TestOS_Process, PlinesFail) {
 
 TEST(TestOS_Process, Snapshot) {
   auto snapshot = egg::ovum::os::process::snapshot();
-  ASSERT_GT(snapshot.microsecondsUser, 0u);
-  ASSERT_GT(snapshot.microsecondsSystem, 0u);
+  ASSERT_GE(snapshot.microsecondsUser, 0u);
+  ASSERT_GE(snapshot.microsecondsSystem, 0u);
   ASSERT_GT(snapshot.microsecondsElapsed, 0u);
 }

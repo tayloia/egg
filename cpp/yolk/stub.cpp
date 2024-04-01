@@ -36,6 +36,7 @@ namespace {
       IAllocator* allocator = nullptr;
       ILogger* logger = nullptr;
       Severity loglevel = Configuration::makeLogLevelMask(Severity::Information);
+      bool profileAllocator = false;
       bool profileMemory = false;
       bool profileTime = false;
       // Helpers
@@ -125,7 +126,7 @@ namespace {
     }
     virtual IStub& withBuiltins() override {
       this->withBuiltinOption(&Stub::optLogLevel, "log-level=debug|verbose|information|warning|error|none");
-      this->withBuiltinOption(&Stub::optProfile, "profile[=memory|time|all]");
+      this->withBuiltinOption(&Stub::optProfile, "profile[=allocator|memory|time|all]");
       this->withBuiltinCommand(&Stub::cmdHelp, "help");
       this->withBuiltinCommand(&Stub::cmdVersion, "version");
       return *this;
@@ -166,8 +167,10 @@ namespace {
       this->badUsage("Unknown command: '" + command + "'");
       return ExitCode::Usage;
     }
-    ExitCode runCommand(const CommandHandler& handler);
-    std::string appname() {
+    const Configuration& getConfiguration() const {
+      return this->configuration;
+    }
+    std::string getApplicationName() const {
       std::string arg0;
       if (!this->arguments.empty()) {
         arg0 = os::file::getExecutableName(this->arguments.front(), true);
@@ -180,6 +183,7 @@ namespace {
       }
       return arg0;
     }
+    ExitCode runCommand(const CommandHandler& handler);
     void error(const std::string& message) {
       this->redirect(Source::Command, Severity::Error, [=, this](std::ostream& os) {
         this->printBreadcrumbs(os);
@@ -319,8 +323,12 @@ namespace {
     }
     bool optProfile(const std::string& option, const std::string* value) {
       if ((value == nullptr) || (*value == "all")) {
+        this->configuration.profileAllocator = true;
         this->configuration.profileMemory = true;
         this->configuration.profileTime = true;
+      }
+      else if (*value == "allocator") {
+        this->configuration.profileAllocator = true;
       } else if (*value == "memory") {
         this->configuration.profileMemory = true;
       } else if (*value == "time") {
@@ -334,7 +342,7 @@ namespace {
     ExitCode cmdMissing(const IStub&) {
       this->redirect(Source::Command, Severity::Information, [this](std::ostream& os) {
         os << "Welcome to egg v" << Version::semver() << "\n";
-        os << "Try '" << this->appname() << " help' for more information";
+        os << "Try '" << this->getApplicationName() << " help' for more information";
       });
       return ExitCode::OK;
     }
@@ -378,7 +386,7 @@ namespace {
       }
     }
     void printUsage(std::ostream& os) {
-      os << "Usage: " << this->appname() << " [<general-option>]... <command> [<command-option>|<command-argument>]...";
+      os << "Usage: " << this->getApplicationName() << " [<general-option>]... <command> [<command-option>|<command-argument>]...";
     }
     void printGeneralOptions(std::ostream& os) {
       os << "\n  <general-option> is any of:";
@@ -393,7 +401,7 @@ namespace {
       }
     }
     void printBreadcrumbs(std::ostream& os) {
-      os << this->appname();
+      os << this->getApplicationName();
       for (auto breadcrumb : this->breadcrumbs) {
         os << ' ' << this->arguments[breadcrumb];
       }
@@ -405,8 +413,26 @@ namespace {
     }
   };
 
+  struct ProfileAllocator {
+    void report(std::ostream& os, Stub& stub) {
+      auto* allocator = stub.getConfiguration().allocator;
+      if (allocator == nullptr) {
+        os << "profile: allocator: unused";
+      } else {
+        IAllocator::Statistics statistics;
+        if (allocator->statistics(statistics)) {
+          os << "profile: allocator:" <<
+            " total-blocks=" << statistics.totalBlocksAllocated <<
+            " total-bytes=" << statistics.totalBytesAllocated;
+        } else {
+          os << "profile: allocator: unavailable";
+        }
+      }
+    }
+  };
+
   struct ProfileMemory {
-    static void report(std::ostream& os) {
+    void report(std::ostream& os, Stub&) {
       auto snapshot = egg::ovum::os::memory::snapshot();
       os << "profile: memory:" <<
         " data=" << snapshot.currentBytesData <<
@@ -417,7 +443,7 @@ namespace {
   };
 
   struct ProfileTime {
-    static void report(std::ostream& os) {
+    void report(std::ostream& os, Stub&) {
       auto snapshot = egg::ovum::os::process::snapshot();
       os << "profile: time:" <<
         " user=" << snapshot.microsecondsUser <<
@@ -430,19 +456,24 @@ namespace {
   class Profile final {
   private:
     Stub* stub;
+    T instance;
   public:
     explicit Profile(Stub* stub)
-      : stub(stub) {
+      : stub(stub),
+        instance() {
     }
     ~Profile() {
       if (this->stub != nullptr) {
-        this->stub->redirect(ILogger::Source::Command, ILogger::Severity::Information, T::report);
+        this->stub->redirect(ILogger::Source::Command, ILogger::Severity::Information, [this](std::ostream& os) {
+          this->instance.report(os, *this->stub);
+        });
       }
     }
   };
 
   Stub::ExitCode Stub::runCommand(const CommandHandler& handler) {
     // Use RAII to ensure reporting even under exceptions
+    Profile<ProfileAllocator> profileAllocator{ this->configuration.profileAllocator ? this : nullptr };
     Profile<ProfileMemory> profileMemory{ this->configuration.profileMemory ? this : nullptr };
     Profile<ProfileTime> profileTime{ this->configuration.profileTime ? this : nullptr };
     return handler(*this);
