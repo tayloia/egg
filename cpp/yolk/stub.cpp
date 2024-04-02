@@ -101,6 +101,7 @@ namespace {
       }
     }
     virtual IStub& withAllocator(IAllocator& target) override {
+      assert(this->configuration.allocator == nullptr);
       this->configuration.allocator = &target;
       return *this;
     }
@@ -129,6 +130,7 @@ namespace {
       this->withBuiltinOption(&Stub::optProfile, "profile[=allocator|memory|time|all]");
       this->withBuiltinCommand(&Stub::cmdHelp, "help");
       this->withBuiltinCommand(&Stub::cmdVersion, "version");
+      this->withBuiltinCommand(&Stub::cmdSmokeTest, "smoke-test");
       return *this;
     }
     virtual size_t getArgumentCount() const override {
@@ -360,6 +362,12 @@ namespace {
       });
       return ExitCode::OK;
     }
+    ExitCode cmdSmokeTest(const IStub&) {
+      assert(this->configuration.allocator != nullptr);
+      auto basket = BasketFactory::createBasket(*this->configuration.allocator);
+      assert(basket != nullptr); // WIBBLE
+      return ExitCode::OK;
+    }
     void badUsage(const std::string& message) {
       this->redirect(Source::Command, Severity::Error, [=, this](std::ostream& os) {
         this->printBreadcrumbs(os);
@@ -476,6 +484,10 @@ namespace {
     Profile<ProfileAllocator> profileAllocator{ this->configuration.profileAllocator ? this : nullptr };
     Profile<ProfileMemory> profileMemory{ this->configuration.profileMemory ? this : nullptr };
     Profile<ProfileTime> profileTime{ this->configuration.profileTime ? this : nullptr };
+    if (this->configuration.allocator == nullptr) {
+      static AllocatorDefault allocator;
+      this->withAllocator(allocator);
+    }
     return handler(*this);
   }
 }

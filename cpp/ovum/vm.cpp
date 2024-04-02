@@ -278,8 +278,8 @@ namespace {
     void addModule(VMModule& module) {
       this->modules.emplace_back(&module);
     }
-    bool addBuiltin(const String& symbol, const Type& type) {
-      return this->builtins.emplace(symbol, type).second;
+    void addBuiltin(const String& symbol, const Type& type) {
+      this->builtins.emplace(symbol, type);
     }
     const std::map<String, Type>& getBuiltins() const {
       return this->builtins;
@@ -2045,7 +2045,7 @@ namespace {
     virtual IVM& getVM() const override {
       return this->vm;
     }
-    virtual bool addBuiltin(const String& symbol, const Type& type) override {
+    virtual void addBuiltin(const String& symbol, const Type& type) override {
       assert(this->program != nullptr);
       return this->program->addBuiltin(symbol, type);
     }

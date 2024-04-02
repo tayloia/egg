@@ -39,6 +39,7 @@
       <DisableLanguageExtensions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</DisableLanguageExtensions>
     </ClCompile>
     <ClCompile Include="..\yolk\test\test-cli.cpp" />
+    <ClCompile Include="..\yolk\test\test-engine.cpp" />
     <ClCompile Include="..\yolk\test\test-scripts.cpp" />
     <ClCompile Include="..\yolk\test\test-stub.cpp" />
     <ClCompile Include="yolk-test.pch.cpp">
