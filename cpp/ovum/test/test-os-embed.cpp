@@ -43,7 +43,7 @@ TEST(TestOS_Embed, UpdateResourceFromMemory) {
   auto before = resources.size();
   ASSERT_LT(0u, before);
 
-  egg::ovum::os::embed::updateResourceFromMemory(cloned, "PROGBITS", "GREETING", "Hello world!", 12);
+  egg::ovum::os::embed::updateResourceFromMemory(cloned, "PROGBITS", "GREETING", "Hello, world!", 13);
 
   resources = egg::ovum::os::embed::findResources(cloned);
   auto after = resources.size();
@@ -54,7 +54,7 @@ TEST(TestOS_Embed, UpdateResourceFromMemory) {
   ASSERT_NE(resources.end(), found);
   ASSERT_EQ("PROGBITS", found->type);
   ASSERT_EQ("GREETING", found->label);
-  ASSERT_EQ(12u, found->bytes);
+  ASSERT_EQ(13u, found->bytes);
 
   resources = egg::ovum::os::embed::findResourcesByType(cloned, "PROGBITS");
   ASSERT_FALSE(resources.empty());
@@ -62,7 +62,7 @@ TEST(TestOS_Embed, UpdateResourceFromMemory) {
   for (auto& entry : resources) {
     ASSERT_EQ("PROGBITS", entry.type);
     if (entry.label == "GREETING") {
-      ASSERT_EQ(12u, entry.bytes);
+      ASSERT_EQ(13u, entry.bytes);
       count++;
     }
   }
@@ -72,10 +72,10 @@ TEST(TestOS_Embed, UpdateResourceFromMemory) {
   ASSERT_NE(nullptr, resource);
   ASSERT_EQ("PROGBITS", resource->type);
   ASSERT_EQ("GREETING", resource->label);
-  ASSERT_EQ(12u, resource->bytes);
+  ASSERT_EQ(13u, resource->bytes);
   auto* memory = resource->lock();
   ASSERT_NE(nullptr, memory);
-  ASSERT_EQ(0, std::memcmp(memory, "Hello world!", 12));
+  ASSERT_EQ(0, std::memcmp(memory, "Hello, world!", 13));
   resource->unlock();
 
   egg::ovum::os::embed::updateResourceFromMemory(cloned, "PROGBITS", "GREETING", nullptr, 0);

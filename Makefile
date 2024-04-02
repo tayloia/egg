@@ -75,7 +75,7 @@ CLI_EXE = $(BIN_DIR)/egg.exe
 # This is the thing that is built when you just type 'make'
 default: all
 
-.PHONY: default bin test clean nuke release debug all rebuild coverage fresh valgrind gdb test-coverage test-gdb version
+.PHONY: default bin test smoke clean nuke release debug all rebuild coverage fresh valgrind gdb test-coverage test-gdb version
 
 # We need to create certain directories or our toolchain fails
 %/.:
@@ -140,6 +140,11 @@ bin: $(TEST_EXE) $(STUB_EXE)
 test: bin
 	$(ECHO) Running tests $(TEST_EXE)
 	$(RUNTEST) $(TEST_EXE)
+
+# Pseudo-target to build and run a smoke test
+smoke: $(STUB_EXE)
+	$(ECHO) Profiling $(STUB_EXE)
+	$(SILENT)$(STUB_EXE) --profile smoke-test
 
 # Pseudo-target to run valgrind
 valgrind: bin

@@ -1,5 +1,6 @@
 #include "yolk/yolk.h"
 #include "yolk/stub.h"
+#include "yolk/engine.h"
 #include "ovum/os-file.h"
 #include "ovum/os-process.h"
 #include "ovum/version.h"
@@ -9,6 +10,7 @@
 
 namespace {
   using namespace egg::ovum;
+  using namespace egg::yolk;
 
   struct LessCaseInsensitive {
     bool operator()(const unsigned char& lhs, const unsigned char& rhs) const {
@@ -19,7 +21,7 @@ namespace {
     }
   };
 
-  class Stub : public egg::yolk::IStub {
+  class Stub : public IStub {
   private:
     struct Command {
       std::string command;
@@ -363,9 +365,12 @@ namespace {
       return ExitCode::OK;
     }
     ExitCode cmdSmokeTest(const IStub&) {
-      assert(this->configuration.allocator != nullptr);
-      auto basket = BasketFactory::createBasket(*this->configuration.allocator);
-      assert(basket != nullptr); // WIBBLE
+      auto engine = this->makeEngine();
+      auto script = engine->loadScriptFromString(engine->createString("print(\"Hello, world!\");"));
+      auto retval = script->run();
+      if (retval->getPrimitiveFlag() != ValueFlags::Void) {
+        return ExitCode::Error;
+      }
       return ExitCode::OK;
     }
     void badUsage(const std::string& message) {
@@ -414,6 +419,18 @@ namespace {
         os << ' ' << this->arguments[breadcrumb];
       }
       os << ": ";
+    }
+    std::shared_ptr<IEngine> makeEngine() {
+      IEngine::Options eo{};
+      auto engine = EngineFactory::createWithOptions(eo);
+      assert(engine != nullptr);
+      if (this->configuration.allocator != nullptr) {
+        engine->withAllocator(*this->configuration.allocator);
+      }
+      if (this->configuration.logger != nullptr) {
+        engine->withLogger(*this->configuration.logger);
+      }
+      return engine;
     }
     String makeString(const std::string& utf8) const {
       assert(this->configuration.allocator != nullptr);
@@ -485,8 +502,9 @@ namespace {
     Profile<ProfileMemory> profileMemory{ this->configuration.profileMemory ? this : nullptr };
     Profile<ProfileTime> profileTime{ this->configuration.profileTime ? this : nullptr };
     if (this->configuration.allocator == nullptr) {
-      static AllocatorDefault allocator;
+      AllocatorDefault allocator;
       this->withAllocator(allocator);
+      return handler(*this);
     }
     return handler(*this);
   }
