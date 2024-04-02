@@ -8,6 +8,9 @@ namespace egg::yolk {
   // Engines cannot be 'IHardAcquireRelease' because the allocator is not known at construction
   class IEngine : public egg::ovum::IVMCommon {
   public:
+    struct Options {
+      bool includeStandardBuiltins : 1 = true;
+    };
     // Interface
     virtual ~IEngine() = default;
     virtual IEngine& withAllocator(egg::ovum::IAllocator& allocator) = 0;
@@ -15,6 +18,7 @@ namespace egg::yolk {
     virtual IEngine& withLogger(egg::ovum::ILogger& logger) = 0;
     virtual IEngine& withVM(egg::ovum::IVM& vm) = 0;
     virtual IEngine& withBuiltin(const egg::ovum::String& symbol, const egg::ovum::HardObject& instance) = 0;
+    virtual const Options& getOptions() = 0;
     virtual egg::ovum::IAllocator& getAllocator() = 0;
     virtual egg::ovum::IBasket& getBasket() = 0;
     virtual egg::ovum::ILogger& getLogger() = 0;
@@ -28,5 +32,6 @@ namespace egg::yolk {
   public:
     // Helpers
     static std::shared_ptr<IEngine> createDefault();
+    static std::shared_ptr<IEngine> createWithOptions(const IEngine::Options& options);
   };
 }

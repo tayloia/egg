@@ -42,7 +42,7 @@ namespace {
       while (!symbol.empty()) {
         auto type = this->engine->getBuiltinInstance(symbol)->vmRuntimeType();
         builder->addBuiltin(symbol, type);
-        symbol = this->engine->getBuiltinSymbol(index);
+        symbol = this->engine->getBuiltinSymbol(++index);
       }
       auto compiler = EggCompilerFactory::createFromProgramBuilder(builder);
       auto module = compiler->compile(*parser);
@@ -58,7 +58,7 @@ namespace {
       while (!symbol.empty()) {
         auto instance = this->engine->getBuiltinInstance(symbol);
         runner->addBuiltin(symbol, this->engine->createHardValueObject(instance));
-        symbol = this->engine->getBuiltinSymbol(index);
+        symbol = this->engine->getBuiltinSymbol(++index);
       }
       return runner->run();
     }
@@ -97,6 +97,7 @@ namespace {
     EngineDefault(const EngineDefault&) = delete;
     EngineDefault& operator=(const EngineDefault&) = delete;
   private:
+    const Options options;
     std::unique_ptr<IAllocator> uallocator = nullptr;
     EngineLogger ulogger;
     IAllocator* qallocator = nullptr;
@@ -104,8 +105,11 @@ namespace {
     HardPtr<IBasket> qbasket = nullptr;
     HardPtr<IVM> qvm = nullptr;
     std::map<String, HardObject> builtins;
+    bool needStandardBuiltins;
   public:
-    EngineDefault() {
+    explicit EngineDefault(const Options& options = {})
+      : options(options) {
+      this->needStandardBuiltins = options.includeStandardBuiltins;
     }
     virtual String createStringUTF8(const void* utf8, size_t bytes, size_t codepoints) override {
       return String::fromUTF8(this->getAllocator(), utf8, bytes, codepoints);
@@ -161,42 +165,47 @@ namespace {
       this->builtins.emplace(symbol, instance);
       return *this;
     }
+    virtual const Options& getOptions() override {
+      return this->options;
+    }
     virtual IAllocator& getAllocator() override {
       if (this->qallocator == nullptr) {
         this->uallocator = std::make_unique<AllocatorDefault>();
-        this->qallocator = this->uallocator.get();
+        this->withAllocator(*this->uallocator);
       }
       return *this->qallocator;
     }
     virtual IBasket& getBasket() override {
       if (this->qbasket == nullptr) {
-        this->qbasket = BasketFactory::createBasket(this->getAllocator());
+        this->withBasket(*BasketFactory::createBasket(this->getAllocator()));
       }
       return *this->qbasket;
     }
     virtual ILogger& getLogger() override {
       if (this->qlogger == nullptr) {
-        this->qlogger = &this->ulogger;
+        this->withLogger(this->ulogger);
       }
       return *this->qlogger;
     }
     virtual IVM& getVM() override {
       if (this->qvm == nullptr) {
-        this->qvm = VMFactory::createDefault(this->getAllocator(), this->getLogger());
+        this->withVM(*VMFactory::createDefault(this->getAllocator(), this->getLogger()));
       }
       return *this->qvm;
     }
     virtual String getBuiltinSymbol(size_t index) override {
-      if (index < this->builtins.size()) {
-        auto iterator = this->builtins.begin();
+      auto& ensured = this->ensureBuiltins();
+      if (index < ensured.size()) {
+        auto iterator = ensured.begin();
         std::advance(iterator, index);
         return iterator->first;
       }
       return {};
     }
     virtual HardObject getBuiltinInstance(const String& symbol) override {
-      auto found = this->builtins.find(symbol);
-      if (found != this->builtins.end()) {
+      auto& ensured = this->ensureBuiltins();
+      auto found = ensured.find(symbol);
+      if (found != ensured.end()) {
         return found->second;
       }
       return HardObject();
@@ -205,9 +214,24 @@ namespace {
       auto lexer = LexerFactory::createFromString(script.toUTF8(), resource.toUTF8());
       return HardPtr(this->getAllocator().makeRaw<EngineScript>(this->shared_from_this(), lexer));
     }
+  private:
+    std::map<String, HardObject>& ensureBuiltins() {
+      if (this->needStandardBuiltins) {
+        auto& vm = this->getVM();
+        auto& allocator = this->getAllocator();
+        this->withBuiltin(String::fromUTF8(allocator, "assert"), ObjectFactory::createBuiltinAssert(vm));
+        this->withBuiltin(String::fromUTF8(allocator, "print"), ObjectFactory::createBuiltinPrint(vm));
+        this->needStandardBuiltins = false;
+      }
+      return this->builtins;
+    }
   };
 }
 
 std::shared_ptr<egg::yolk::IEngine> egg::yolk::EngineFactory::createDefault() {
   return std::make_shared<EngineDefault>();
+}
+
+std::shared_ptr<egg::yolk::IEngine> egg::yolk::EngineFactory::createWithOptions(const IEngine::Options& options) {
+  return std::make_shared<EngineDefault>(options);
 }
