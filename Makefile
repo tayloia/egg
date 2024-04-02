@@ -141,15 +141,15 @@ test: bin
 	$(ECHO) Running tests $(TEST_EXE)
 	$(RUNTEST) $(TEST_EXE)
 
+# Pseudo-target to run valgrind
+valgrind: bin
+	$(ECHO) Grinding tests $(TEST_EXE)
+	$(SILENT)./valgrind.sh $(TEST_EXE)
+
 # Pseudo-target to build and run a smoke test
 smoke: $(STUB_EXE)
 	$(ECHO) Profiling $(STUB_EXE)
 	$(SILENT)$(STUB_EXE) --profile smoke-test
-
-# Pseudo-target to run valgrind
-valgrind: bin
-	$(ECHO) Grinding tests $(TEST_EXE)
-	valgrind -v --leak-check=full --show-leak-kinds=all --track-origins=yes $(TEST_EXE)
 
 # Pseudo-target to run command-line tests
 test-cli: $(CLI_EXE)

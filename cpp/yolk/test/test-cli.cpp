@@ -89,3 +89,9 @@ TEST(TestCLI, Version) {
   auto actual = spawn("version");
   ASSERT_EQ(expected, actual);
 }
+
+TEST(TestCLI, SmokeTest) {
+  auto expected = "Hello, world!\n";
+  auto actual = spawn("smoke-test");
+  ASSERT_EQ(expected, actual);
+}
