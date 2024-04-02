@@ -99,7 +99,6 @@ TEST(TestVM, CreateDefaultInstance) {
   egg::test::Logger logger;
   auto vm = egg::ovum::VMFactory::createDefault(allocator, logger);
   ASSERT_NE(nullptr, vm);
-  vm->shutdown().collect();
 }
 
 TEST(TestVM, CreateStringUTF8) {

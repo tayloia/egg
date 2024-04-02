@@ -2886,7 +2886,7 @@ namespace {
     }
   };
 
-  class VMDefault : public HardReferenceCountedAllocator<IVM> {
+  class VMDefault final : public HardReferenceCountedAllocator<IVM> {
     VMDefault(const VMDefault&) = delete;
     VMDefault& operator=(const VMDefault&) = delete;
   protected:
@@ -2903,6 +2903,12 @@ namespace {
       this->forge = TypeForgeFactory::createTypeForge(allocator, *this->basket);
       this->manifestations.set(allocator.makeRaw<VMManifestations>(*this));
       this->basket->take(*this->manifestations);
+    }
+    virtual ~VMDefault() override {
+      // Shutdown if we haven't already explicitly done so
+      if (this->manifestations != nullptr) {
+        this->shutdown().collect();
+      }
     }
     virtual IAllocator& getAllocator() const override {
       return this->allocator;
