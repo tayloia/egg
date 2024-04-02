@@ -39,6 +39,14 @@ namespace egg::test {
   ::testing::AssertionResult assertStartsWith(const char* haystack_expr, const char* needle_expr, const std::string& haystack, const std::string& needle);
   ::testing::AssertionResult assertEndsWith(const char* haystack_expr, const char* needle_expr, const std::string& haystack, const std::string& needle);
 
+  // Used by ASSERT_PRINT
+  template<typename T>
+  ::testing::AssertionResult assertPrint(const char* expected_expr, const char* value_expr, const std::string& expected, const T& value) {
+    egg::ovum::StringBuilder sb;
+    auto actual = sb.add(value).toUTF8();
+    return ::testing::internal::CmpHelperEQ(expected_expr, value_expr, expected, actual);
+  }
+
   // Used by EGG_INSTANTIATE_TEST_CASE_P
   template<typename T>
   auto registerTestCase(const char* name, const char* file, int line) {
@@ -60,6 +68,7 @@ namespace egg::test {
 #define ASSERT_NOTCONTAINS(haystack, needle) ASSERT_PRED_FORMAT2(egg::test::assertNotContains, haystack, needle)
 #define ASSERT_STARTSWITH(haystack, needle) ASSERT_PRED_FORMAT2(egg::test::assertStartsWith, haystack, needle)
 #define ASSERT_ENDSWITH(haystack, needle) ASSERT_PRED_FORMAT2(egg::test::assertEndsWith, haystack, needle)
+#define ASSERT_PRINT(expected, value) ASSERT_PRED_FORMAT2(egg::test::assertPrint, expected, value)
 
 // See https://stackoverflow.com/a/43569017
 #define ASSERT_THROW_E(statement, expected_exception, caught) \
