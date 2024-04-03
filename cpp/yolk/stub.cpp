@@ -1,6 +1,7 @@
 #include "yolk/yolk.h"
 #include "yolk/stub.h"
 #include "yolk/engine.h"
+#include "ovum/file.h"
 #include "ovum/os-embed.h"
 #include "ovum/os-file.h"
 #include "ovum/os-process.h"
@@ -36,6 +37,8 @@ namespace {
   };
 
   class Stub : public IStub {
+    Stub(const Stub&) = delete;
+    Stub& operator=(const Stub&) = delete;
   private:
     struct Command {
       std::string command;
@@ -74,7 +77,10 @@ namespace {
     std::map<std::string, Option> options;
     std::vector<size_t> breadcrumbs;
     Configuration configuration;
+    AllocatorDefault uallocator;
   public:
+    Stub() {
+    }
     virtual void log(Source source, Severity severity, const String& message) override {
       if (this->configuration.logger != nullptr) {
         this->configuration.logger->log(source, severity, message);
@@ -404,7 +410,9 @@ namespace {
       auto first = this->getArgumentCommand();
       auto target = this->getArgument(first + 2);
       assert(target.starts_with("--target="));
-      egg::ovum::os::embed::cloneExecutable(target.substr(9));
+      target = target.substr(9);
+      egg::ovum::File::removeFile(target);
+      egg::ovum::os::embed::cloneExecutable(target);
       return ExitCode::OK;
     }
     ExitCode cmdSmokeTest(const IStub&) {
@@ -568,8 +576,7 @@ namespace {
     Profile<ProfileMemory> profileMemory{ this->configuration.profileMemory ? this : nullptr };
     Profile<ProfileTime> profileTime{ this->configuration.profileTime ? this : nullptr };
     if (this->configuration.allocator == nullptr) {
-      AllocatorDefault allocator;
-      this->withAllocator(allocator);
+      this->withAllocator(this->uallocator);
       return handler(*this);
     }
     return handler(*this);

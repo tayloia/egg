@@ -8,5 +8,6 @@ namespace egg::ovum {
     static std::vector<std::string> readDirectory(const std::string& path);
     static Kind getKind(const std::string& path);
     static std::string slurp(const std::string& path);
+    static bool removeFile(const std::string& path);
   };
 }
