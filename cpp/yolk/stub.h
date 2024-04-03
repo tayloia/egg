@@ -20,8 +20,6 @@ namespace egg::yolk {
     virtual IStub& withBuiltins() = 0;
     virtual ExitCode main() = 0;
     // Interrogation interface
-    virtual size_t getArgumentCount() const = 0;
-    virtual size_t getArgumentCommand() const = 0;
     virtual const std::string* queryArgument(size_t index) const = 0;
     virtual const std::string* queryEnvironment(const std::string& key) const = 0;
     // Helpers

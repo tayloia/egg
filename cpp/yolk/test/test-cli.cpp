@@ -46,6 +46,30 @@ TEST(TestCLI, UnknownCommand) {
   ASSERT_STARTSWITH(actual, expected);
 }
 
+TEST(TestCLI, MissingSubcommand) {
+  std::stringstream ss;
+  auto exitcode = egg::ovum::os::process::pexec(ss, executable() + " sandwich");
+  ASSERT_EQ(2, exitcode);
+  auto actual = ss.str();
+  auto expected = "egg-stub sandwich: Missing subcommand\n"
+                  "Usage: egg-stub sandwich <subcommand>\n"
+                  " <subcommand> is one of:\n"
+                  "  make --target=<exe-file> --zip=<zip-file>\n";
+  ASSERT_EQ(actual, expected);
+}
+
+TEST(TestCLI, UnknownSubcommand) {
+  std::stringstream ss;
+  auto exitcode = egg::ovum::os::process::pexec(ss, executable() + " sandwich unknown");
+  ASSERT_EQ(2, exitcode);
+  auto actual = ss.str();
+  auto expected = "egg-stub sandwich: Unknown subcommand: 'unknown'\n"
+                  "Usage: egg-stub sandwich <subcommand>\n"
+                  " <subcommand> is one of:\n"
+                  "  make --target=<exe-file> --zip=<zip-file>\n";
+  ASSERT_EQ(actual, expected);
+}
+
 TEST(TestCLI, UnknownOption) {
   std::stringstream ss;
   auto exitcode = egg::ovum::os::process::pexec(ss, executable() + " --unknown");

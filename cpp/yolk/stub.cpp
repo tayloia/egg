@@ -40,10 +40,26 @@ namespace {
     Stub(const Stub&) = delete;
     Stub& operator=(const Stub&) = delete;
   private:
+    using CommandMember = ExitCode(Stub::*)();
+    using OptionMember = bool(Stub::*)(const std::string&, const std::string*);
+    struct Subcommand {
+      std::string usage;
+      CommandMember handler;
+    };
     struct Command {
       std::string command;
       std::string usage;
       CommandHandler handler;
+      std::map<std::string, Subcommand> subcommands;
+      Command& withSubcommand(const CommandMember& subhandler, const std::string& subusage) {
+        auto key{ subusage };
+        auto space = key.find(' ');
+        if (space != std::string::npos) {
+          key.erase(space);
+        }
+        this->subcommands.emplace(std::piecewise_construct, std::forward_as_tuple(key), std::forward_as_tuple(subusage, subhandler));
+        return *this;
+      }
     };
     struct Option {
       std::string option;
@@ -140,7 +156,7 @@ namespace {
       return *this;
     }
     virtual IStub& withCommand(const std::string& command, const std::string& usage, const CommandHandler& handler) override {
-      this->commands.emplace(std::piecewise_construct, std::forward_as_tuple(command), std::forward_as_tuple(command, usage, handler));
+      this->withBuiltinHandler(command, usage, handler);
       return *this;
     }
     virtual IStub& withOption(const std::string& option, const std::string& usage, const OptionHandler& handler) override {
@@ -151,20 +167,13 @@ namespace {
       this->withBuiltinOption(&Stub::optLogLevel, "log-level=debug|verbose|information|warning|error|none");
       this->withBuiltinOption(&Stub::optProfile, "profile[=allocator|memory|time|all]");
       this->withBuiltinCommand(&Stub::cmdHelp, "help");
-      this->withBuiltinCommand(&Stub::cmdSandwich, "sandwich");
+      this->withBuiltinCommand(&Stub::subcommand, "sandwich")
+        .withSubcommand(&Stub::cmdSandwichMake, "make --target=<exe-file> --zip=<zip-file>");
       this->withBuiltinCommand(&Stub::cmdSmokeTest, "smoke-test");
       this->withBuiltinCommand(&Stub::cmdVersion, "version");
-      this->withBuiltinCommand(&Stub::cmdZip, "zip");
+      this->withBuiltinCommand(&Stub::subcommand, "zip")
+        .withSubcommand(&Stub::cmdZipMake, "make --target=<zip-file> --directory=<path>");
       return *this;
-    }
-    virtual size_t getArgumentCount() const override {
-      return this->arguments.size();
-    }
-    virtual size_t getArgumentCommand() const override {
-      if (this->breadcrumbs.empty()) {
-        return 0;
-      }
-      return this->breadcrumbs.front();
     }
     virtual const std::string* queryArgument(size_t index) const override {
       return (index < this->arguments.size()) ? &this->arguments[index] : nullptr;
@@ -215,18 +224,19 @@ namespace {
     void error(const std::string& message) {
       this->redirect(Source::Command, Severity::Error, [=, this](std::ostream& os) {
         this->printBreadcrumbs(os);
-        os << message;
+        os << ": " << message;
       });
     }
     void error(const std::exception& exception) {
       this->redirect(Source::Command, Severity::Error, [=, this](std::ostream& os) {
         this->printBreadcrumbs(os);
-        os << "Exception: " << exception.what();
+        os << ": Exception: " << exception.what();
       });
     }
     void error(const Exception& exception) {
       this->redirect(Source::Command, Severity::Error, [=, this](std::ostream& os) {
         this->printBreadcrumbs(os);
+        os << ": ";
         Print::write(os, exception, Print::Options::DEFAULT);
       });
     }
@@ -290,16 +300,20 @@ namespace {
       }
     }
   private:
-    using CommandMember = ExitCode(Stub::*)(const IStub&);
-    using OptionMember = bool(Stub::*)(const std::string&, const std::string*);
-    void withBuiltinCommand(const CommandMember& member, const std::string& usage) {
-      auto handler = std::bind(member, this, std::placeholders::_1);
+    std::string getBreadcrumb(size_t offset) {
+      size_t index = this->breadcrumbs.empty() ? 0 : this->breadcrumbs.back();
+      return this->getArgument(index + offset);
+    }
+    Command& withBuiltinCommand(const CommandMember& member, const std::string& usage) {
+      auto handler = std::bind(member, this);
       auto space = usage.find(' ');
       if (space == std::string::npos) {
-        this->withCommand(usage, usage, handler);
-      } else {
-        this->withCommand(usage.substr(0, space), usage, handler);
+        return this->withBuiltinHandler(usage, usage, handler);
       }
+      return this->withBuiltinHandler(usage.substr(0, space), usage, handler);
+    }
+    Command& withBuiltinHandler(const std::string& command, const std::string& usage, const CommandHandler& handler) {
+      return this->commands.emplace(std::piecewise_construct, std::forward_as_tuple(command), std::forward_as_tuple(command, usage, handler)).first->second;
     }
     void withBuiltinOption(const OptionMember& member, const std::string& usage) {
       auto handler = std::bind(member, this, std::placeholders::_1, std::placeholders::_2);
@@ -389,6 +403,33 @@ namespace {
       }
       return true;
     }
+    ExitCode subcommand() {
+      assert(this->breadcrumbs.size() == 1);
+      auto index = this->breadcrumbs.back();
+      const auto& command = this->commands[this->arguments[index++]];
+      if (index < this->arguments.size()) {
+        const auto& key = this->arguments[index];
+        auto found = command.subcommands.find(key);
+        if (found != command.subcommands.end()) {
+          this->breadcrumbs.push_back(index);
+          return (this->*found->second.handler)();
+        }
+        this->redirect(Source::Command, Severity::Error, [=, this](std::ostream& os) {
+          this->printBreadcrumbs(os);
+          os << ": Unknown subcommand: '" << key << "'";
+          });
+      }
+      else {
+        this->redirect(Source::Command, Severity::Error, [this](std::ostream& os) {
+          this->printBreadcrumbs(os);
+          os << ": Missing subcommand";
+          });
+      }
+      this->redirect(Source::Command, Severity::Information, [=, this](std::ostream& os) {
+        this->printSubcommands(os, command);
+        });
+      return ExitCode::Usage;
+    }
     ExitCode cmdMissing(const IStub&) {
       this->redirect(Source::Command, Severity::Information, [this](std::ostream& os) {
         os << "Welcome to egg v" << Version::semver() << "\n";
@@ -396,7 +437,7 @@ namespace {
       });
       return ExitCode::OK;
     }
-    ExitCode cmdHelp(const IStub&) {
+    ExitCode cmdHelp() {
       this->redirect(Source::Command, Severity::Information, [this](std::ostream& os) {
         this->printUsage(os);
         this->printGeneralOptions(os);
@@ -404,18 +445,18 @@ namespace {
       });
       return ExitCode::OK;
     }
-    ExitCode cmdSandwich(const IStub&) {
+    ExitCode cmdSandwichMake() {
       // WIBBLE
       // stub.exe sandwich make --target=.../egg.exe --directory=box
-      auto first = this->getArgumentCommand();
-      auto target = this->getArgument(first + 2);
+      auto target = this->getBreadcrumb(1);
       assert(target.starts_with("--target="));
       target = target.substr(9);
+      LOG_INFORMATION("Cloning executable: ", target);
       egg::ovum::File::removeFile(target);
       egg::ovum::os::embed::cloneExecutable(target);
       return ExitCode::OK;
     }
-    ExitCode cmdSmokeTest(const IStub&) {
+    ExitCode cmdSmokeTest() {
       auto engine = this->makeEngine();
       auto script = engine->loadScriptFromString(engine->createString("print(\"Hello, world!\");"));
       auto retval = script->run();
@@ -424,20 +465,20 @@ namespace {
       }
       return ExitCode::OK;
     }
-    ExitCode cmdVersion(const IStub&) {
+    ExitCode cmdVersion() {
       this->redirect(Source::Command, Severity::Information, [](std::ostream& os) {
         os << "egg v" << Version();
         });
       return ExitCode::OK;
     }
-    ExitCode cmdZip(const IStub&) {
+    ExitCode cmdZipMake() {
       // WIBBLE
       return ExitCode::OK;
     }
     void badUsage(const std::string& message) {
       this->redirect(Source::Command, Severity::Error, [=, this](std::ostream& os) {
         this->printBreadcrumbs(os);
-        os << message;
+        os << ": " << message;
       });
       this->redirect(Source::Command, Severity::Information, [this](std::ostream& os) {
         this->printUsage(os);
@@ -447,9 +488,9 @@ namespace {
       this->redirect(Source::Command, Severity::Error, [=, this](std::ostream& os) {
         this->printBreadcrumbs(os);
         if (value == nullptr) {
-          os << "Missing general option: '--" << option << "'";
+          os << ": Missing general option: '--" << option << "'";
         } else {
-          os << "Invalid general option: '--" << option << "=" << *value << "'";
+          os << ": Invalid general option: '--" << option << "=" << *value << "'";
         }
       });
       auto known = this->options.find(option);
@@ -474,12 +515,19 @@ namespace {
         os << "\n    " << command.second.usage;
       }
     }
+    void printSubcommands(std::ostream& os, const Command& command) {
+      os << "Usage: ";
+      this->printBreadcrumbs(os);
+      os << " <subcommand>\n <subcommand> is one of:";
+      for (auto& subcommand : command.subcommands) {
+        os << "\n  " << subcommand.second.usage;
+      }
+    }
     void printBreadcrumbs(std::ostream& os) {
       os << this->getApplicationName();
       for (auto breadcrumb : this->breadcrumbs) {
         os << ' ' << this->arguments[breadcrumb];
       }
-      os << ": ";
     }
     template<typename... ARGS>
     static void logToStream(std::ostream& os, ARGS&&... args) {
@@ -520,7 +568,7 @@ namespace {
       } else {
         IAllocator::Statistics statistics;
         if (allocator->statistics(statistics)) {
-          os << "profile: allocator:" <<
+          os << "profile: allocator:"
             " total-blocks=" << statistics.totalBlocksAllocated <<
             " total-bytes=" << statistics.totalBytesAllocated;
         } else {
