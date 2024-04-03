@@ -191,3 +191,7 @@ egg::ovum::os::process::Snapshot egg::ovum::os::process::snapshot() {
   snapshot.microsecondsElapsed = std::chrono::duration_cast<std::chrono::microseconds>(chronoNow - chronoStart).count();
   return snapshot;
 }
+
+std::string egg::ovum::os::process::format(const std::error_code& error) {
+  return error.message();
+}

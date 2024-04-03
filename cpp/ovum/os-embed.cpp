@@ -1,6 +1,7 @@
 #include "ovum/ovum.h"
 #include "ovum/os-embed.h"
 #include "ovum/os-file.h"
+#include "ovum/os-process.h"
 
 std::string egg::ovum::os::embed::getExecutableFilename() {
   auto executable = os::file::getExecutablePath();
@@ -21,7 +22,11 @@ std::string egg::ovum::os::embed::getExecutableStub() {
 
 void egg::ovum::os::embed::cloneExecutable(const std::string& target) {
   auto source = os::file::getExecutablePath();
-  if (!std::filesystem::copy_file(os::file::denormalizePath(source, false), os::file::denormalizePath(target, false))) {
-    throw Exception("Cannot clone executable file").with("source", source).with("target", target);
+  std::error_code error;
+  if (!std::filesystem::copy_file(os::file::denormalizePath(source, false), os::file::denormalizePath(target, false), error)) {
+    throw Exception("Cannot clone executable file: {error}")
+      .with("source", source)
+      .with("target", target)
+      .with("error", egg::ovum::os::process::format(error));
   }
 }

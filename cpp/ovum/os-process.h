@@ -10,4 +10,5 @@ namespace egg::ovum::os::process {
   int pclose(FILE* fp);
   int pexec(std::ostream& os, const std::string& command);
   int plines(const std::string& command, std::function<void(const std::string&)> callback);
+  std::string format(const std::error_code& error);
 }

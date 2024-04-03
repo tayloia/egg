@@ -39,6 +39,9 @@
       </PrecompiledHeaderFile>
     </ClCompile>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\sandwich.cmd" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
     <ProjectGuid>{1F2B7D35-7C01-446A-B258-1D43A2224D9F}</ProjectGuid>
@@ -101,18 +104,22 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
     <TargetName>egg-stub</TargetName>
+    <CustomBuildAfterTargets>BuildLink</CustomBuildAfterTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <TargetName>egg-stub</TargetName>
+    <CustomBuildAfterTargets>BuildLink</CustomBuildAfterTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
     <TargetName>egg-stub</TargetName>
+    <CustomBuildAfterTargets>BuildLink</CustomBuildAfterTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <TargetName>egg-stub</TargetName>
+    <CustomBuildAfterTargets>BuildLink</CustomBuildAfterTargets>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -130,6 +137,14 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
     </Link>
+    <CustomBuildStep>
+      <Command>$(EggRoot)\sandwich.cmd  $(OutputPath)egg-stub.exe $(IntermediateOutputPath)sandwich.zip $(EggRoot)\box $(OutputPath)egg.exe</Command>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>$(OutputPath)egg.exe;%(Outputs)</Outputs>
+      <Message />
+      <Inputs>$(EggRoot)\sandwich.cmd</Inputs>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -147,6 +162,14 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
     </Link>
+    <CustomBuildStep>
+      <Command>$(EggRoot)\sandwich.cmd  $(OutputPath)egg-stub.exe $(IntermediateOutputPath)sandwich.zip $(EggRoot)\box $(OutputPath)egg.exe</Command>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>$(OutputPath)egg.exe;%(Outputs)</Outputs>
+      <Message />
+      <Inputs>$(EggRoot)\sandwich.cmd</Inputs>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -168,6 +191,14 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
     </Link>
+    <CustomBuildStep>
+      <Command>$(EggRoot)\sandwich.cmd  $(OutputPath)egg-stub.exe $(IntermediateOutputPath)sandwich.zip $(EggRoot)\box $(OutputPath)egg.exe</Command>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>$(OutputPath)egg.exe;%(Outputs)</Outputs>
+      <Message />
+      <Inputs>$(EggRoot)\sandwich.cmd</Inputs>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -189,6 +220,14 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
     </Link>
+    <CustomBuildStep>
+      <Command>$(EggRoot)\sandwich.cmd  $(OutputPath)egg-stub.exe $(IntermediateOutputPath)sandwich.zip $(EggRoot)\box $(OutputPath)egg.exe</Command>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>$(OutputPath)egg.exe;%(Outputs)</Outputs>
+      <Message />
+      <Inputs>$(EggRoot)\sandwich.cmd</Inputs>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

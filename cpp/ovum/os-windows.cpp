@@ -233,3 +233,17 @@ egg::ovum::os::process::Snapshot egg::ovum::os::process::snapshot() {
   }
   return snapshot;
 }
+
+std::string egg::ovum::os::process::format(const std::error_code& error) {
+  // See https://stackoverflow.com/q/73584099
+  auto text = error.message();
+  if (text == "unknown error") {
+    text.resize(65536, 0);
+    size_t length = ::FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, DWORD(error.value()), 0, text.data(), 0xFFFF, NULL);
+    while ((length > 0) && (text[length - 1] < ' ')) {
+      --length;
+    }
+    text.resize(length);
+  }
+  return text;
+}

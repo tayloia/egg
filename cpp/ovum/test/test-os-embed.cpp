@@ -24,8 +24,11 @@ TEST(TestOS_Embed, CloneExecutable) {
   auto tmpdir = egg::ovum::os::file::createTemporaryDirectory("egg-test-embed-", 100);
   auto clone = tmpdir + "cloned.exe";
   ASSERT_EQ(egg::ovum::File::Kind::Unknown, egg::ovum::File::getKind(clone));
+  // The first time should succeed
   egg::ovum::os::embed::cloneExecutable(clone);
   ASSERT_EQ(egg::ovum::File::Kind::File, egg::ovum::File::getKind(clone));
+  // The second time should fail
+  ASSERT_THROW_E(egg::ovum::os::embed::cloneExecutable(clone), egg::ovum::Exception, ASSERT_CONTAINS(e.what(), "exists"));
 }
 
 TEST(TestOS_Embed, FindResources) {
