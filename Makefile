@@ -66,7 +66,9 @@ ALL_DIRS = $(call directories,$(ALL_OBJS)) $(BIN_DIR)/.
 
 TEST_EXE = $(BIN_DIR)/egg-test.exe
 STUB_EXE = $(BIN_DIR)/egg-stub.exe
-CLI_EXE = $(BIN_DIR)/egg.exe
+EGG_EXE = $(BIN_DIR)/egg.exe
+
+EGG_ZIP = obj/egg.zip
 
 #############################################################################
 # GENERIC RULES
@@ -75,7 +77,7 @@ CLI_EXE = $(BIN_DIR)/egg.exe
 # This is the thing that is built when you just type 'make'
 default: all
 
-.PHONY: default bin test smoke clean nuke release debug all rebuild coverage fresh valgrind gdb test-coverage test-gdb version
+.PHONY: default bin test smoke-test clean nuke release debug all rebuild coverage fresh valgrind gdb test-coverage test-gdb version
 
 # We need to create certain directories or our toolchain fails
 %/.:
@@ -99,11 +101,6 @@ include $(ALL_OBJS:.o=.d)
 	$(ECHO) Archiving $@
 	$(call archive,$^,$@)
 
-# Rule for creating executables from object files and libraries
-%.exe:
-	$(ECHO) Linking $@
-	$(call link,$^,$@)
-
 #############################################################################
 # SPECIFIC RULES
 #############################################################################
@@ -123,38 +120,48 @@ $(OBJ_DIR)/cpp/ovum/version.%: CXXFLAGS += -DEGG_COMMIT=\"$(shell git rev-parse 
 $(ALL_OBJS): Makefile | $(ALL_DIRS)
 
 # Testsuite dependencies
-$(TEST_EXE): $(EGG_OBJS) $(TEST_OBJS)
+$(TEST_EXE): $(EGG_OBJS) $(TEST_OBJS) | $(STUB_EXE)
 
 # Command-line dependencies
 $(STUB_EXE): $(EGG_OBJS) $(STUB_OBJS)
+
+# Rule for creating executables from object files and libraries
+$(TEST_EXE) $(STUB_EXE):
+	$(ECHO) Linking $@
+	$(call link,$^,$@)
+
+# Rule for creating executables from stubs and zips
+$(EGG_EXE): $(STUB_EXE) $(EGG_ZIP)
+	$(ECHO) Sandwiching $@
+	$(SILENT)$(STUB_EXE) sandwich make --target=$(EGG_EXE) --zip=$(EGG_ZIP)
+
+# Rule for creating zips
+$(EGG_ZIP): $(STUB_EXE)
+	$(ECHO) Zipping $@
+	$(SILENT)$(STUB_EXE) zip make --target=$(EGG_ZIP) --directory=box
 
 #############################################################################
 # PSEUDO-TARGETS
 #############################################################################
 
 # Pseudo-target to build the binaries
-bin: $(TEST_EXE) $(STUB_EXE)
+bin: $(TEST_EXE) $(STUB_EXE) $(EGG_EXE)
 	$(call noop)
 
 # Pseudo-target to build and run the test suite
-test: bin
-	$(ECHO) Running tests $(TEST_EXE)
-	$(RUNTEST) $(TEST_EXE)
+test: $(TEST_EXE)
+	$(ECHO) Running tests $<
+	$(SILENT)./runtest.sh $<
 
 # Pseudo-target to run valgrind
-valgrind: bin
-	$(ECHO) Grinding tests $(TEST_EXE)
-	$(SILENT)./valgrind.sh $(TEST_EXE)
+valgrind: $(TEST_EXE)
+	$(ECHO) Grinding tests $<
+	$(SILENT)./valgrind.sh $<
 
 # Pseudo-target to build and run a smoke test
-smoke: $(STUB_EXE)
-	$(ECHO) Profiling $(STUB_EXE)
-	$(SILENT)$(STUB_EXE) --profile smoke-test
-
-# Pseudo-target to run command-line tests
-test-cli: $(CLI_EXE)
-	$(ECHO) Testing $(CLI_EXE)
-	$(CLI_EXE) test
+smoke-test: $(EGG_EXE)
+	$(ECHO) Smoke testing $<
+	$(SILENT)./valgrind.sh $< --profile smoke-test
 
 # Pseudo-target to run test coverage
 test-coverage: bin

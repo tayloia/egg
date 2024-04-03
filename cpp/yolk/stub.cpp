@@ -1,12 +1,26 @@
 #include "yolk/yolk.h"
 #include "yolk/stub.h"
 #include "yolk/engine.h"
+#include "ovum/os-embed.h"
 #include "ovum/os-file.h"
 #include "ovum/os-process.h"
 #include "ovum/version.h"
 
 #include <cctype>
 #include <iostream>
+
+#define LOG_UNCONDITIONAL(target, source, severity, ...) \
+  (target).logUnconditional((source), (severity), __VA_ARGS__)
+#define LOG_CONDITIONAL(target, source, severity, ...) \
+  if (!(target).logConditional((source), (severity))) {} else (target).logUnconditional((source), (severity), __VA_ARGS__)
+#define LOG_THIS(severity, ...) \
+  LOG_CONDITIONAL(*this, Source::Command, severity, __VA_ARGS__)
+#define LOG_DEBUG(...) \
+  LOG_CONDITIONAL(*this, Source::Command, Severity::Debug, __VA_ARGS__)
+#define LOG_VERBOSE(...) \
+  LOG_CONDITIONAL(*this, Source::Command, Severity::Verbose, __VA_ARGS__)
+#define LOG_INFORMATION(...) \
+  LOG_CONDITIONAL(*this, Source::Command, Severity::Information, __VA_ARGS__)
 
 namespace {
   using namespace egg::ovum;
@@ -131,8 +145,10 @@ namespace {
       this->withBuiltinOption(&Stub::optLogLevel, "log-level=debug|verbose|information|warning|error|none");
       this->withBuiltinOption(&Stub::optProfile, "profile[=allocator|memory|time|all]");
       this->withBuiltinCommand(&Stub::cmdHelp, "help");
-      this->withBuiltinCommand(&Stub::cmdVersion, "version");
+      this->withBuiltinCommand(&Stub::cmdSandwich, "sandwich");
       this->withBuiltinCommand(&Stub::cmdSmokeTest, "smoke-test");
+      this->withBuiltinCommand(&Stub::cmdVersion, "version");
+      this->withBuiltinCommand(&Stub::cmdZip, "zip");
       return *this;
     }
     virtual size_t getArgumentCount() const override {
@@ -140,9 +156,9 @@ namespace {
     }
     virtual size_t getArgumentCommand() const override {
       if (this->breadcrumbs.empty()) {
-        return this->breadcrumbs.front();
+        return 0;
       }
-      return 0;
+      return this->breadcrumbs.front();
     }
     virtual const std::string* queryArgument(size_t index) const override {
       return (index < this->arguments.size()) ? &this->arguments[index] : nullptr;
@@ -159,10 +175,12 @@ namespace {
       }
       if (index >= this->arguments.size()) {
         // No command supplied
+        LOG_DEBUG("No command supplied");
         auto handler = std::bind(&Stub::cmdMissing, this, std::placeholders::_1);
         return this->runCommand(handler);
       }
       const auto& command = this->arguments[index];
+      LOG_DEBUG("Command supplied at index ", index, ": '", command, "'");
       auto found = this->commands.find(command);
       if (found != this->commands.end()) {
         this->breadcrumbs.push_back(index);
@@ -224,6 +242,28 @@ namespace {
         }
       }
       return *this;
+    }
+    bool logConditional(Source, Severity severity) {
+      return this->configuration.isLogging(severity);
+    }
+    template<typename... ARGS>
+    void logUnconditional(Source source, Severity severity, ARGS&&... args) {
+      if ((this->configuration.logger != nullptr) && (this->configuration.allocator != nullptr)) {
+        // Use our attached logger
+        std::stringstream ss;
+        this->logToStream(ss, std::forward<ARGS>(args)...);
+        this->configuration.logger->log(source, severity, makeString(ss.str()));
+      }
+      else if (Bits::hasAnySet(severity, Bits::set(Severity::Warning, Severity::Error))) {
+        // Send to stderr
+        this->logToStream(std::cerr, std::forward<ARGS>(args)...);
+        std::cerr << std::endl;
+      }
+      else {
+        // Send to stdout
+        this->logToStream(std::cout, std::forward<ARGS>(args)...);
+        std::cout << std::endl;
+      }
     }
     void redirect(Source source, Severity severity, const std::function<void(std::ostream&)>& callback) {
       if (this->configuration.isLogging(severity)) {
@@ -358,10 +398,13 @@ namespace {
       });
       return ExitCode::OK;
     }
-    ExitCode cmdVersion(const IStub&) {
-      this->redirect(Source::Command, Severity::Information, [](std::ostream& os) {
-        os << "egg v" << Version();
-      });
+    ExitCode cmdSandwich(const IStub&) {
+      // WIBBLE
+      // stub.exe sandwich make --target=.../egg.exe --directory=box
+      auto first = this->getArgumentCommand();
+      auto target = this->getArgument(first + 2);
+      assert(target.starts_with("--target="));
+      egg::ovum::os::embed::cloneExecutable(target.substr(9));
       return ExitCode::OK;
     }
     ExitCode cmdSmokeTest(const IStub&) {
@@ -371,6 +414,16 @@ namespace {
       if (retval->getPrimitiveFlag() != ValueFlags::Void) {
         return ExitCode::Error;
       }
+      return ExitCode::OK;
+    }
+    ExitCode cmdVersion(const IStub&) {
+      this->redirect(Source::Command, Severity::Information, [](std::ostream& os) {
+        os << "egg v" << Version();
+        });
+      return ExitCode::OK;
+    }
+    ExitCode cmdZip(const IStub&) {
+      // WIBBLE
       return ExitCode::OK;
     }
     void badUsage(const std::string& message) {
@@ -419,6 +472,19 @@ namespace {
         os << ' ' << this->arguments[breadcrumb];
       }
       os << ": ";
+    }
+    template<typename... ARGS>
+    static void logToStream(std::ostream& os, ARGS&&... args) {
+      Printer printer{ os, Print::Options::DEFAULT };
+      Stub::logPrint(printer, std::forward<ARGS>(args)...);
+    }
+    static void logPrint(Printer&) {
+      // Do nothing
+    }
+    template<typename T, typename... ARGS>
+    static void logPrint(Printer& printer, const T& value, ARGS&&... args) {
+      printer << value;
+      Stub::logPrint(printer, std::forward<ARGS>(args)...);
     }
     std::shared_ptr<IEngine> makeEngine() {
       IEngine::Options eo{};

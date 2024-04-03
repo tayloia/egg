@@ -101,7 +101,7 @@ TEST(TestStub, LogLevelUnknown) {
 TEST(TestStub, LogLevelDebug) {
   Stub stub{ "/path/to/executable.exe", "--log-level=debug" };
   auto logged = stub.expect(egg::yolk::IStub::ExitCode::OK);
-  ASSERT_EQ(stub.WELCOME, logged);
+  ASSERT_EQ("<COMMAND><DEBUG>No command supplied\n" + stub.WELCOME, logged);
 }
 
 TEST(TestStub, LogLevelVerbose) {
