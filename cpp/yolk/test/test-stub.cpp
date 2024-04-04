@@ -72,7 +72,30 @@ TEST(TestStub, CommandMissing) {
 TEST(TestStub, CommandUnknown) {
   Stub stub{ "/path/to/executable.exe", "unknown" };
   auto logged = stub.expect(egg::yolk::IStub::ExitCode::Usage);
-  ASSERT_STARTSWITH(logged, "<COMMAND><ERROR>executable: Unknown command: 'unknown'\n<COMMAND><INFORMATION>Usage: executable ");
+  ASSERT_STARTSWITH(logged, "<COMMAND><ERROR>executable: Unknown command: 'unknown'\n"
+                            "<COMMAND><INFORMATION>Usage: executable ");
+  ASSERT_EQ(2u, stub.logger.counts.size());
+  ASSERT_EQ(1u, stub.logger.counts[egg::ovum::ILogger::Severity::Error]);
+  ASSERT_EQ(1u, stub.logger.counts[egg::ovum::ILogger::Severity::Information]);
+}
+
+TEST(TestStub, SubcommandMissing) {
+  Stub stub{ "/path/to/executable.exe", "zip" };
+  auto logged = stub.expect(egg::yolk::IStub::ExitCode::Usage);
+  ASSERT_STARTSWITH(logged, "<COMMAND><ERROR>executable zip: Missing subcommand\n"
+                            "<COMMAND><INFORMATION>Usage: executable zip <subcommand>\n"
+                            " <subcommand> is one of:\n  ");
+  ASSERT_EQ(2u, stub.logger.counts.size());
+  ASSERT_EQ(1u, stub.logger.counts[egg::ovum::ILogger::Severity::Error]);
+  ASSERT_EQ(1u, stub.logger.counts[egg::ovum::ILogger::Severity::Information]);
+}
+
+TEST(TestStub, SubcommandUnknown) {
+  Stub stub{ "/path/to/executable.exe", "zip", "unknown" };
+  auto logged = stub.expect(egg::yolk::IStub::ExitCode::Usage);
+  ASSERT_STARTSWITH(logged, "<COMMAND><ERROR>executable zip: Unknown subcommand: 'unknown'\n"
+                            "<COMMAND><INFORMATION>Usage: executable zip <subcommand>\n"
+                            " <subcommand> is one of:\n  ");
   ASSERT_EQ(2u, stub.logger.counts.size());
   ASSERT_EQ(1u, stub.logger.counts[egg::ovum::ILogger::Severity::Error]);
   ASSERT_EQ(1u, stub.logger.counts[egg::ovum::ILogger::Severity::Information]);

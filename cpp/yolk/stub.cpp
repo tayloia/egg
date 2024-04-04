@@ -407,23 +407,27 @@ namespace {
       assert(this->breadcrumbs.size() == 1);
       auto index = this->breadcrumbs.back();
       const auto& command = this->commands[this->arguments[index++]];
+      auto missing = true;
       if (index < this->arguments.size()) {
         const auto& key = this->arguments[index];
-        auto found = command.subcommands.find(key);
-        if (found != command.subcommands.end()) {
-          this->breadcrumbs.push_back(index);
-          return (this->*found->second.handler)();
+        if (!key.starts_with("--")) {
+          auto found = command.subcommands.find(key);
+          if (found != command.subcommands.end()) {
+            this->breadcrumbs.push_back(index);
+            return (this->*found->second.handler)();
+          }
+          this->redirect(Source::Command, Severity::Error, [=, this](std::ostream& os) {
+            this->printBreadcrumbs(os);
+            os << ": Unknown subcommand: '" << key << "'";
+            });
+          missing = false;
         }
-        this->redirect(Source::Command, Severity::Error, [=, this](std::ostream& os) {
-          this->printBreadcrumbs(os);
-          os << ": Unknown subcommand: '" << key << "'";
-          });
       }
-      else {
+      if (missing) {
         this->redirect(Source::Command, Severity::Error, [this](std::ostream& os) {
           this->printBreadcrumbs(os);
           os << ": Missing subcommand";
-          });
+        });
       }
       this->redirect(Source::Command, Severity::Information, [=, this](std::ostream& os) {
         this->printSubcommands(os, command);
@@ -445,15 +449,17 @@ namespace {
       });
       return ExitCode::OK;
     }
-    ExitCode cmdSandwichMake() {
-      // WIBBLE
-      // stub.exe sandwich make --target=.../egg.exe --directory=box
+    ExitCode cmdSandwichMake() { // WIBBLE
+      // stub.exe sandwich make --target=.../egg.exe --zip=.../sandwich.zip
+      // WIBBLE auto parser = this->createOptionParser();
+      // WIBBLE parser.parse();
       auto target = this->getBreadcrumb(1);
       assert(target.starts_with("--target="));
       target = target.substr(9);
       LOG_INFORMATION("Cloning executable: ", target);
       egg::ovum::File::removeFile(target);
       egg::ovum::os::embed::cloneExecutable(target);
+      // WIBBLE egg::ovum::os::embed::updateResourceFromFile(target, type, label, zip);
       return ExitCode::OK;
     }
     ExitCode cmdSmokeTest() {
@@ -471,8 +477,8 @@ namespace {
         });
       return ExitCode::OK;
     }
-    ExitCode cmdZipMake() {
-      // WIBBLE
+    ExitCode cmdZipMake() { // WIBBLE
+      // stub.exe zip make --target=.../sandwich.zip --directory=box
       return ExitCode::OK;
     }
     void badUsage(const std::string& message) {
