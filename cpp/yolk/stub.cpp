@@ -1,5 +1,6 @@
 #include "yolk/yolk.h"
 #include "yolk/stub.h"
+#include "yolk/options.h"
 #include "yolk/engine.h"
 #include "ovum/file.h"
 #include "ovum/os-embed.h"
@@ -9,6 +10,7 @@
 
 #include <cctype>
 #include <iostream>
+#include <fstream> // WIBBLE
 
 #define LOG_UNCONDITIONAL(target, source, severity, ...) \
   (target).logUnconditional((source), (severity), __VA_ARGS__)
@@ -300,10 +302,6 @@ namespace {
       }
     }
   private:
-    std::string getBreadcrumb(size_t offset) {
-      size_t index = this->breadcrumbs.empty() ? 0 : this->breadcrumbs.back();
-      return this->getArgument(index + offset);
-    }
     Command& withBuiltinCommand(const CommandMember& member, const std::string& usage) {
       auto handler = std::bind(member, this);
       auto space = usage.find(' ');
@@ -451,15 +449,16 @@ namespace {
     }
     ExitCode cmdSandwichMake() { // WIBBLE
       // stub.exe sandwich make --target=.../egg.exe --zip=.../sandwich.zip
-      // WIBBLE auto parser = this->createOptionParser();
-      // WIBBLE parser.parse();
-      auto target = this->getBreadcrumb(1);
-      assert(target.starts_with("--target="));
-      target = target.substr(9);
-      LOG_INFORMATION("Cloning executable: ", target);
+      auto parser = this->makeOptionParser()
+        .withStringOption("target", OptionParser::Occurrences::One)
+        .withStringOption("zip", OptionParser::Occurrences::One);
+      auto suboptions = parser.parse();
+      auto target = suboptions.get("target");
+      auto zip = suboptions.get("zip");
+      LOG_INFORMATION("Sandwich: stub + ", zip, " = ", target);
       egg::ovum::File::removeFile(target);
       egg::ovum::os::embed::cloneExecutable(target);
-      // WIBBLE egg::ovum::os::embed::updateResourceFromFile(target, type, label, zip);
+      egg::ovum::os::embed::updateResourceFromFile(target, "PROGBITS", "EGGBOX", zip);
       return ExitCode::OK;
     }
     ExitCode cmdSmokeTest() {
@@ -479,6 +478,15 @@ namespace {
     }
     ExitCode cmdZipMake() { // WIBBLE
       // stub.exe zip make --target=.../sandwich.zip --directory=box
+      auto parser = this->makeOptionParser()
+        .withStringOption("target", OptionParser::Occurrences::One)
+        .withStringOption("directory", OptionParser::Occurrences::One);
+      auto suboptions = parser.parse();
+      auto target = suboptions.get("target");
+      auto directory = suboptions.get("directory");
+      LOG_INFORMATION("Zip: ", target, " from directory ", directory);
+      std::ofstream ofs{ File::resolvePath(target), std::ios::out | std::ios::binary };
+      ofs << "WIBBLE: " << directory;
       return ExitCode::OK;
     }
     void badUsage(const std::string& message) {
@@ -563,6 +571,14 @@ namespace {
     String makeString(const std::string& utf8) const {
       assert(this->configuration.allocator != nullptr);
       return String::fromUTF8(*this->configuration.allocator, utf8.data(), utf8.size());
+    }
+    OptionParser makeOptionParser() {
+      OptionParser parser;
+      size_t index = this->breadcrumbs.empty() ? 0 : this->breadcrumbs.back();
+      while (++index < this->arguments.size()) {
+        parser.withArgument(this->arguments[index]);
+      }
+      return parser;
     }
   };
 

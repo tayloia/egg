@@ -21,6 +21,7 @@ namespace egg::yolk {
   class OptionParser {
   public:
     enum class Occurrences {
+      Zero,
       ZeroOrOne,
       ZeroOrMore,
       One,

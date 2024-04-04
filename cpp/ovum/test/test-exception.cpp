@@ -59,8 +59,7 @@ TEST(TestException, Print) {
   auto expected = "<FORMAT>\n"
                   "  alpha=<ALPHA>\n"
                   "  beta=<BETA>\n"
-                  "  gamma=<GAMMA>\n"
-                  "  what=<FORMAT>";
+                  "  gamma=<GAMMA>";
   ASSERT_EQ(actual, expected);
 }
 

@@ -74,6 +74,15 @@ egg::yolk::Options egg::yolk::OptionParser::parse() {
   for (auto& rule : this->rules) {
     auto count = options.count(rule.first);
     switch (rule.second.occurrences) {
+    case Occurrences::Zero:
+    default:
+      if (count > 0) {
+        if (rule.first.empty()) {
+          throw egg::ovum::Exception("No arguments were expected").with("arguments", std::to_string(count));
+        }
+        throw egg::ovum::Exception("No occurrence of '--{option}' was expected").with("option", rule.first).with("occurrences", std::to_string(count));
+      }
+      break;
     case Occurrences::ZeroOrOne:
       if (count > 1) {
         if (rule.first.empty()) {
@@ -83,7 +92,6 @@ egg::yolk::Options egg::yolk::OptionParser::parse() {
       }
       break;
     case Occurrences::ZeroOrMore:
-    default:
       break;
     case Occurrences::One:
       if (rule.first.empty()) {

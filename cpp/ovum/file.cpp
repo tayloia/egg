@@ -51,6 +51,9 @@ egg::ovum::File::Kind egg::ovum::File::getKind(const std::string& path) {
 std::string egg::ovum::File::slurp(const std::string& path) {
   // Slurp the entire file as a string of bytes
   std::ifstream ifs{ File::resolvePath(path), std::ios::in | std::ios::binary };
+  if (!ifs) {
+    throw egg::ovum::Exception("Cannot read file: '{path}'").with("path", path);
+  }
   ifs.seekg(0, std::ios::end);
   auto bytes = ifs.tellg();
   std::string buffer(size_t(bytes), '\0');

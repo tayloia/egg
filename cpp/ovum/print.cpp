@@ -382,7 +382,9 @@ void egg::ovum::Print::write(std::ostream& stream, ILogger::Severity value, cons
 void egg::ovum::Print::write(std::ostream& stream, const Exception& value, const Options&) {
   stream << value.what();
   for (auto& field : value) {
-    stream << "\n  " << field.first << '=' << field.second;
+    if (!field.first.empty()) {
+      stream << "\n  " << field.first << '=' << field.second;
+    }
   }
 }
 

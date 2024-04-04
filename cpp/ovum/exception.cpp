@@ -3,7 +3,7 @@
 
 namespace {
   const std::string& formatWhat(const char* fmt, egg::ovum::Exception& exception) {
-    auto& value = exception["what"];
+    auto& value = exception[{}];
     if (value.empty()) {
       value = exception.format(fmt);
     }
