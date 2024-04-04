@@ -26,10 +26,12 @@ namespace egg::yolk {
       One,
       OneOrMore
     };
+    using Validator = std::function<std::string(const std::string&, const std::string*)>;
   private:
     std::vector<std::string> arguments;
     struct Rule {
       Occurrences occurrences = Occurrences::OneOrMore;
+      Validator validator;
     };
     struct Rules : public std::map<std::string, Rule> {
       std::set<std::set<std::string>> incompatibles;
@@ -37,8 +39,10 @@ namespace egg::yolk {
     };
     Rules rules;
   public:
-    OptionParser& withExtraneousArguments(Occurrences occurrences = Occurrences::ZeroOrMore);
-    OptionParser& withOption(const std::string& option, Occurrences occurrences);
+    OptionParser& withExtraneousArguments(Occurrences occurrences = Occurrences::ZeroOrMore, Validator validator = nullptr);
+    OptionParser& withOption(const std::string& option, Occurrences occurrences, Validator validator);
+    OptionParser& withStringOption(const std::string& option, Occurrences occurrences);
+    OptionParser& withValuelessOption(const std::string& option);
     OptionParser& withArgument(const std::string& argument) {
       this->arguments.push_back(argument);
       return *this;

@@ -4,7 +4,6 @@
 void egg::yolk::OptionParser::Rules::parse(Options& options, const std::string& key, const std::string* value) {
   auto rule = this->find(key);
   if (rule == this->end()) {
-    // Unknown key
     if (!key.empty()) {
       throw egg::ovum::Exception("Unrecognized option: '--{option}'").with("option", key);
     } else if (value != nullptr) {
@@ -13,27 +12,39 @@ void egg::yolk::OptionParser::Rules::parse(Options& options, const std::string& 
       throw egg::ovum::Exception("Unexpected argument");
     }
   }
-  if (key.empty()) {
-    // 'value'
-    assert(value != nullptr);
-    options.emplace(key, *value);
-  } else if (value == nullptr) {
-    // '--key'
-    options.emplace(key, std::string());
+  if (rule->second.validator != nullptr) {
+    options.emplace(key, rule->second.validator(key, value));
   } else {
-    // '--key=value'
-    options.emplace(key, *value);
+    options.emplace(key, (value == nullptr) ? std::string() : *value);
   }
 }
 
-egg::yolk::OptionParser& egg::yolk::OptionParser::withExtraneousArguments(Occurrences occurrences) {
-  this->rules.emplace(std::piecewise_construct, std::forward_as_tuple(), std::forward_as_tuple(occurrences));
+egg::yolk::OptionParser& egg::yolk::OptionParser::withExtraneousArguments(Occurrences occurrences, Validator validator) {
+  this->rules.emplace(std::piecewise_construct, std::forward_as_tuple(), std::forward_as_tuple(occurrences, validator));
   return *this;
 }
 
-egg::yolk::OptionParser& egg::yolk::OptionParser::withOption(const std::string& option, Occurrences occurrences) {
-  this->rules.emplace(std::piecewise_construct, std::forward_as_tuple(option), std::forward_as_tuple(occurrences));
+egg::yolk::OptionParser& egg::yolk::OptionParser::withOption(const std::string& option, Occurrences occurrences, Validator validator) {
+  this->rules.emplace(std::piecewise_construct, std::forward_as_tuple(option), std::forward_as_tuple(occurrences, validator));
   return *this;
+}
+
+egg::yolk::OptionParser& egg::yolk::OptionParser::withStringOption(const std::string& option, Occurrences occurrences) {
+  return this->withOption(option, occurrences, [](const std::string& key, const std::string* value) {
+    if (value == nullptr) {
+      throw egg::ovum::Exception("Missing required option value: '--{option}'").with("option", key);
+    }
+    return *value;
+  });
+}
+
+egg::yolk::OptionParser& egg::yolk::OptionParser::withValuelessOption(const std::string& option) {
+  return this->withOption(option, Occurrences::ZeroOrOne, [](const std::string& key, const std::string* value) {
+    if (value != nullptr) {
+      throw egg::ovum::Exception("Unexpected option value: '--{option}={value}'").with("option", key).with("value", *value);
+    }
+    return std::string();
+  });
 }
 
 egg::yolk::Options egg::yolk::OptionParser::parse() {

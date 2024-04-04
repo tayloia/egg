@@ -4,24 +4,38 @@
 using Occurrences = egg::yolk::OptionParser::Occurrences;
 
 namespace {
-  std::string parseOptionKey(Occurrences occurrences, const std::initializer_list<std::string>& arguments) {
+  template<typename T>
+  std::string join(char separator, const T& values) {
+    std::stringstream ss;
+    auto first = true;
+    for (const auto& value : values) {
+      if (first) {
+        first = false;
+      } else {
+        ss.put(separator);
+      }
+      ss << '<' << value << '>';
+    }
+    return ss.str();
+  }
+  std::string parseStringOptionKey(Occurrences occurrences, const std::initializer_list<std::string>& arguments) {
     egg::yolk::OptionParser parser;
-    parser.withExtraneousArguments();
-    parser.withOption("key", occurrences);
+    parser.withStringOption("key", occurrences);
     parser.withArguments(arguments);
     try {
       auto options = parser.parse();
-      std::stringstream ss;
-      char separator = '\0';
-      for (auto& value : options.query("key")) {
-        if (separator == '\0') {
-          separator = ',';
-        } else {
-          ss.put(separator);
-        }
-        ss << value;
-      }
-      return ss.str();
+      return join(',', options.query("key"));
+    } catch (const egg::ovum::Exception& exception) {
+      return exception.what();
+    }
+  }
+  std::string parseValuelessOptionKey(const std::initializer_list<std::string>& arguments) {
+    egg::yolk::OptionParser parser;
+    parser.withValuelessOption("key");
+    parser.withArguments(arguments);
+    try {
+      auto options = parser.parse();
+      return join(',', options.query("key"));
     } catch (const egg::ovum::Exception& exception) {
       return exception.what();
     }
@@ -71,34 +85,46 @@ TEST(TestOptions, WithUnexpectedOption) {
   ASSERT_THROW_E(parser.parse(), egg::ovum::Exception, ASSERT_STREQ("Unrecognized option: '--unknown'", e.what()));
 }
 
-TEST(TestOptions, WithOption0) {
+TEST(TestOptions, WithStringOptionWithoutValue) {
+  ASSERT_EQ("Missing required option value: '--key'", parseStringOptionKey(Occurrences::One, { "--key" }));
+}
+
+TEST(TestOptions, WithStringOption0) {
   std::initializer_list<std::string> arguments{};
-  ASSERT_EQ("", parseOptionKey(Occurrences::ZeroOrOne, arguments));
-  ASSERT_EQ("", parseOptionKey(Occurrences::ZeroOrMore, arguments));
-  ASSERT_EQ("Exactly one occurrence of '--key' was expected", parseOptionKey(Occurrences::One, arguments));
-  ASSERT_EQ("At least one occurrence of '--key' was expected", parseOptionKey(Occurrences::OneOrMore, arguments));
+  ASSERT_EQ("", parseStringOptionKey(Occurrences::ZeroOrOne, arguments));
+  ASSERT_EQ("", parseStringOptionKey(Occurrences::ZeroOrMore, arguments));
+  ASSERT_EQ("Exactly one occurrence of '--key' was expected", parseStringOptionKey(Occurrences::One, arguments));
+  ASSERT_EQ("At least one occurrence of '--key' was expected", parseStringOptionKey(Occurrences::OneOrMore, arguments));
 }
 
-TEST(TestOptions, WithOption1) {
+TEST(TestOptions, WithStringOption1) {
   std::initializer_list<std::string> arguments{ "--key=a" };
-  ASSERT_EQ("a", parseOptionKey(Occurrences::ZeroOrOne, arguments));
-  ASSERT_EQ("a", parseOptionKey(Occurrences::ZeroOrMore, arguments));
-  ASSERT_EQ("a", parseOptionKey(Occurrences::One, arguments));
-  ASSERT_EQ("a", parseOptionKey(Occurrences::OneOrMore, arguments));
+  ASSERT_EQ("<a>", parseStringOptionKey(Occurrences::ZeroOrOne, arguments));
+  ASSERT_EQ("<a>", parseStringOptionKey(Occurrences::ZeroOrMore, arguments));
+  ASSERT_EQ("<a>", parseStringOptionKey(Occurrences::One, arguments));
+  ASSERT_EQ("<a>", parseStringOptionKey(Occurrences::OneOrMore, arguments));
 }
 
-TEST(TestOptions, WithOption2) {
+TEST(TestOptions, WithStringOption2) {
   std::initializer_list<std::string> arguments{ "--key=z", "--key=a" };
-  ASSERT_EQ("At most one occurrence of '--key' was expected", parseOptionKey(Occurrences::ZeroOrOne, arguments));
-  ASSERT_EQ("z,a", parseOptionKey(Occurrences::ZeroOrMore, arguments));
-  ASSERT_EQ("Exactly one occurrence of '--key' was expected", parseOptionKey(Occurrences::One, arguments));
-  ASSERT_EQ("z,a", parseOptionKey(Occurrences::OneOrMore, arguments));
+  ASSERT_EQ("At most one occurrence of '--key' was expected", parseStringOptionKey(Occurrences::ZeroOrOne, arguments));
+  ASSERT_EQ("<z>,<a>", parseStringOptionKey(Occurrences::ZeroOrMore, arguments));
+  ASSERT_EQ("Exactly one occurrence of '--key' was expected", parseStringOptionKey(Occurrences::One, arguments));
+  ASSERT_EQ("<z>,<a>", parseStringOptionKey(Occurrences::OneOrMore, arguments));
 }
 
-TEST(TestOptions, WithOption3) {
-  std::initializer_list<std::string> arguments{ "--key=z", "--key", "--key=a" };
-  ASSERT_EQ("At most one occurrence of '--key' was expected", parseOptionKey(Occurrences::ZeroOrOne, arguments));
-  ASSERT_EQ("z,,a", parseOptionKey(Occurrences::ZeroOrMore, arguments));
-  ASSERT_EQ("Exactly one occurrence of '--key' was expected", parseOptionKey(Occurrences::One, arguments));
-  ASSERT_EQ("z,,a", parseOptionKey(Occurrences::OneOrMore, arguments));
+TEST(TestOptions, WithStringOption3) {
+  std::initializer_list<std::string> arguments{ "--key=z", "--key=", "--key=a" };
+  ASSERT_EQ("At most one occurrence of '--key' was expected", parseStringOptionKey(Occurrences::ZeroOrOne, arguments));
+  ASSERT_EQ("<z>,<>,<a>", parseStringOptionKey(Occurrences::ZeroOrMore, arguments));
+  ASSERT_EQ("Exactly one occurrence of '--key' was expected", parseStringOptionKey(Occurrences::One, arguments));
+  ASSERT_EQ("<z>,<>,<a>", parseStringOptionKey(Occurrences::OneOrMore, arguments));
+}
+
+TEST(TestOptions, WithValuelessOption) {
+  ASSERT_EQ("", parseValuelessOptionKey({}));
+  ASSERT_EQ("<>", parseValuelessOptionKey({ "--key" }));
+  ASSERT_EQ("At most one occurrence of '--key' was expected", parseValuelessOptionKey({ "--key", "--key" }));
+  ASSERT_EQ("Unexpected option value: '--key=value'", parseValuelessOptionKey({ "--key=value" }));
+  ASSERT_EQ("Unexpected option value: '--key='", parseValuelessOptionKey({ "--key=" }));
 }
