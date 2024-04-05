@@ -17,12 +17,12 @@ namespace {
     if (egg::ovum::os::file::slash() == '\\') {
       // e.g. "c:/project/egg/bin/msvc/yolk-test.debug.x64/yolk-test.exe"
       std::string needle{ "/yolk-test." };
-      replaceFirst(exe, needle, "/egg-stub.");
-      replaceFirst(exe, needle, "/egg-stub.");
+      replaceFirst(exe, needle, "/egg.");
+      replaceFirst(exe, needle, "/egg.");
     } else {
       // e.g. "/mnt/c/Project/egg/bin/wsl/gcc/release/egg-test.exe"
       std::string needle{ "/egg-test." };
-      replaceFirst(exe, needle, "/egg-stub.");
+      replaceFirst(exe, needle, "/egg.");
     }
     return egg::ovum::os::file::denormalizePath(exe, false);
   }
@@ -41,8 +41,8 @@ TEST(TestCLI, UnknownCommand) {
   auto exitcode = egg::ovum::os::process::pexec(ss, executable() + " unknown");
   ASSERT_EQ(2, exitcode);
   auto actual = ss.str();
-  auto expected = "egg-stub: Unknown command: 'unknown'\n"
-                  "Usage: egg-stub [<general-option>]... <command> [<command-option>|<command-argument>]...\n";
+  auto expected = "egg: Unknown command: 'unknown'\n"
+                  "Usage: egg [<general-option>]... <command> [<command-option>|<command-argument>]...\n";
   ASSERT_STARTSWITH(actual, expected);
 }
 
@@ -51,8 +51,8 @@ TEST(TestCLI, MissingSubcommand) {
   auto exitcode = egg::ovum::os::process::pexec(ss, executable() + " sandwich");
   ASSERT_EQ(2, exitcode);
   auto actual = ss.str();
-  auto expected = "egg-stub sandwich: Missing subcommand\n"
-                  "Usage: egg-stub sandwich <subcommand>\n"
+  auto expected = "egg sandwich: Missing subcommand\n"
+                  "Usage: egg sandwich <subcommand>\n"
                   " <subcommand> is one of:\n"
                   "  make --target=<exe-file> --zip=<zip-file>\n";
   ASSERT_EQ(actual, expected);
@@ -63,8 +63,8 @@ TEST(TestCLI, UnknownSubcommand) {
   auto exitcode = egg::ovum::os::process::pexec(ss, executable() + " sandwich unknown");
   ASSERT_EQ(2, exitcode);
   auto actual = ss.str();
-  auto expected = "egg-stub sandwich: Unknown subcommand: 'unknown'\n"
-                  "Usage: egg-stub sandwich <subcommand>\n"
+  auto expected = "egg sandwich: Unknown subcommand: 'unknown'\n"
+                  "Usage: egg sandwich <subcommand>\n"
                   " <subcommand> is one of:\n"
                   "  make --target=<exe-file> --zip=<zip-file>\n";
   ASSERT_EQ(actual, expected);
@@ -75,8 +75,8 @@ TEST(TestCLI, UnknownOption) {
   auto exitcode = egg::ovum::os::process::pexec(ss, executable() + " --unknown");
   ASSERT_EQ(2, exitcode);
   auto actual = ss.str();
-  auto expected = "egg-stub: Unknown general option: '--unknown'\n"
-                  "Usage: egg-stub [<general-option>]... <command> [<command-option>|<command-argument>]...\n";
+  auto expected = "egg: Unknown general option: '--unknown'\n"
+                  "Usage: egg [<general-option>]... <command> [<command-option>|<command-argument>]...\n";
   ASSERT_STARTSWITH(actual, expected);
 }
 
@@ -85,21 +85,21 @@ TEST(TestCLI, DuplicatedOption) {
   auto exitcode = egg::ovum::os::process::pexec(ss, executable() + " --log-level=debug --log-level=none");
   ASSERT_EQ(2, exitcode);
   auto actual = ss.str();
-  auto expected = "egg-stub: Duplicated general option: '--log-level'\n"
-                  "Usage: egg-stub [<general-option>]... <command> [<command-option>|<command-argument>]...\n";
+  auto expected = "egg: Duplicated general option: '--log-level'\n"
+                  "Usage: egg [<general-option>]... <command> [<command-option>|<command-argument>]...\n";
   ASSERT_STARTSWITH(actual, expected);
 }
 
 TEST(TestCLI, Empty) {
   auto actual = spawn("");
   auto expected = "Welcome to egg v" + egg::ovum::Version::semver() + "\n"
-                  "Try 'egg-stub help' for more information\n";
+                  "Try 'egg help' for more information\n";
   ASSERT_EQ(expected, actual);
 }
 
 TEST(TestCLI, Help) {
   auto actual = spawn("help");
-  ASSERT_STARTSWITH(actual, "Usage: egg-stub [<general-option>]... <command> [<command-option>|<command-argument>]...\n");
+  ASSERT_STARTSWITH(actual, "Usage: egg [<general-option>]... <command> [<command-option>|<command-argument>]...\n");
   ASSERT_CONTAINS(actual, "\n  <general-option> is any of:\n");
   ASSERT_CONTAINS(actual, "\n    --log-level=debug|verbose|information|warning|error|none\n");
   ASSERT_CONTAINS(actual, "\n  <command> is one of:\n");
@@ -114,10 +114,8 @@ TEST(TestCLI, Version) {
   ASSERT_EQ(expected, actual);
 }
 
-/* WIBBLE
 TEST(TestCLI, SmokeTest) {
   auto expected = "Hello, world!\n";
   auto actual = spawn("smoke-test");
   ASSERT_EQ(expected, actual);
 }
-*/
