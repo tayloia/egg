@@ -12,22 +12,51 @@
 #include <cctype>
 #include <iostream>
 
-#define LOG_UNCONDITIONAL(target, source, severity, ...) \
-  (target).logUnconditional((source), (severity), __VA_ARGS__)
-#define LOG_CONDITIONAL(target, source, severity, ...) \
-  if (!(target).logConditional((source), (severity))) {} else (target).logUnconditional((source), (severity), __VA_ARGS__)
-#define LOG_THIS(severity, ...) \
-  LOG_CONDITIONAL(*this, Source::Command, severity, __VA_ARGS__)
-#define LOG_DEBUG(...) \
-  LOG_CONDITIONAL(*this, Source::Command, Severity::Debug, __VA_ARGS__)
-#define LOG_VERBOSE(...) \
-  LOG_CONDITIONAL(*this, Source::Command, Severity::Verbose, __VA_ARGS__)
-#define LOG_INFORMATION(...) \
-  LOG_CONDITIONAL(*this, Source::Command, Severity::Information, __VA_ARGS__)
+#define STUB_LOG(severity) \
+  if (!this->isLogging(Severity::severity)) {} else this->logStream(Severity::severity)
 
 namespace {
   using namespace egg::ovum;
   using namespace egg::yolk;
+
+  class Stub;
+
+  class LogStream {
+    LogStream(const LogStream&) = delete;
+    LogStream& operator=(const LogStream&) = delete;
+  public:
+    using FunctionCallback = std::function<void(std::ostream&)>;
+    using MemberCallback = void(Stub::*)(std::ostream&);
+    Stub& stub;
+    ILogger::Severity severity;
+    std::stringstream sstream;
+    std::ostream& ostream;
+    LogStream(Stub& stub, ILogger::Severity severity, std::ostream& ostream)
+      : stub(stub),
+        severity(severity),
+        ostream(ostream) {
+    }
+    LogStream(Stub& stub, ILogger::Severity severity)
+      : LogStream(stub, severity, sstream) {
+    }
+    ~LogStream();
+    template<typename T>
+    LogStream& operator<<(const T& value) {
+      this->ostream << value;
+      return *this;
+    }
+    LogStream& operator<<(const FunctionCallback& callback) {
+      callback(this->ostream);
+      return *this;
+    }
+    LogStream& operator<<(const MemberCallback& callback);
+    template<typename T>
+    static FunctionCallback print(const T& value) {
+      return [value](std::ostream& os) {
+        Print::write(os, value, Print::Options::DEFAULT);
+      };
+    }
+  };
 
   struct LessCaseInsensitive {
     bool operator()(const unsigned char& lhs, const unsigned char& rhs) const {
@@ -84,9 +113,6 @@ namespace {
         assert(Bits::hasOneSet(severity));
         auto underlying = Bits::underlying(severity);
         return Severity(underlying | (underlying - 1));
-      }
-      bool isLogging(Severity severity) const {
-        return Bits::hasAnySet(this->loglevel, severity);
       }
     };
     std::vector<std::string> arguments;
@@ -192,12 +218,12 @@ namespace {
       }
       if (index >= this->arguments.size()) {
         // No command supplied
-        LOG_DEBUG("No command supplied");
-        auto handler = std::bind(&Stub::cmdMissing, this, std::placeholders::_1);
+        STUB_LOG(Debug) << "No command supplied";
+        auto handler = std::bind(&Stub::cmdMissing, this);
         return this->runCommand(handler);
       }
       const auto& command = this->arguments[index];
-      LOG_DEBUG("Command supplied at index ", index, ": '", command, "'");
+      STUB_LOG(Debug) << "Command supplied at index " << index << ": '" << command << "'";
       auto found = this->commands.find(command);
       if (found != this->commands.end()) {
         this->breadcrumbs.push_back(index);
@@ -224,23 +250,13 @@ namespace {
     }
     ExitCode runCommand(const CommandHandler& handler);
     void error(const std::string& message) {
-      this->redirect(Source::Command, Severity::Error, [=, this](std::ostream& os) {
-        this->printBreadcrumbs(os);
-        os << ": " << message;
-      });
+      STUB_LOG(Error) << BREADCRUMBS << ": " << message;
     }
     void error(const std::exception& exception) {
-      this->redirect(Source::Command, Severity::Error, [=, this](std::ostream& os) {
-        this->printBreadcrumbs(os);
-        os << ": Exception: " << exception.what();
-      });
+      STUB_LOG(Error) << BREADCRUMBS << ": Exception: " << exception.what();
     }
     void error(const Exception& exception) {
-      this->redirect(Source::Command, Severity::Error, [=, this](std::ostream& os) {
-        this->printBreadcrumbs(os);
-        os << ": ";
-        Print::write(os, exception, Print::Options::DEFAULT);
-      });
+      STUB_LOG(Error) << BREADCRUMBS << ": " << LogStream::print(exception);
     }
     Stub& withArguments(int argc, char* argv[]) {
       for (auto argi = 0; argi < argc; ++argi) {
@@ -261,45 +277,25 @@ namespace {
       }
       return *this;
     }
-    bool logConditional(Source, Severity severity) {
-      return this->configuration.isLogging(severity);
+    bool isLogging(Severity severity) const {
+      return Bits::hasAnySet(this->configuration.loglevel, severity);
     }
-    template<typename... ARGS>
-    void logUnconditional(Source source, Severity severity, ARGS&&... args) {
+    LogStream logStream(Severity severity) {
       if ((this->configuration.logger != nullptr) && (this->configuration.allocator != nullptr)) {
         // Use our attached logger
-        std::stringstream ss;
-        this->logToStream(ss, std::forward<ARGS>(args)...);
-        this->configuration.logger->log(source, severity, makeString(ss.str()));
-      }
-      else if (Bits::hasAnySet(severity, Bits::set(Severity::Warning, Severity::Error))) {
+        return LogStream(*this, severity);
+      } else if (Bits::hasAnySet(severity, Bits::set(Severity::Warning, Severity::Error))) {
         // Send to stderr
-        this->logToStream(std::cerr, std::forward<ARGS>(args)...);
-        std::cerr << std::endl;
-      }
-      else {
+        return LogStream(*this, severity, std::cerr);
+      } else {
         // Send to stdout
-        this->logToStream(std::cout, std::forward<ARGS>(args)...);
-        std::cout << std::endl;
+        return LogStream(*this, severity, std::cout);
       }
     }
-    void redirect(Source source, Severity severity, const std::function<void(std::ostream&)>& callback) {
-      if (this->configuration.isLogging(severity)) {
-        if ((this->configuration.logger != nullptr) && (this->configuration.allocator != nullptr)) {
-          // Use our attached logger
-          std::stringstream ss;
-          callback(ss);
-          this->configuration.logger->log(source, severity, this->makeString(ss.str()));
-        } else if (Bits::hasAnySet(severity, Bits::set(Severity::Warning, Severity::Error))) {
-          // Send to stderr
-          callback(std::cerr);
-          std::cerr << std::endl;
-        } else {
-          // Send to stdout
-          callback(std::cout);
-          std::cout << std::endl;
-        }
-      }
+    void logCommit(Source source, Severity severity, const std::string& message) const {
+      assert(this->configuration.logger != nullptr);
+      assert(this->configuration.allocator != nullptr);
+      this->configuration.logger->log(source, severity, makeString(message));
     }
   private:
     Command& withBuiltinCommand(const CommandMember& member, const std::string& usage) {
@@ -414,37 +410,23 @@ namespace {
             this->breadcrumbs.push_back(index);
             return (this->*found->second.handler)();
           }
-          this->redirect(Source::Command, Severity::Error, [=, this](std::ostream& os) {
-            this->printBreadcrumbs(os);
-            os << ": Unknown subcommand: '" << key << "'";
-            });
+          STUB_LOG(Error) << BREADCRUMBS << ": Unknown subcommand: '" << key << "'";
           missing = false;
         }
       }
       if (missing) {
-        this->redirect(Source::Command, Severity::Error, [this](std::ostream& os) {
-          this->printBreadcrumbs(os);
-          os << ": Missing subcommand";
-        });
+        STUB_LOG(Error) << BREADCRUMBS << ": Missing subcommand";
       }
-      this->redirect(Source::Command, Severity::Information, [=, this](std::ostream& os) {
-        this->printSubcommands(os, command);
-        });
+      STUB_LOG(Information) << "Usage: " << BREADCRUMBS << " <subcommand>" << this->printSubcommands(command);
       return ExitCode::Usage;
     }
-    ExitCode cmdMissing(const IStub&) {
-      this->redirect(Source::Command, Severity::Information, [this](std::ostream& os) {
-        os << "Welcome to egg v" << Version::semver() << "\n";
-        os << "Try '" << this->getApplicationName() << " help' for more information";
-      });
+    ExitCode cmdMissing() {
+      STUB_LOG(Information) << "Welcome to egg v" << Version::semver() << "\n"
+                                 "Try '" << this->getApplicationName() << " help' for more information";
       return ExitCode::OK;
     }
     ExitCode cmdHelp() {
-      this->redirect(Source::Command, Severity::Information, [this](std::ostream& os) {
-        this->printUsage(os);
-        this->printGeneralOptions(os);
-        this->printCommands(os);
-      });
+      STUB_LOG(Information) << &Stub::printUsage << &Stub::printGeneralOptions << &Stub::printCommands;
       return ExitCode::OK;
     }
     ExitCode cmdSandwichMake() {
@@ -455,10 +437,10 @@ namespace {
       auto suboptions = parser.parse();
       auto target = suboptions.get("target");
       auto zip = suboptions.get("zip");
-      egg::ovum::File::removeFile(target);
-      egg::ovum::os::embed::cloneExecutable(target);
-      auto embedded = egg::ovum::os::embed::updateResourceFromFile(target, "PROGBITS", "EGGBOX", zip);
-      LOG_INFORMATION("Embedded ", embedded, " bytes into '", target, "'");
+      File::removeFile(target);
+      os::embed::cloneExecutable(target);
+      auto embedded = os::embed::updateResourceFromFile(target, "PROGBITS", "EGGBOX", zip);
+      STUB_LOG(Information) << "Embedded " << embedded << " bytes into '" << target << "'";
       return ExitCode::OK;
     }
     ExitCode cmdSmokeTest() {
@@ -471,9 +453,7 @@ namespace {
       return ExitCode::OK;
     }
     ExitCode cmdVersion() {
-      this->redirect(Source::Command, Severity::Information, [](std::ostream& os) {
-        os << "egg v" << Version();
-        });
+      STUB_LOG(Information) << "egg v" << Version();
       return ExitCode::OK;
     }
     ExitCode cmdZipMake() {
@@ -491,32 +471,28 @@ namespace {
         readable = std::to_string(entries) + " entries";
       }
       auto ratio = (uncompressed > 0) ? (compressed * 100) / uncompressed : 100;
-      LOG_INFORMATION("Zipped ", readable, " into '", target, "' (compressed=", compressed, " uncompressed=", uncompressed, " ratio=", ratio, "%)");
+      STUB_LOG(Information) << "Zipped " << readable << " into '" << target << "' (compressed=" << compressed << " uncompressed=" << uncompressed << " ratio=" << ratio << "%)";
       return ExitCode::OK;
     }
     void badUsage(const std::string& message) {
-      this->redirect(Source::Command, Severity::Error, [=, this](std::ostream& os) {
-        this->printBreadcrumbs(os);
-        os << ": " << message;
-      });
-      this->redirect(Source::Command, Severity::Information, [this](std::ostream& os) {
-        this->printUsage(os);
-      });
+      STUB_LOG(Error) << BREADCRUMBS << ": " << message;
+      STUB_LOG(Information) << &Stub::printUsage;
     }
     void badGeneralOption(const std::string& option, const std::string* value) {
-      this->redirect(Source::Command, Severity::Error, [=, this](std::ostream& os) {
-        this->printBreadcrumbs(os);
-        if (value == nullptr) {
-          os << ": Missing general option: '--" << option << "'";
-        } else {
-          os << ": Invalid general option: '--" << option << "=" << *value << "'";
-        }
-      });
+      if (value == nullptr) {
+        STUB_LOG(Error) << BREADCRUMBS << ": Missing general option: '--" << option << "'";
+      } else {
+        STUB_LOG(Error) << BREADCRUMBS << ": Invalid general option: '--" << option << "=" << *value << "'";
+      }
       auto known = this->options.find(option);
       if (known != this->options.end()) {
-        this->redirect(Source::Command, Severity::Information, [=](std::ostream& os) {
-          os << "Option usage: '--" << known->second.usage << "'";
-        });
+        STUB_LOG(Information) << "Option usage: '--" << known->second.usage << "'";
+      }
+    }
+    void printBreadcrumbs(std::ostream& os) {
+      os << this->getApplicationName();
+      for (auto breadcrumb : this->breadcrumbs) {
+        os << ' ' << this->arguments[breadcrumb];
       }
     }
     void printUsage(std::ostream& os) {
@@ -534,33 +510,14 @@ namespace {
         os << "\n    " << command.second.usage;
       }
     }
-    void printSubcommands(std::ostream& os, const Command& command) {
-      os << "Usage: ";
-      this->printBreadcrumbs(os);
-      os << " <subcommand>\n <subcommand> is one of:";
-      for (auto& subcommand : command.subcommands) {
-        os << "\n  " << subcommand.second.usage;
-      }
-    }
-    void printBreadcrumbs(std::ostream& os) {
-      os << this->getApplicationName();
-      for (auto breadcrumb : this->breadcrumbs) {
-        os << ' ' << this->arguments[breadcrumb];
-      }
-    }
-    template<typename... ARGS>
-    static void logToStream(std::ostream& os, ARGS&&... args) {
-      Printer printer{ os, Print::Options::DEFAULT };
-      Stub::logPrint(printer, std::forward<ARGS>(args)...);
-    }
-    static void logPrint(Printer&) {
-      // Do nothing
-    }
-    template<typename T, typename... ARGS>
-    static void logPrint(Printer& printer, const T& value, ARGS&&... args) {
-      printer << value;
-      Stub::logPrint(printer, std::forward<ARGS>(args)...);
-    }
+    LogStream::FunctionCallback printSubcommands(const Command& command)  {
+      return [command](std::ostream& os) {
+        os << "\n <subcommand> is one of:";
+        for (auto& subcommand : command.subcommands) {
+          os << "\n  " << subcommand.second.usage;
+        }
+      };
+    };
     std::shared_ptr<IEngine> makeEngine() {
       IEngine::Options eo{};
       auto engine = EngineFactory::createWithOptions(eo);
@@ -585,6 +542,7 @@ namespace {
       }
       return parser;
     }
+    static constexpr auto BREADCRUMBS = &Stub::printBreadcrumbs;
   };
 
   struct ProfileAllocator {
@@ -607,7 +565,7 @@ namespace {
 
   struct ProfileMemory {
     void report(std::ostream& os, Stub&) {
-      auto snapshot = egg::ovum::os::memory::snapshot();
+      auto snapshot = os::memory::snapshot();
       os << "profile: memory:" <<
         " data=" << snapshot.currentBytesData <<
         " total=" << snapshot.currentBytesTotal <<
@@ -618,7 +576,7 @@ namespace {
 
   struct ProfileTime {
     void report(std::ostream& os, Stub&) {
-      auto snapshot = egg::ovum::os::process::snapshot();
+      auto snapshot = os::process::snapshot();
       os << "profile: time:" <<
         " user=" << snapshot.microsecondsUser <<
         " system=" << snapshot.microsecondsSystem <<
@@ -637,10 +595,11 @@ namespace {
         instance() {
     }
     ~Profile() {
-      if (this->stub != nullptr) {
-        this->stub->redirect(ILogger::Source::Command, ILogger::Severity::Information, [this](std::ostream& os) {
+      if ((this->stub != nullptr) && this->stub->isLogging(ILogger::Severity::Information)) {
+        std::function callback = [this](std::ostream& os) {
           this->instance.report(os, *this->stub);
-        });
+        };
+        this->stub->logStream(ILogger::Severity::Information) << callback;
       }
     }
   };
@@ -655,6 +614,20 @@ namespace {
       return handler(*this);
     }
     return handler(*this);
+  }
+
+  LogStream& LogStream::operator<<(const MemberCallback& callback) {
+    auto bound = std::bind(callback, &this->stub, std::placeholders::_1);
+    bound(this->ostream);
+    return *this;
+  }
+
+  LogStream::~LogStream() {
+    if (&this->ostream == &this->sstream) {
+      this->stub.logCommit(ILogger::Source::Command, this->severity, this->sstream.str());
+    } else {
+      this->ostream << std::endl;
+    }
   }
 }
 
