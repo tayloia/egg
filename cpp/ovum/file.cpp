@@ -50,7 +50,7 @@ egg::ovum::File::Kind egg::ovum::File::getKind(const std::string& path) {
 
 std::string egg::ovum::File::slurp(const std::string& path) {
   // Slurp the entire file as a string of bytes
-  std::ifstream ifs{ File::resolvePath(path), std::ios::in | std::ios::binary };
+  std::ifstream ifs{ File::resolvePath(path), std::ios::binary };
   if (!ifs) {
     throw egg::ovum::Exception("Cannot read file: '{path}'").with("path", path);
   }

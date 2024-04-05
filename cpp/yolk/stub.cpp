@@ -7,10 +7,10 @@
 #include "ovum/os-file.h"
 #include "ovum/os-process.h"
 #include "ovum/version.h"
+#include "ovum/zip.h"
 
 #include <cctype>
 #include <iostream>
-#include <fstream> // WIBBLE
 
 #define LOG_UNCONDITIONAL(target, source, severity, ...) \
   (target).logUnconditional((source), (severity), __VA_ARGS__)
@@ -447,7 +447,7 @@ namespace {
       });
       return ExitCode::OK;
     }
-    ExitCode cmdSandwichMake() { // WIBBLE
+    ExitCode cmdSandwichMake() {
       // stub.exe sandwich make --target=.../egg.exe --zip=.../sandwich.zip
       auto parser = this->makeOptionParser()
         .withStringOption("target", OptionParser::Occurrences::One)
@@ -455,10 +455,10 @@ namespace {
       auto suboptions = parser.parse();
       auto target = suboptions.get("target");
       auto zip = suboptions.get("zip");
-      LOG_INFORMATION("Sandwich: stub + ", zip, " = ", target);
       egg::ovum::File::removeFile(target);
       egg::ovum::os::embed::cloneExecutable(target);
-      egg::ovum::os::embed::updateResourceFromFile(target, "PROGBITS", "EGGBOX", zip);
+      auto embedded = egg::ovum::os::embed::updateResourceFromFile(target, "PROGBITS", "EGGBOX", zip);
+      LOG_INFORMATION("Embedded ", embedded, " bytes into '", target, "'");
       return ExitCode::OK;
     }
     ExitCode cmdSmokeTest() {
@@ -476,7 +476,7 @@ namespace {
         });
       return ExitCode::OK;
     }
-    ExitCode cmdZipMake() { // WIBBLE
+    ExitCode cmdZipMake() {
       // stub.exe zip make --target=.../sandwich.zip --directory=box
       auto parser = this->makeOptionParser()
         .withStringOption("target", OptionParser::Occurrences::One)
@@ -484,9 +484,14 @@ namespace {
       auto suboptions = parser.parse();
       auto target = suboptions.get("target");
       auto directory = suboptions.get("directory");
-      LOG_INFORMATION("Zip: ", target, " from directory ", directory);
-      std::ofstream ofs{ File::resolvePath(target), std::ios::out | std::ios::binary };
-      ofs << "WIBBLE: " << directory;
+      uint64_t compressed, uncompressed;
+      auto entries = Zip::createFileFromDirectory(target, directory, compressed, uncompressed);
+      std::string readable = "1 entry";
+      if (entries != 1) {
+        readable = std::to_string(entries) + " entries";
+      }
+      auto ratio = (uncompressed > 0) ? (compressed * 100) / uncompressed : 100;
+      LOG_INFORMATION("Zipped ", readable, " into '", target, "' (compressed=", compressed, " uncompressed=", uncompressed, " ratio=", ratio, "%)");
       return ExitCode::OK;
     }
     void badUsage(const std::string& message) {

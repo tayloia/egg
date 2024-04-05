@@ -66,6 +66,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="..\ovum\vm.cpp" />
+    <ClCompile Include="..\ovum\zip.cpp" />
     <ClCompile Include="ovum.pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
@@ -108,6 +109,7 @@
     <ClInclude Include="..\ovum\value.h" />
     <ClInclude Include="..\ovum\version.h" />
     <ClInclude Include="..\ovum\vm.h" />
+    <ClInclude Include="..\ovum\zip.h" />
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="ovum.natvis" />

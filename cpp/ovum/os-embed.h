@@ -12,8 +12,8 @@ namespace egg::ovum::os::embed {
   std::string getExecutableFilename();
   std::string getExecutableStub();
   void cloneExecutable(const std::string& target);
-  void updateResourceFromFile(const std::string& executable, const std::string& type, const std::string& label, const std::string& datapath);
-  void updateResourceFromMemory(const std::string& executable, const std::string& type, const std::string& label, const void* data, size_t bytes);
+  uint64_t updateResourceFromFile(const std::string& executable, const std::string& type, const std::string& label, const std::string& datapath);
+  uint64_t updateResourceFromMemory(const std::string& executable, const std::string& type, const std::string& label, const void* data, size_t bytes);
   std::vector<Resource> findResources(const std::string& executable);
   std::vector<Resource> findResourcesByType(const std::string& executable, const std::string& type);
   std::shared_ptr<LockableResource> findResourceByName(const std::string& executable, const std::string& type, const std::string& label);

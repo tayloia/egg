@@ -24,31 +24,31 @@ TEST(TestOS_Zip, GetFactoryVersion) {
   ASSERT_EQ("9.1.15", factory->getVersion());
 }
 
-TEST(TestOS_Zip, OpenFile) {
+TEST(TestOS_Zip, ReadZipFile) {
   auto factory = egg::ovum::os::zip::createFactory();
   ASSERT_NE(nullptr, factory);
-  auto zip = factory->openFile(egg::ovum::File::resolvePath("~/cpp/data/egg.zip"));
+  auto zip = factory->readZipFile(egg::ovum::File::resolvePath("~/cpp/data/egg.zip"));
   ASSERT_NE(nullptr, zip);
 }
 
-TEST(TestOS_Zip, OpenFileMissing) {
+TEST(TestOS_Zip, ReadZipFileMissing) {
   auto factory = egg::ovum::os::zip::createFactory();
   ASSERT_NE(nullptr, factory);
   auto missing = egg::ovum::File::resolvePath("~/cpp/data/missing.zip");
-  ASSERT_THROW_E(factory->openFile(missing), std::runtime_error, ASSERT_STARTSWITH(e.what(), "Zip file not found: "));
+  ASSERT_THROW_E(factory->readZipFile(missing), std::runtime_error, ASSERT_STARTSWITH(e.what(), "Zip file not found: "));
 }
 
-TEST(TestOS_Zip, OpenFileInvalid) {
+TEST(TestOS_Zip, ReadZipFileInvalid) {
   auto factory = egg::ovum::os::zip::createFactory();
   ASSERT_NE(nullptr, factory);
   auto invalid = egg::ovum::File::resolvePath("~/cpp/data/jabberwocky.txt");
-  ASSERT_THROW_E(factory->openFile(invalid), std::runtime_error, ASSERT_STARTSWITH(e.what(), "Invalid zip file: "));
+  ASSERT_THROW_E(factory->readZipFile(invalid), std::runtime_error, ASSERT_STARTSWITH(e.what(), "Invalid zip file: "));
 }
 
 TEST(TestOS_Zip, GetComment) {
   auto factory = egg::ovum::os::zip::createFactory();
   ASSERT_NE(nullptr, factory);
-  auto zip = factory->openFile(egg::ovum::File::resolvePath("~/cpp/data/egg.zip"));
+  auto zip = factory->readZipFile(egg::ovum::File::resolvePath("~/cpp/data/egg.zip"));
   ASSERT_NE(nullptr, zip);
   ASSERT_EQ("Twas brillig, and the slithy toves", zip->getComment());
 }
@@ -56,7 +56,7 @@ TEST(TestOS_Zip, GetComment) {
 TEST(TestOS_Zip, GetFileEntryByIndex) {
   auto factory = egg::ovum::os::zip::createFactory();
   ASSERT_NE(nullptr, factory);
-  auto zip = factory->openFile(egg::ovum::File::resolvePath("~/cpp/data/egg.zip"));
+  auto zip = factory->readZipFile(egg::ovum::File::resolvePath("~/cpp/data/egg.zip"));
   ASSERT_NE(nullptr, zip);
   auto count = zip->getFileEntryCount();
   ASSERT_EQ(4u, count);
@@ -77,7 +77,7 @@ TEST(TestOS_Zip, GetFileEntryByIndex) {
 TEST(TestOS_Zip, GetFileEntryByName) {
   auto factory = egg::ovum::os::zip::createFactory();
   ASSERT_NE(nullptr, factory);
-  auto zip = factory->openFile(egg::ovum::File::resolvePath("~/cpp/data/egg.zip"));
+  auto zip = factory->readZipFile(egg::ovum::File::resolvePath("~/cpp/data/egg.zip"));
   ASSERT_NE(nullptr, zip);
   auto entry = zip->getFileEntryByName("poem/jabberwocky.txt");
   ASSERT_NE(nullptr, entry);
@@ -90,7 +90,7 @@ TEST(TestOS_Zip, GetFileEntryByName) {
 TEST(TestOS_Zip, GetFileEntryByNameMissing) {
   auto factory = egg::ovum::os::zip::createFactory();
   ASSERT_NE(nullptr, factory);
-  auto zip = factory->openFile(egg::ovum::File::resolvePath("~/cpp/data/egg.zip"));
+  auto zip = factory->readZipFile(egg::ovum::File::resolvePath("~/cpp/data/egg.zip"));
   ASSERT_NE(nullptr, zip);
   auto entry = zip->getFileEntryByName("missing.txt");
   ASSERT_EQ(nullptr, entry);
@@ -99,7 +99,7 @@ TEST(TestOS_Zip, GetFileEntryByNameMissing) {
 TEST(TestOS_Zip, GetReadStream) {
   auto factory = egg::ovum::os::zip::createFactory();
   ASSERT_NE(nullptr, factory);
-  auto zip = factory->openFile(egg::ovum::File::resolvePath("~/cpp/data/egg.zip"));
+  auto zip = factory->readZipFile(egg::ovum::File::resolvePath("~/cpp/data/egg.zip"));
   ASSERT_NE(nullptr, zip);
   auto entry = zip->getFileEntryByName("poem/jabberwocky.txt");
   ASSERT_NE(nullptr, entry);

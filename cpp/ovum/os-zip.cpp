@@ -40,14 +40,14 @@ namespace {
     }
   };
 
-  class Zip : public IZip {
-    Zip(const Zip&) = delete;
-    Zip& operator=(const Zip&) = delete;
+  class ZipReader : public IZipReader {
+    ZipReader(const ZipReader&) = delete;
+    ZipReader& operator=(const ZipReader&) = delete;
   private:
     std::shared_ptr<miniz_cpp::zip_file> handle;
     std::vector<miniz_cpp::zip_info> info;
   public:
-    Zip()
+    ZipReader()
       : handle(nullptr),
         info() {
     }
@@ -78,15 +78,36 @@ namespace {
         throw;
       }
     }
-    void openFile(const std::filesystem::path& path) {
-      this->prepare(std::make_shared<miniz_cpp::zip_file>(path.string()));
-    }
-  private:
-    void prepare(const std::shared_ptr<miniz_cpp::zip_file>& zip) {
+    void load(const std::filesystem::path& path) {
       assert(this->handle == nullptr);
-      this->handle = zip;
+      this->handle = std::make_shared<miniz_cpp::zip_file>(path.string());
       assert(this->handle != nullptr);
       this->info = this->handle->infolist();
+    }
+  };
+
+  class ZipWriter : public IZipWriter {
+    ZipWriter(const ZipWriter&) = delete;
+    ZipWriter& operator=(const ZipWriter&) = delete;
+  private:
+    std::filesystem::path path;
+    std::shared_ptr<miniz_cpp::zip_file> handle;
+    std::vector<miniz_cpp::zip_info> info;
+  public:
+    ZipWriter(const std::filesystem::path& path)
+      : path(path),
+        handle(std::make_shared<miniz_cpp::zip_file>()),
+        info() {
+    }
+    virtual void addFileEntry(const std::string& name, const std::string& content) {
+      assert(this->handle != nullptr);
+      this->handle->writestr(name, content);
+    }
+    virtual uint64_t commit() {
+      assert(this->handle != nullptr);
+      std::ofstream stream{ this->path, std::ios::binary };
+      this->handle->save(stream);
+      return uint64_t(stream.tellp());
     }
   };
 
@@ -95,10 +116,10 @@ namespace {
     virtual std::string getVersion() const override {
       return MZ_VERSION;
     }
-    virtual std::shared_ptr<IZip> openFile(const std::filesystem::path& zipfile) override {
-      auto zip = std::make_shared<Zip>();
+    virtual std::shared_ptr<IZipReader> readZipFile(const std::filesystem::path& zipfile) override {
+      auto zip = std::make_shared<ZipReader>();
       try {
-        zip->openFile(zipfile);
+        zip->load(zipfile);
       }
       catch (std::exception&) {
         auto status = std::filesystem::status(zipfile);
@@ -107,16 +128,10 @@ namespace {
       }
       return zip;
     }
+    virtual std::shared_ptr<IZipWriter> writeZipFile(const std::filesystem::path& zipfile) override {
+      return std::make_shared<ZipWriter>(zipfile);
+    }
   };
-}
-
-egg::ovum::os::zip::IZipFileEntry::~IZipFileEntry() {
-}
-
-egg::ovum::os::zip::IZip::~IZip() {
-}
-
-egg::ovum::os::zip::IZipFactory::~IZipFactory() {
 }
 
 std::shared_ptr<egg::ovum::os::zip::IZipFactory> egg::ovum::os::zip::createFactory() {

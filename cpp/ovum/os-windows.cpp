@@ -153,7 +153,7 @@ namespace {
   }
 }
 
-void egg::ovum::os::embed::updateResourceFromMemory(const std::string& executable, const std::string& type, const std::string& label, const void* data, size_t bytes) {
+size_t egg::ovum::os::embed::updateResourceFromMemory(const std::string& executable, const std::string& type, const std::string& label, const void* data, size_t bytes) {
   auto handle = beginUpdateResource(executable, false);
   try {
     updateResource(handle, type, label, data, bytes);
@@ -163,9 +163,10 @@ void egg::ovum::os::embed::updateResourceFromMemory(const std::string& executabl
     throw;
   }
   endUpdateResource(handle, false);
+  return bytes;
 }
 
-void egg::ovum::os::embed::updateResourceFromFile(const std::string& executable, const std::string& type, const std::string& label, const std::string& datapath) {
+uint64_t egg::ovum::os::embed::updateResourceFromFile(const std::string& executable, const std::string& type, const std::string& label, const std::string& datapath) {
   auto slurped = egg::ovum::File::slurp(datapath);
   auto data = slurped.empty() ? nullptr : slurped.data();
   auto bytes = slurped.size();
@@ -178,6 +179,7 @@ void egg::ovum::os::embed::updateResourceFromFile(const std::string& executable,
     throw;
   }
   endUpdateResource(handle, false);
+  return bytes;
 }
 
 std::vector<egg::ovum::os::embed::Resource> egg::ovum::os::embed::findResources(const std::string& executable) {
