@@ -1,6 +1,5 @@
 #include <deque>
 #include <fstream>
-#include <iomanip>
 
 namespace egg::ovum {
   class FileStream : public std::fstream {
@@ -47,6 +46,19 @@ namespace egg::ovum {
     }
   };
 
+  class EggboxByteStream : public ByteStream {
+    EggboxByteStream(EggboxByteStream&) = delete;
+    EggboxByteStream& operator=(EggboxByteStream&) = delete;
+  private:
+    class Impl;
+    std::unique_ptr<Impl> impl;
+  public:
+    explicit EggboxByteStream(const std::string& subpath, const std::string& eggbox = File::EGGBOX);
+    ~EggboxByteStream();
+  protected:
+    EggboxByteStream(const std::string& resource, std::unique_ptr<Impl>&& pimpl);
+  };
+
   class FileByteStream : public ByteStream {
     FileByteStream(FileByteStream&) = delete;
     FileByteStream& operator=(FileByteStream&) = delete;
@@ -84,6 +96,17 @@ namespace egg::ovum {
     bool rewind();
     const std::string& getResourceName() const {
       return this->bytes.getResourceName();
+    }
+  };
+
+  class EggboxCharStream : public CharStream {
+    EggboxCharStream(EggboxCharStream&) = delete;
+    EggboxCharStream& operator=(EggboxCharStream&) = delete;
+  private:
+    EggboxByteStream ebs;
+  public:
+    explicit EggboxCharStream(const std::string& name, bool swallowBOM = true)
+      : CharStream(ebs, swallowBOM), ebs(name) {
     }
   };
 
@@ -145,6 +168,17 @@ namespace egg::ovum {
     bool rewind();
   private:
     bool ensure(size_t count);
+  };
+
+  class EggboxTextStream : public TextStream {
+    EggboxTextStream(EggboxTextStream&) = delete;
+    EggboxTextStream& operator=(EggboxTextStream&) = delete;
+  private:
+    EggboxCharStream ecs;
+  public:
+    explicit EggboxTextStream(const std::string& name, bool swallowBOM = true)
+      : TextStream(ecs), ecs(name, swallowBOM) {
+    }
   };
 
   class FileTextStream : public TextStream {

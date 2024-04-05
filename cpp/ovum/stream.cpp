@@ -1,7 +1,9 @@
 #include "ovum/ovum.h"
 #include "ovum/file.h"
+#include "ovum/os-zip.h"
 #include "ovum/stream.h"
 #include "ovum/utf.h"
+#include "ovum/zip.h"
 
 namespace {
   using namespace egg::ovum;
@@ -47,6 +49,38 @@ namespace {
     }
     throw egg::ovum::Exception("Invalid UTF-8 encoding (bad lead byte): '{resource}'").with("resource", stream.getResourceName());
   }
+}
+
+class EggboxByteStream::Impl {
+  Impl(const Impl&) = delete;
+  Impl& operator=(const Impl&) = delete;
+private:
+  std::shared_ptr<egg::ovum::Zip::IZipFileEntry> zfe;
+public:
+  Impl(const std::string& eggbox, const std::string& subpath) {
+    auto reader = Zip::openEggbox(eggbox);
+    this->zfe = reader->getFileEntryByName(subpath);
+    if (this->zfe == nullptr) {
+      throw Exception("Entry not found in eggbox: '{entry}'").with("entry", subpath).with("eggbox", eggbox);
+    }
+  }
+  std::istream& getReadStream() {
+    return this->zfe->getReadStream();
+  }
+};
+
+EggboxByteStream::EggboxByteStream(const std::string& resource, std::unique_ptr<Impl>&& pimpl)
+  : ByteStream(pimpl->getReadStream(), resource),
+    impl(std::move(pimpl)) {
+  assert(this->impl != nullptr);
+}
+
+EggboxByteStream::EggboxByteStream(const std::string& subpath, const std::string& eggbox)
+  : EggboxByteStream('~' + eggbox + '/' + subpath, std::make_unique<Impl>(eggbox, subpath)) {
+}
+
+EggboxByteStream::~EggboxByteStream() {
+  // Required to be in this source file to have access to the destructor of 'Impl'
 }
 
 int egg::ovum::CharStream::get() {

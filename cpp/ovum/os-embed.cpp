@@ -20,10 +20,11 @@ std::string egg::ovum::os::embed::getExecutableStub() {
   return executable;
 }
 
-void egg::ovum::os::embed::cloneExecutable(const std::string& target) {
+void egg::ovum::os::embed::cloneExecutable(const std::string& target, bool overwrite) {
   auto source = os::file::getExecutablePath();
+  auto options = overwrite ? std::filesystem::copy_options::overwrite_existing : std::filesystem::copy_options::none;
   std::error_code error;
-  if (!std::filesystem::copy_file(os::file::denormalizePath(source, false), os::file::denormalizePath(target, false), error)) {
+  if (!std::filesystem::copy_file(os::file::denormalizePath(source, false), os::file::denormalizePath(target, false), options, error)) {
     throw Exception("Cannot clone executable file: {error}")
       .with("source", source)
       .with("target", target)

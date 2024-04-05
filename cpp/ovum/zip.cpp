@@ -1,6 +1,7 @@
 #include "ovum/ovum.h"
 #include "ovum/zip.h"
 #include "ovum/file.h"
+#include "ovum/os-embed.h"
 #include "ovum/os-file.h"
 #include "ovum/os-process.h"
 #include "ovum/os-zip.h"
@@ -40,6 +41,13 @@ namespace {
     }
     return uncompressed;
   }
+
+  // See https://stackoverflow.com/a/13586356
+  struct MemoryStreamBuf : public std::streambuf {
+    MemoryStreamBuf(const void* base, size_t size) {
+      this->setg((char*)base, (char*)base, (char*)base + size);
+    }
+  };
 }
 
 size_t egg::ovum::Zip::createFileFromDirectory(const std::string& zipPath, const std::string& directoryPath, uint64_t& compressedBytes, uint64_t& uncompressedBytes) {
@@ -51,4 +59,18 @@ size_t egg::ovum::Zip::createFileFromDirectory(const std::string& zipPath, const
   uncompressedBytes = addDirectoryRecursive(*writer, "", directoryNative, entries);
   compressedBytes = writer->commit();
   return entries;
+}
+
+std::shared_ptr<egg::ovum::Zip::IZipReader> egg::ovum::Zip::openEggbox(const std::string& eggbox) {
+  // TODO optimize
+  auto executable = os::file::getExecutablePath();
+  auto lockable = os::embed::findResourceByName(executable, "PROGBITS", eggbox);
+  if (lockable == nullptr) {
+    throw Exception("Unable to find eggbox resource in current executable").with("executable", executable).with("eggbox", eggbox);
+  }
+  auto base = lockable->lock();
+  MemoryStreamBuf streambuf{ const_cast<void*>(base), lockable->bytes };
+  std::istream stream{ &streambuf };
+  auto factory = os::zip::createFactory();
+  return factory->readStream(stream);
 }

@@ -78,9 +78,15 @@ namespace {
         throw;
       }
     }
-    void load(const std::filesystem::path& path) {
+    void loadFromFile(const std::filesystem::path& path) {
       assert(this->handle == nullptr);
       this->handle = std::make_shared<miniz_cpp::zip_file>(path.string());
+      assert(this->handle != nullptr);
+      this->info = this->handle->infolist();
+    }
+    void loadFromStream(std::istream& stream) {
+      assert(this->handle == nullptr);
+      this->handle = std::make_shared<miniz_cpp::zip_file>(stream);
       assert(this->handle != nullptr);
       this->info = this->handle->infolist();
     }
@@ -116,10 +122,15 @@ namespace {
     virtual std::string getVersion() const override {
       return MZ_VERSION;
     }
+    virtual std::shared_ptr<IZipReader> readStream(std::istream& stream) override {
+      auto zip = std::make_shared<ZipReader>();
+      zip->loadFromStream(stream);
+      return zip;
+    }
     virtual std::shared_ptr<IZipReader> readZipFile(const std::filesystem::path& zipfile) override {
       auto zip = std::make_shared<ZipReader>();
       try {
-        zip->load(zipfile);
+        zip->loadFromFile(zipfile);
       }
       catch (std::exception&) {
         auto status = std::filesystem::status(zipfile);

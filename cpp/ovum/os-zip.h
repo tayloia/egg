@@ -16,7 +16,7 @@ namespace egg::ovum::os::zip {
     virtual std::string getComment() = 0;
     virtual size_t getFileEntryCount() = 0;
     virtual std::shared_ptr<IZipFileEntry> getFileEntryByIndex(size_t index) = 0;
-    virtual std::shared_ptr<IZipFileEntry> getFileEntryByName(const std::string& path) = 0;
+    virtual std::shared_ptr<IZipFileEntry> getFileEntryByName(const std::string& subpath) = 0;
   };
   class IZipWriter {
   public:
@@ -30,6 +30,7 @@ namespace egg::ovum::os::zip {
     // Interface
     virtual ~IZipFactory() {}
     virtual std::string getVersion() const = 0;
+    virtual std::shared_ptr<IZipReader> readStream(std::istream& stream) = 0;
     virtual std::shared_ptr<IZipReader> readZipFile(const std::filesystem::path& zipfile) = 0;
     virtual std::shared_ptr<IZipWriter> writeZipFile(const std::filesystem::path& zipfile) = 0;
   };

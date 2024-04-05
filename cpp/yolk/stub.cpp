@@ -3,9 +3,9 @@
 #include "yolk/options.h"
 #include "yolk/engine.h"
 #include "ovum/file.h"
-#include "ovum/os-embed.h"
 #include "ovum/os-file.h"
 #include "ovum/os-process.h"
+#include "ovum/stream.h"
 #include "ovum/version.h"
 #include "ovum/zip.h"
 
@@ -437,17 +437,18 @@ namespace {
       auto suboptions = parser.parse();
       auto target = suboptions.get("target");
       auto zip = suboptions.get("zip");
-      File::removeFile(target);
-      os::embed::cloneExecutable(target);
-      auto embedded = os::embed::updateResourceFromFile(target, "PROGBITS", "EGGBOX", zip);
+      auto embedded = File::createSandwichFromFile(target, zip);
       STUB_LOG(Information) << "Embedded " << embedded << " bytes into '" << target << "'";
       return ExitCode::OK;
     }
     ExitCode cmdSmokeTest() {
+      std::string name = "command/smoke-test.egg";
       auto engine = this->makeEngine();
-      auto script = engine->loadScriptFromString(engine->createString("print(\"Hello, world!\");"));
+      EggboxTextStream stream{ name };
+      auto script = engine->loadScriptFromTextStream(stream);
       auto retval = script->run();
       if (retval->getPrimitiveFlag() != ValueFlags::Void) {
+        STUB_LOG(Error) << "'" << name << "' did not return 'void'";
         return ExitCode::Error;
       }
       return ExitCode::OK;

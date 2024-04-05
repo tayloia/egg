@@ -1,5 +1,7 @@
 #include "yolk/yolk.h"
 #include "yolk/engine.h"
+#include "ovum/file.h"
+#include "ovum/stream.h"
 #include "ovum/lexer.h"
 #include "ovum/egg-tokenizer.h"
 #include "ovum/egg-parser.h"
@@ -212,6 +214,15 @@ namespace {
     }
     virtual HardPtr<IEngineScript> loadScriptFromString(const String& script, const String& resource) override {
       auto lexer = LexerFactory::createFromString(script.toUTF8(), resource.toUTF8());
+      return HardPtr(this->getAllocator().makeRaw<EngineScript>(this->shared_from_this(), lexer));
+    }
+    virtual HardPtr<IEngineScript> loadScriptFromTextStream(TextStream& stream) override {
+      auto lexer = LexerFactory::createFromTextStream(stream);
+      return HardPtr(this->getAllocator().makeRaw<EngineScript>(this->shared_from_this(), lexer));
+    }
+    virtual HardPtr<IEngineScript> loadScriptFromEggbox(const String& name) override {
+      EggboxTextStream stream{ name.toUTF8() };
+      auto lexer = LexerFactory::createFromTextStream(stream);
       return HardPtr(this->getAllocator().makeRaw<EngineScript>(this->shared_from_this(), lexer));
     }
   private:

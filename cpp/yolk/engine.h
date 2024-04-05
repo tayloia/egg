@@ -1,3 +1,7 @@
+namespace egg::ovum {
+  class TextStream;
+}
+
 namespace egg::yolk {
   class IEngineScript : public egg::ovum::IHardAcquireRelease {
   public:
@@ -26,6 +30,8 @@ namespace egg::yolk {
     virtual egg::ovum::String getBuiltinSymbol(size_t index) = 0;
     virtual egg::ovum::HardObject getBuiltinInstance(const egg::ovum::String& symbol) = 0;
     virtual egg::ovum::HardPtr<IEngineScript> loadScriptFromString(const egg::ovum::String& script, const egg::ovum::String& resource = {}) = 0;
+    virtual egg::ovum::HardPtr<IEngineScript> loadScriptFromTextStream(egg::ovum::TextStream& stream) = 0;
+    virtual egg::ovum::HardPtr<IEngineScript> loadScriptFromEggbox(const egg::ovum::String& name) = 0;
   };
 
   class EngineFactory {
