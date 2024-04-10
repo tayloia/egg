@@ -182,17 +182,15 @@ namespace {
   };
 }
 
-uint64_t egg::ovum::EggboxFactory::createSandwichFromFile(const std::string& targetPath, const std::string& zipPath, bool overwriteTarget, const std::string& label) {
+uint64_t egg::ovum::EggboxFactory::createSandwichFromFile(const std::filesystem::path& targetPath, const std::filesystem::path& zipPath, bool overwriteTarget, const std::string& label) {
   os::embed::cloneExecutable(targetPath, overwriteTarget);
   return os::embed::updateResourceFromFile(targetPath, PROGBITS, label, zipPath);
 }
 
-size_t egg::ovum::EggboxFactory::createZipFileFromDirectory(const std::string& zipPath, const std::string& directoryPath, uint64_t& compressedBytes, uint64_t& uncompressedBytes) {
-  std::filesystem::path zipNative = egg::ovum::os::file::denormalizePath(zipPath, false);
-  std::filesystem::path directoryNative = egg::ovum::os::file::denormalizePath(directoryPath, false);
-  auto writer = os::zip::openWriteZipFile(zipNative);
+size_t egg::ovum::EggboxFactory::createZipFileFromDirectory(const std::filesystem::path& zipPath, const std::filesystem::path& directoryPath, uint64_t& compressedBytes, uint64_t& uncompressedBytes) {
+  auto writer = os::zip::openWriteZipFile(zipPath);
   size_t entries = 0;
-  uncompressedBytes = addDirectoryRecursive(*writer, "", directoryNative, entries);
+  uncompressedBytes = addDirectoryRecursive(*writer, "", directoryPath, entries);
   compressedBytes = writer->commit();
   return entries;
 }
@@ -203,48 +201,48 @@ std::shared_ptr<egg::ovum::IEggbox> egg::ovum::EggboxFactory::openDefault() {
   return EggboxFactory::openEmbedded(executable);
 }
 
-std::shared_ptr<egg::ovum::IEggbox> egg::ovum::EggboxFactory::openDirectory(const std::string& path) {
-  auto full = std::filesystem::absolute(os::file::denormalizePath(path, false));
+std::shared_ptr<egg::ovum::IEggbox> egg::ovum::EggboxFactory::openDirectory(const std::filesystem::path& path) {
+  auto full = std::filesystem::absolute(path);
   auto status = std::filesystem::status(full);
   if (!std::filesystem::exists(status)) {
-    throw Exception("Eggbox directory does not exist: '{path}'").with("path", path).with("native", full.string());
+    throw Exception("Eggbox directory does not exist: '{path}'").with("path", path.generic_string()).with("native", full.string());
   }
   if (!std::filesystem::is_directory(status)) {
-    throw Exception("Eggbox path is not a directory: '{path}'").with("path", path).with("native", full.string());
+    throw Exception("Eggbox path is not a directory: '{path}'").with("path", path.generic_string()).with("native", full.string());
   }
   return std::make_shared<EggboxDirectory>(full);
 }
 
-std::shared_ptr<egg::ovum::IEggbox> egg::ovum::EggboxFactory::openZipFile(const std::string& path) {
-  auto full = std::filesystem::absolute(os::file::denormalizePath(path, false));
+std::shared_ptr<egg::ovum::IEggbox> egg::ovum::EggboxFactory::openZipFile(const std::filesystem::path& path) {
+  auto full = std::filesystem::absolute(path);
   auto status = std::filesystem::status(full);
   if (!std::filesystem::exists(status)) {
-    throw Exception("Eggbox zip file does not exist: '{path}'").with("path", path).with("native", full.string());
+    throw Exception("Eggbox zip file does not exist: '{path}'").with("path", path.generic_string()).with("native", full.string());
   }
   if (!std::filesystem::is_regular_file(status)) {
-    throw Exception("Eggbox zip is not a regular file: '{path}'").with("path", path).with("native", full.string());
+    throw Exception("Eggbox zip is not a regular file: '{path}'").with("path", path.generic_string()).with("native", full.string());
   }
   auto reader = os::zip::openReadZipFile(full);
-  return std::make_shared<EggboxZip>(reader, os::file::normalizePath(full.string(), false));
+  return std::make_shared<EggboxZip>(reader, os::file::normalizePath(path.string(), false));
 }
 
-std::shared_ptr<egg::ovum::IEggbox> egg::ovum::EggboxFactory::openEmbedded(const std::string& executable, const std::string& label) {
+std::shared_ptr<egg::ovum::IEggbox> egg::ovum::EggboxFactory::openEmbedded(const std::filesystem::path& executable, const std::string& label) {
   // TODO optimize
   auto lockable = os::embed::findResourceByName(executable, PROGBITS, label);
   if (lockable == nullptr) {
-    auto full = std::filesystem::absolute(os::file::denormalizePath(executable, false));
+    auto full = std::filesystem::absolute(executable);
     auto status = std::filesystem::status(full);
     if (!std::filesystem::exists(status)) {
-      throw Exception("Eggbox executable does not exist: '{executable}'").with("executable", executable).with("native", full.string());
+      throw Exception("Eggbox executable does not exist: '{executable}'").with("executable", executable.generic_string()).with("native", full.string());
     }
     if (!std::filesystem::is_regular_file(status)) {
-      throw Exception("Eggbox executable is not a regular file: '{executable}'").with("executable", executable).with("native", full.string());
+      throw Exception("Eggbox executable is not a regular file: '{executable}'").with("executable", executable.generic_string()).with("native", full.string());
     }
-    throw Exception("Unable to find eggbox resource in executable: '{executable}'").with("executable", executable).with("native", full.string()).with("label", label);
+    throw Exception("Unable to find eggbox resource in executable: '{executable}'").with("executable", executable.generic_string()).with("native", full.string()).with("label", label);
   }
   auto base = lockable->lock();
   MemoryStreamBuf streambuf{ const_cast<void*>(base), lockable->bytes };
   std::istream stream{ &streambuf };
   auto reader = os::zip::openReadStream(stream);
-  return std::make_shared<EggboxZip>(reader, executable + "//~" + label);
+  return std::make_shared<EggboxZip>(reader, executable.generic_string() + "//~" + label);
 }

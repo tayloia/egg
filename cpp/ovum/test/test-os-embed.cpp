@@ -16,8 +16,8 @@ TEST(TestOS_Embed, GetExecutableFilename) {
   ASSERT_EQ(expectedStub() + ".exe", egg::ovum::os::embed::getExecutableFilename());
 }
 
-TEST(TestOS_Embed, GetExecutableStub) {
-  ASSERT_EQ(expectedStub(), egg::ovum::os::embed::getExecutableStub());
+TEST(TestOS_Embed, GetExecutableStem) {
+  ASSERT_EQ(expectedStub(), egg::ovum::os::embed::getExecutableStem());
 }
 
 TEST(TestOS_Embed, CloneExecutable) {
@@ -97,7 +97,7 @@ TEST(TestOS_Embed, UpdateResourceFromFile) {
   ASSERT_EQ(nullptr, resource);
 
   auto datapath = egg::test::resolvePath("cpp/data/jabberwocky.txt");
-  auto datasize = egg::ovum::os::embed::updateResourceFromFile(cloned, "PROGBITS", "JABBERWOCKY", datapath.string());
+  auto datasize = egg::ovum::os::embed::updateResourceFromFile(cloned, "PROGBITS", "JABBERWOCKY", datapath);
   ASSERT_EQ(1008u, datasize);
 
   resource = egg::ovum::os::embed::findResourceByName(cloned, "PROGBITS", "JABBERWOCKY");

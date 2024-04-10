@@ -83,6 +83,6 @@ TEST(TestOS_Zip, GetReadStream) {
   auto& stream = entry->getReadStream();
   auto actual = slurp(stream);
   ASSERT_EQ(entry->getUncompressedBytes(), actual.size());
-  auto expected = egg::ovum::File::slurp(egg::test::resolvePath("cpp/data/jabberwocky.txt").string());
+  auto expected = egg::ovum::File::slurp(egg::test::resolvePath("cpp/data/jabberwocky.txt"));
   ASSERT_EQ(expected, actual);
 }

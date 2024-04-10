@@ -134,8 +134,10 @@ std::shared_ptr<IZipReader> egg::ovum::os::zip::openReadZipFile(const std::files
     zip->loadFromFile(zipfile);
   } catch (std::exception&) {
     auto status = std::filesystem::status(zipfile);
-    auto* what = std::filesystem::exists(status) ? "Invalid zip file: '{path}'" : "Zip file not found: '{path}'";
-    throw egg::ovum::Exception(what).with("path", egg::ovum::os::file::normalizePath(zipfile.string(), false));
+    if (std::filesystem::exists(zipfile)) {
+      throw egg::ovum::Exception("Invalid zip file: '{path}'").with("path", zipfile.generic_string());
+    }
+    throw egg::ovum::Exception("Zip file not found: '{path}'").with("path", zipfile.generic_string());
   }
   return zip;
 }

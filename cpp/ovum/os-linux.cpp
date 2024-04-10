@@ -29,9 +29,9 @@ namespace {
     size_t address;
     size_t offset;
     size_t size;
-    static void foreach(const std::string& executable, std::function<void(const ReadElf&)> callback) {
+    static void foreach(const std::filesystem::path& executable, std::function<void(const ReadElf&)> callback) {
       std::regex pattern{ "\\s+\\[\\s*\\d+\\]\\s(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+).*" };
-      auto command = "readelf -SW " + executable;
+      auto command = "readelf -SW " + executable.string();
       auto exitcode = egg::ovum::os::process::plines(command, [&](const std::string& line) {
         std::smatch match;
         if (std::regex_match(line, match, pattern)) {
@@ -111,20 +111,20 @@ namespace {
   uint64_t extractMicroseconds(clock_t clock) {
     return (uint64_t(clock) * 1000000 + (clockTicksPerSecond / 2)) / clockTicksPerSecond;
   }
-  void updateResource(const std::string& executable, const std::string& type, const std::string& label, const std::string& datapath) {
+  void updateResource(const std::filesystem::path& executable, const std::string& type, const std::string& label, const std::filesystem::path& datapath) {
     std::string option = "--add-section";
     ReadElf::foreach(executable, [&](const ReadElf& elf) {
       if ((elf.type == type) && (elf.name == label)) {
         option = "--update-section";
       }
       });
-    objcopy("objcopy " + option + " " + label + "=" + datapath + " --set-section-flags " + label + "=contents,noload,readonly " + executable);
+    objcopy("objcopy " + option + " " + label + "=" + datapath.string() + " --set-section-flags " + label + "=contents,noload,readonly " + executable.string());
   }
 }
 
-size_t egg::ovum::os::embed::updateResourceFromMemory(const std::string& executable, const std::string& type, const std::string& label, const void* data, size_t bytes) {
+uint64_t egg::ovum::os::embed::updateResourceFromMemory(const std::filesystem::path& executable, const std::string& type, const std::string& label, const void* data, size_t bytes) {
   if ((data == nullptr) || (bytes == 0)) {
-    objcopy("objcopy --remove-section " + label + " " + executable);
+    objcopy("objcopy --remove-section " + label + " " + executable.string());
     return 0;
   }
   auto path = egg::ovum::os::file::createTemporaryFile("os-embed-", ".tmp", 100);
@@ -137,12 +137,12 @@ size_t egg::ovum::os::embed::updateResourceFromMemory(const std::string& executa
   return bytes;
 }
 
-uint64_t egg::ovum::os::embed::updateResourceFromFile(const std::string& executable, const std::string& type, const std::string& label, const std::string& datapath) {
+uint64_t egg::ovum::os::embed::updateResourceFromFile(const std::filesystem::path& executable, const std::string& type, const std::string& label, const std::filesystem::path& datapath) {
   updateResource(executable, type, label, datapath);
   return uint64_t(std::filesystem::file_size(datapath));
 }
 
-std::vector<egg::ovum::os::embed::Resource> egg::ovum::os::embed::findResources(const std::string& executable) {
+std::vector<egg::ovum::os::embed::Resource> egg::ovum::os::embed::findResources(const std::filesystem::path& executable) {
   std::vector<Resource> resources;
   ReadElf::foreach(executable, [&](const ReadElf& elf) {
     resources.push_back({ elf.type, elf.name, elf.size });
@@ -150,7 +150,7 @@ std::vector<egg::ovum::os::embed::Resource> egg::ovum::os::embed::findResources(
   return resources;
 }
 
-std::vector<egg::ovum::os::embed::Resource> egg::ovum::os::embed::findResourcesByType(const std::string& executable, const std::string& type) {
+std::vector<egg::ovum::os::embed::Resource> egg::ovum::os::embed::findResourcesByType(const std::filesystem::path& executable, const std::string& type) {
   std::vector<Resource> resources;
   ReadElf::foreach(executable, [&](const ReadElf& elf) {
     if (elf.type == type) {
@@ -160,7 +160,7 @@ std::vector<egg::ovum::os::embed::Resource> egg::ovum::os::embed::findResourcesB
   return resources;
 }
 
-std::shared_ptr<egg::ovum::os::embed::LockableResource> egg::ovum::os::embed::findResourceByName(const std::string& executable, const std::string& type, const std::string& label) {
+std::shared_ptr<egg::ovum::os::embed::LockableResource> egg::ovum::os::embed::findResourceByName(const std::filesystem::path& executable, const std::string& type, const std::string& label) {
   std::shared_ptr<LockableResource> found = nullptr;
   ReadElf::foreach(executable, [&](const ReadElf& elf) {
     if ((elf.type == type) && (elf.name == label)) {

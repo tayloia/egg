@@ -65,11 +65,10 @@ namespace {
     }
     return narrow(wide);
   }
-  HANDLE beginUpdateResource(const std::string& executable, bool deleteExisting) {
-    auto wexecutable = widen(egg::ovum::os::file::denormalizePath(executable, false));
-    auto handle = ::BeginUpdateResource(wexecutable.c_str(), deleteExisting);
+  HANDLE beginUpdateResource(const std::filesystem::path& executable, bool deleteExisting) {
+    auto handle = ::BeginUpdateResource(executable.c_str(), deleteExisting);
     if (handle == NULL) {
-      throw egg::ovum::Exception("Cannot open executable file for resource writing: '{path}'").with("path", executable);
+      throw egg::ovum::Exception("Cannot open executable file for resource writing: '{path}'").with("path", executable.string());
     }
     return handle;
   }
@@ -86,9 +85,8 @@ namespace {
       throw egg::ovum::Exception("Cannot commit resource changes to executable file");
     }
   }
-  HMODULE loadLibrary(const std::string& executable) {
-    auto wexecutable = widen(egg::ovum::os::file::denormalizePath(executable, false));
-    return ::LoadLibraryEx(wexecutable.c_str(), NULL, LOAD_LIBRARY_AS_DATAFILE);
+  HMODULE loadLibrary(const std::filesystem::path& executable) {
+    return ::LoadLibraryEx(executable.c_str(), NULL, LOAD_LIBRARY_AS_DATAFILE);
   }
   BOOL enumResourceNamesCallback(HMODULE module, LPCWSTR type, LPWSTR label, LONG_PTR lparam) {
     auto handle = ::FindResourceW(module, label, type);
@@ -155,7 +153,7 @@ namespace {
   }
 }
 
-size_t egg::ovum::os::embed::updateResourceFromMemory(const std::string& executable, const std::string& type, const std::string& label, const void* data, size_t bytes) {
+size_t egg::ovum::os::embed::updateResourceFromMemory(const std::filesystem::path& executable, const std::string& type, const std::string& label, const void* data, size_t bytes) {
   auto handle = beginUpdateResource(executable, false);
   try {
     updateResource(handle, type, label, data, bytes);
@@ -168,7 +166,7 @@ size_t egg::ovum::os::embed::updateResourceFromMemory(const std::string& executa
   return bytes;
 }
 
-uint64_t egg::ovum::os::embed::updateResourceFromFile(const std::string& executable, const std::string& type, const std::string& label, const std::string& datapath) {
+uint64_t egg::ovum::os::embed::updateResourceFromFile(const std::filesystem::path& executable, const std::string& type, const std::string& label, const std::filesystem::path& datapath) {
   auto slurped = egg::ovum::File::slurp(datapath);
   auto data = slurped.empty() ? nullptr : slurped.data();
   auto bytes = slurped.size();
@@ -184,7 +182,7 @@ uint64_t egg::ovum::os::embed::updateResourceFromFile(const std::string& executa
   return bytes;
 }
 
-std::vector<egg::ovum::os::embed::Resource> egg::ovum::os::embed::findResources(const std::string& executable) {
+std::vector<egg::ovum::os::embed::Resource> egg::ovum::os::embed::findResources(const std::filesystem::path& executable) {
   auto handle = loadLibrary(executable);
   try {
     auto resources = enumResourceTypes(handle);
@@ -197,7 +195,7 @@ std::vector<egg::ovum::os::embed::Resource> egg::ovum::os::embed::findResources(
   }
 }
 
-std::vector<egg::ovum::os::embed::Resource> egg::ovum::os::embed::findResourcesByType(const std::string& executable, const std::string& type) {
+std::vector<egg::ovum::os::embed::Resource> egg::ovum::os::embed::findResourcesByType(const std::filesystem::path& executable, const std::string& type) {
   auto handle = loadLibrary(executable);
   try {
     auto resources = enumResourceNames(handle, type);
@@ -210,7 +208,7 @@ std::vector<egg::ovum::os::embed::Resource> egg::ovum::os::embed::findResourcesB
   }
 }
 
-std::shared_ptr<egg::ovum::os::embed::LockableResource> egg::ovum::os::embed::findResourceByName(const std::string& executable, const std::string& type, const std::string& label) {
+std::shared_ptr<egg::ovum::os::embed::LockableResource> egg::ovum::os::embed::findResourceByName(const std::filesystem::path& executable, const std::string& type, const std::string& label) {
   // The library handle is freed by RAII in ~LockableResource()
   auto handle = loadLibrary(executable);
   return findResourceName(handle, type, label);
