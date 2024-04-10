@@ -114,13 +114,15 @@ namespace {
     return resources;
   }
   std::shared_ptr<LockableResource> findResourceName(HMODULE module, const std::string& type, const std::string& label) {
-    auto wtype = widen(type);
-    auto wlabel = widen(label);
-    auto handle = ::FindResourceW(module, wlabel.c_str(), wtype.c_str());
-    if (handle == NULL) {
-      return nullptr;
+    if (module != NULL) {
+      auto wtype = widen(type);
+      auto wlabel = widen(label);
+      auto handle = ::FindResourceW(module, wlabel.c_str(), wtype.c_str());
+      if (handle != NULL) {
+        return std::make_shared<WindowsLockableResource>(module, type, label, handle);
+      }
     }
-    return std::make_shared<WindowsLockableResource>(module, type, label, handle);
+    return nullptr;
   }
   void freeLibrary(HMODULE module) {
     if (!::FreeLibrary(module)) {

@@ -1,7 +1,6 @@
 #include "ovum/ovum.h"
 #include "ovum/file.h"
 #include "ovum/stream.h"
-#include "ovum/os-embed.h"
 #include "ovum/os-file.h"
 #include "ovum/os-process.h"
 
@@ -68,11 +67,6 @@ std::string egg::ovum::File::slurp(const std::string& path) {
   ifs.seekg(0);
   ifs.read(buffer.data(), bytes);
   return buffer;
-}
-
-uint64_t egg::ovum::File::createSandwichFromFile(const std::string& targetPath, const std::string& zipPath, bool overwriteTarget, const std::string& label) {
-  os::embed::cloneExecutable(targetPath, overwriteTarget);
-  return os::embed::updateResourceFromFile(targetPath, "PROGBITS", label, zipPath);
 }
 
 bool egg::ovum::File::removeFile(const std::string& path) {

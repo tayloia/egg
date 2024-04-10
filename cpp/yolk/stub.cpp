@@ -444,7 +444,7 @@ namespace {
       auto suboptions = parser.parse();
       auto target = suboptions.get("target");
       auto zip = suboptions.get("zip");
-      auto embedded = File::createSandwichFromFile(target, zip);
+      auto embedded = EggboxFactory::createSandwichFromFile(target, zip, true);
       STUB_LOG(Information) << "Embedded " << embedded << " bytes into '" << target << "'";
       return ExitCode::OK;
     }

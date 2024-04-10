@@ -11,6 +11,8 @@
 namespace {
   using namespace egg::ovum;
 
+  inline static std::string PROGBITS = "PROGBITS";
+
   class EggboxDirectory : public IEggbox {
     EggboxDirectory(const EggboxDirectory&) = delete;
     EggboxDirectory& operator=(const EggboxDirectory&) = delete;
@@ -34,12 +36,6 @@ namespace {
       }
       virtual std::string getName() const override {
         return os::file::normalizePath(this->subpath.filename().string(), false);
-      }
-      virtual Kind getKind() const override {
-        if (std::filesystem::is_directory(this->root / this->subpath)) {
-          return Kind::Directory;
-        }
-        return Kind::File;
       }
       virtual std::istream& getReadStream() override {
         assert(!this->stream.is_open());
@@ -68,8 +64,10 @@ namespace {
       if (this->children.empty()) {
         // Use a set to sort the paths
         std::set<std::filesystem::path> found;
-        for (auto& entry : std::filesystem::directory_iterator(this->root)) {
-          found.insert(std::filesystem::relative(entry.path(), this->root));
+        for (auto& entry : std::filesystem::recursive_directory_iterator(this->root)) {
+          if (entry.is_regular_file()) {
+            found.insert(std::filesystem::relative(entry.path(), this->root));
+          }
         }
         std::copy(found.begin(), found.end(), std::back_inserter(this->children));
       }
@@ -88,9 +86,9 @@ namespace {
     }
   };
 
-  class EggboxEmbedded : public IEggbox {
-    EggboxEmbedded(const EggboxEmbedded&) = delete;
-    EggboxEmbedded& operator=(const EggboxEmbedded&) = delete;
+  class EggboxZip : public IEggbox {
+    EggboxZip(const EggboxZip&) = delete;
+    EggboxZip& operator=(const EggboxZip&) = delete;
   private:
     class FileEntry : public IEggboxFileEntry {
       FileEntry(const FileEntry&) = delete;
@@ -108,13 +106,10 @@ namespace {
       virtual std::string getName() const override {
         auto name = this->entry->getName();
         auto slash = name.rfind('/');
-        if (slash != std::string::npos) {
+        if (++slash < name.size()) {
           name.erase(0, slash);
         }
         return name;
-      }
-      virtual Kind getKind() const override {
-        return Kind::File;
       }
       virtual std::istream& getReadStream() override {
         return this->entry->getReadStream();
@@ -129,8 +124,9 @@ namespace {
     std::shared_ptr<os::zip::IZipReader> reader;
     std::string resource;
   public:
-    explicit EggboxEmbedded(const std::shared_ptr<os::zip::IZipReader>& reader)
-      : reader(reader) {
+    EggboxZip(const std::shared_ptr<os::zip::IZipReader>& reader, const std::string& resource)
+      : reader(reader),
+        resource(resource) {
       assert(this->reader != nullptr);
     }
     virtual std::string getResourcePath(const std::string* subpath) override {
@@ -140,11 +136,9 @@ namespace {
       return this->resource;
     }
     virtual std::shared_ptr<IEggboxFileEntry> findFileEntryByIndex(size_t index) override {
-      // WIBBLE
       return FileEntry::make(this->reader->findFileEntryByIndex(index));
     }
     virtual std::shared_ptr<IEggboxFileEntry> findFileEntryBySubpath(const std::string& subpath) override {
-      // WIBBLE
       return FileEntry::make(this->reader->findFileEntryBySubpath(subpath));
     }
   };
@@ -188,6 +182,11 @@ namespace {
   };
 }
 
+uint64_t egg::ovum::EggboxFactory::createSandwichFromFile(const std::string& targetPath, const std::string& zipPath, bool overwriteTarget, const std::string& label) {
+  os::embed::cloneExecutable(targetPath, overwriteTarget);
+  return os::embed::updateResourceFromFile(targetPath, PROGBITS, label, zipPath);
+}
+
 size_t egg::ovum::EggboxFactory::createZipFileFromDirectory(const std::string& zipPath, const std::string& directoryPath, uint64_t& compressedBytes, uint64_t& uncompressedBytes) {
   std::filesystem::path zipNative = egg::ovum::os::file::denormalizePath(zipPath, false);
   std::filesystem::path directoryNative = egg::ovum::os::file::denormalizePath(directoryPath, false);
@@ -200,32 +199,52 @@ size_t egg::ovum::EggboxFactory::createZipFileFromDirectory(const std::string& z
 
 std::shared_ptr<egg::ovum::IEggbox> egg::ovum::EggboxFactory::openDefault() {
   // WIBBLE
-  return EggboxFactory::openEmbedded("EGGBOX");
+  auto executable = os::file::getExecutablePath();
+  return EggboxFactory::openEmbedded(executable, EggboxFactory::EGGBOX);
 }
 
 std::shared_ptr<egg::ovum::IEggbox> egg::ovum::EggboxFactory::openDirectory(const std::string& path) {
-  // TODO optimize
   auto full = std::filesystem::absolute(os::file::denormalizePath(path, false));
   auto status = std::filesystem::status(full);
   if (!std::filesystem::exists(status)) {
-    throw Exception("Eggbox directory does not exist").with("path", path).with("native", full.string());
+    throw Exception("Eggbox directory does not exist: '{path}'").with("path", path).with("native", full.string());
   }
   if (!std::filesystem::is_directory(status)) {
-    throw Exception("Eggbox path is not a directory").with("path", path).with("native", full.string());
+    throw Exception("Eggbox path is not a directory: '{path}'").with("path", path).with("native", full.string());
   }
   return std::make_shared<EggboxDirectory>(full);
 }
 
-std::shared_ptr<egg::ovum::IEggbox> egg::ovum::EggboxFactory::openEmbedded(const std::string& label) {
+std::shared_ptr<egg::ovum::IEggbox> egg::ovum::EggboxFactory::openZipFile(const std::string& path) {
+  auto full = std::filesystem::absolute(os::file::denormalizePath(path, false));
+  auto status = std::filesystem::status(full);
+  if (!std::filesystem::exists(status)) {
+    throw Exception("Eggbox zip file does not exist: '{path}'").with("path", path).with("native", full.string());
+  }
+  if (!std::filesystem::is_regular_file(status)) {
+    throw Exception("Eggbox zip is not a regular file: '{path}'").with("path", path).with("native", full.string());
+  }
+  auto reader = os::zip::openReadZipFile(full);
+  return std::make_shared<EggboxZip>(reader, os::file::normalizePath(full.string(), false));
+}
+
+std::shared_ptr<egg::ovum::IEggbox> egg::ovum::EggboxFactory::openEmbedded(const std::string& executable, const std::string& label) {
   // TODO optimize
-  auto executable = os::file::getExecutablePath();
-  auto lockable = os::embed::findResourceByName(executable, "PROGBITS", label);
+  auto lockable = os::embed::findResourceByName(executable, PROGBITS, label);
   if (lockable == nullptr) {
-    throw Exception("Unable to find eggbox resource in current executable").with("executable", executable).with("label", label);
+    auto full = std::filesystem::absolute(os::file::denormalizePath(executable, false));
+    auto status = std::filesystem::status(full);
+    if (!std::filesystem::exists(status)) {
+      throw Exception("Eggbox executable does not exist: '{executable}'").with("executable", executable).with("native", full.string());
+    }
+    if (!std::filesystem::is_regular_file(status)) {
+      throw Exception("Eggbox executable is not a regular file: '{executable}'").with("executable", executable).with("native", full.string());
+    }
+    throw Exception("Unable to find eggbox resource in executable: '{executable}'").with("executable", executable).with("native", full.string()).with("label", label);
   }
   auto base = lockable->lock();
   MemoryStreamBuf streambuf{ const_cast<void*>(base), lockable->bytes };
   std::istream stream{ &streambuf };
   auto reader = os::zip::openReadStream(stream);
-  return std::make_shared<EggboxEmbedded>(reader);
+  return std::make_shared<EggboxZip>(reader, executable + "//~" + label);
 }

@@ -44,7 +44,7 @@ namespace {
           callback(elf);
         }
         });
-      if (exitcode != 0) {
+      if (exitcode < 0) {
         throw egg::ovum::Exception("Cannot spawn readelf: '{command}'").with("command", command);
       }
     }
