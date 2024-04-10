@@ -94,10 +94,10 @@ egg::yolk::Options egg::yolk::OptionParser::parse() {
     case Occurrences::ZeroOrMore:
       break;
     case Occurrences::One:
-      if (rule.first.empty()) {
-        throw egg::ovum::Exception("Exactly one argument was expected").with("arguments", std::to_string(count));
-      }
       if (count != 1) {
+        if (rule.first.empty()) {
+          throw egg::ovum::Exception("Exactly one argument was expected").with("arguments", std::to_string(count));
+        }
         throw egg::ovum::Exception("Exactly one occurrence of '--{option}' was expected").with("option", rule.first).with("occurrences", std::to_string(count));
       }
       break;

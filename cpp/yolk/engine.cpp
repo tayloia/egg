@@ -220,8 +220,8 @@ namespace {
       auto lexer = LexerFactory::createFromTextStream(stream);
       return HardPtr(this->getAllocator().makeRaw<EngineScript>(this->shared_from_this(), lexer));
     }
-    virtual HardPtr<IEngineScript> loadScriptFromEggbox(const String& name) override {
-      EggboxTextStream stream{ name.toUTF8() };
+    virtual HardPtr<IEngineScript> loadScriptFromEggbox(IEggbox& eggbox, const String& subpath) override {
+      EggboxTextStream stream{ eggbox, subpath.toUTF8() };
       auto lexer = LexerFactory::createFromTextStream(stream);
       return HardPtr(this->getAllocator().makeRaw<EngineScript>(this->shared_from_this(), lexer));
     }

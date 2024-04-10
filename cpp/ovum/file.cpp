@@ -1,5 +1,6 @@
 #include "ovum/ovum.h"
 #include "ovum/file.h"
+#include "ovum/stream.h"
 #include "ovum/os-embed.h"
 #include "ovum/os-file.h"
 #include "ovum/os-process.h"
@@ -14,13 +15,20 @@ std::string egg::ovum::File::denormalizePath(const std::string& path, bool trail
   return os::file::denormalizePath(path, trailingSlash);
 }
 
-std::string egg::ovum::File::resolvePath(const std::string& path) {
+std::string egg::ovum::File::resolvePath(const std::string& path, bool trailingSlash) {
   // Resolve a file path in normalized form
-  auto resolved{ path };
-  if ((resolved.size() >= 2) && (resolved[0] == '~') && (resolved[1] == '/')) {
-    resolved = os::file::getDevelopmentDirectory() + resolved.substr(2);
+  // TODO: support eggbox
+  if (path.starts_with("~/")) {
+    return os::file::denormalizePath(os::file::getDevelopmentDirectory() + path.substr(2), trailingSlash);
   }
-  return os::file::denormalizePath(resolved, false);
+  return os::file::denormalizePath(path, trailingSlash);
+}
+
+std::unique_ptr<egg::ovum::TextStream> egg::ovum::File::resolveTextStream(const std::string& path) {
+  // Resolve a file text stream
+  // TODO: support eggbox
+  auto resolved = File::resolvePath(path, false);
+  return std::make_unique<FileTextStream>(resolved);
 }
 
 std::vector<std::string> egg::ovum::File::readDirectory(const std::string& path) {

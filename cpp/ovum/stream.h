@@ -2,6 +2,9 @@
 #include <fstream>
 
 namespace egg::ovum {
+  class IEggbox;
+  class IEggboxFileEntry;
+
   class FileStream : public std::fstream {
     FileStream(FileStream&) = delete;
     FileStream& operator=(FileStream&) = delete;
@@ -12,9 +15,7 @@ namespace egg::ovum {
         throw egg::ovum::Exception("Failed to open file for reading: '{path}'").with("path", unresolved);
       }
     }
-    explicit FileStream(const std::string& path, ios_base::openmode mode = ios_base::in | ios_base::binary)
-      : FileStream(path, File::resolvePath(path), mode) {
-    }
+    explicit FileStream(const std::string& path, ios_base::openmode mode = ios_base::in | ios_base::binary);
   };
 
   class ByteStream {
@@ -50,13 +51,12 @@ namespace egg::ovum {
     EggboxByteStream(EggboxByteStream&) = delete;
     EggboxByteStream& operator=(EggboxByteStream&) = delete;
   private:
-    class Impl;
-    std::unique_ptr<Impl> impl;
+    std::shared_ptr<IEggboxFileEntry> entry;
   public:
-    explicit EggboxByteStream(const std::string& subpath, const std::string& eggbox = File::EGGBOX);
+    EggboxByteStream(IEggbox& eggbox, const std::string& subpath);
     ~EggboxByteStream();
   protected:
-    EggboxByteStream(const std::string& resource, std::unique_ptr<Impl>&& pimpl);
+    EggboxByteStream(const std::string& resource, std::shared_ptr<IEggboxFileEntry>&& entry);
   };
 
   class FileByteStream : public ByteStream {
@@ -105,8 +105,8 @@ namespace egg::ovum {
   private:
     EggboxByteStream ebs;
   public:
-    explicit EggboxCharStream(const std::string& name, bool swallowBOM = true)
-      : CharStream(ebs, swallowBOM), ebs(name) {
+    EggboxCharStream(IEggbox& eggbox, const std::string& subpath, bool swallowBOM = true)
+      : CharStream(ebs, swallowBOM), ebs(eggbox, subpath) {
     }
   };
 
@@ -176,8 +176,8 @@ namespace egg::ovum {
   private:
     EggboxCharStream ecs;
   public:
-    explicit EggboxTextStream(const std::string& name, bool swallowBOM = true)
-      : TextStream(ecs), ecs(name, swallowBOM) {
+    EggboxTextStream(IEggbox& eggbox, const std::string& subpath, bool swallowBOM = true)
+      : TextStream(ecs), ecs(eggbox, subpath, swallowBOM) {
     }
   };
 

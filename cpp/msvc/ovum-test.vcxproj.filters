@@ -100,7 +100,7 @@
     <ClCompile Include="..\ovum\test\test-os-zip.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\ovum\test\test-zip.cpp">
+    <ClCompile Include="..\ovum\test\test-eggbox.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
   </ItemGroup>

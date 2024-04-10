@@ -1,28 +1,32 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LocalDebuggerCommandArguments>--profile smoke-test</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>--profile run command/debug.egg</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerWorkingDirectory>$(EggRoot)</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommand>$(OutputPath)egg.exe</LocalDebuggerCommand>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <LocalDebuggerCommandArguments>--profile smoke-test</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>--profile run command/debug.egg</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerEnvironment>
     </LocalDebuggerEnvironment>
     <LocalDebuggerWorkingDirectory>$(EggRoot)</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommand>$(OutputPath)egg.exe</LocalDebuggerCommand>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LocalDebuggerCommandArguments>--profile smoke-test</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>--profile run command/debug.egg</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerWorkingDirectory>$(EggRoot)</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommand>$(OutputPath)egg.exe</LocalDebuggerCommand>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <LocalDebuggerCommandArguments>--profile smoke-test</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>--profile run command/debug.egg</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerEnvironment>
     </LocalDebuggerEnvironment>
     <LocalDebuggerWorkingDirectory>$(EggRoot)</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommand>$(OutputPath)egg.exe</LocalDebuggerCommand>
   </PropertyGroup>
   <PropertyGroup>
     <ShowAllFiles>false</ShowAllFiles>

@@ -86,7 +86,7 @@
     <ClCompile Include="..\ovum\os-zip.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\ovum\zip.cpp">
+    <ClCompile Include="..\ovum\eggbox.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -193,7 +193,7 @@
     <ClInclude Include="..\ovum\os-zip.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\ovum\zip.h">
+    <ClInclude Include="..\ovum\eggbox.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

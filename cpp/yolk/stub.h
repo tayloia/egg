@@ -1,3 +1,7 @@
+namespace egg::ovum {
+  class IEggbox;
+}
+
 namespace egg::yolk {
   class IStub : public egg::ovum::ILogger {
   public:
@@ -13,6 +17,7 @@ namespace egg::yolk {
     virtual ~IStub() = default;
     virtual IStub& withAllocator(egg::ovum::IAllocator& target) = 0;
     virtual IStub& withLogger(egg::ovum::ILogger& target) = 0;
+    virtual IStub& withEggbox(egg::ovum::IEggbox& target) = 0;
     virtual IStub& withArgument(const std::string& argument) = 0;
     virtual IStub& withEnvironment(const std::string& key, const std::string& value) = 0;
     virtual IStub& withCommand(const std::string& command, const std::string& usage, const CommandHandler& handler) = 0;

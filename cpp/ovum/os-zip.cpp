@@ -59,14 +59,14 @@ namespace {
       assert(this->handle != nullptr);
       return this->info.size();
     }
-    virtual std::shared_ptr<IZipFileEntry> getFileEntryByIndex(size_t index) override {
+    virtual std::shared_ptr<IZipFileEntry> findFileEntryByIndex(size_t index) override {
       assert(this->handle != nullptr);
       if (index < this->info.size()) {
         return std::make_shared<ZipFileEntry>(this->handle, this->info[index]);
       }
       return nullptr;
     }
-    virtual std::shared_ptr<IZipFileEntry> getFileEntryByName(const std::string& subpath) override {
+    virtual std::shared_ptr<IZipFileEntry> findFileEntryBySubpath(const std::string& subpath) override {
       assert(this->handle != nullptr);
       try {
         return std::make_shared<ZipFileEntry>(this->handle, this->handle->getinfo(subpath));
@@ -116,35 +116,30 @@ namespace {
       return uint64_t(stream.tellp());
     }
   };
-
-  class ZipFactory : public IZipFactory {
-  public:
-    virtual std::string getVersion() const override {
-      return MZ_VERSION;
-    }
-    virtual std::shared_ptr<IZipReader> readStream(std::istream& stream) override {
-      auto zip = std::make_shared<ZipReader>();
-      zip->loadFromStream(stream);
-      return zip;
-    }
-    virtual std::shared_ptr<IZipReader> readZipFile(const std::filesystem::path& zipfile) override {
-      auto zip = std::make_shared<ZipReader>();
-      try {
-        zip->loadFromFile(zipfile);
-      }
-      catch (std::exception&) {
-        auto status = std::filesystem::status(zipfile);
-        auto* what = std::filesystem::exists(status) ? "Invalid zip file: '{path}'" : "Zip file not found: '{path}'";
-        throw egg::ovum::Exception(what).with("path", egg::ovum::os::file::normalizePath(zipfile.string(), false));
-      }
-      return zip;
-    }
-    virtual std::shared_ptr<IZipWriter> writeZipFile(const std::filesystem::path& zipfile) override {
-      return std::make_shared<ZipWriter>(zipfile);
-    }
-  };
 }
 
-std::shared_ptr<egg::ovum::os::zip::IZipFactory> egg::ovum::os::zip::createFactory() {
-  return std::make_shared<ZipFactory>();
+std::string egg::ovum::os::zip::getVersion() {
+  return MZ_VERSION;
+}
+
+std::shared_ptr<IZipReader> egg::ovum::os::zip::openReadStream(std::istream& stream) {
+  auto zip = std::make_shared<ZipReader>();
+  zip->loadFromStream(stream);
+  return zip;
+}
+
+std::shared_ptr<IZipReader> egg::ovum::os::zip::openReadZipFile(const std::filesystem::path& zipfile) {
+  auto zip = std::make_shared<ZipReader>();
+  try {
+    zip->loadFromFile(zipfile);
+  } catch (std::exception&) {
+    auto status = std::filesystem::status(zipfile);
+    auto* what = std::filesystem::exists(status) ? "Invalid zip file: '{path}'" : "Zip file not found: '{path}'";
+    throw egg::ovum::Exception(what).with("path", egg::ovum::os::file::normalizePath(zipfile.string(), false));
+  }
+  return zip;
+}
+
+std::shared_ptr<IZipWriter> egg::ovum::os::zip::openWriteZipFile(const std::filesystem::path& zipfile) {
+  return std::make_shared<ZipWriter>(zipfile);
 }

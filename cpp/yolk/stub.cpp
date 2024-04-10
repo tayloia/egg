@@ -2,12 +2,12 @@
 #include "yolk/stub.h"
 #include "yolk/options.h"
 #include "yolk/engine.h"
+#include "ovum/eggbox.h"
 #include "ovum/file.h"
 #include "ovum/os-file.h"
 #include "ovum/os-process.h"
 #include "ovum/stream.h"
 #include "ovum/version.h"
-#include "ovum/zip.h"
 
 #include <cctype>
 #include <iostream>
@@ -101,6 +101,7 @@ namespace {
     struct Configuration {
       IAllocator* allocator = nullptr;
       ILogger* logger = nullptr;
+      IEggbox* eggbox = nullptr;
       Severity loglevel = Configuration::makeLogLevelMask(Severity::Information);
       bool profileAllocator = false;
       bool profileMemory = false;
@@ -122,6 +123,7 @@ namespace {
     std::vector<size_t> breadcrumbs;
     Configuration configuration;
     AllocatorDefault uallocator;
+    std::shared_ptr<IEggbox> ueggbox;
   public:
     Stub() {
     }
@@ -175,6 +177,10 @@ namespace {
       this->configuration.logger = &target;
       return *this;
     }
+    virtual IStub& withEggbox(IEggbox& target) override {
+      this->configuration.eggbox = &target;
+      return *this;
+    }
     virtual IStub& withArgument(const std::string& argument) override {
       this->arguments.push_back(argument);
       return *this;
@@ -197,10 +203,11 @@ namespace {
       this->withBuiltinCommand(&Stub::cmdHelp, "help");
       this->withBuiltinCommand(&Stub::subcommand, "sandwich")
         .withSubcommand(&Stub::cmdSandwichMake, "make --target=<exe-file> --zip=<zip-file>");
+      this->withBuiltinCommand(&Stub::cmdRun, "run <script-file>");
       this->withBuiltinCommand(&Stub::cmdSmokeTest, "smoke-test");
       this->withBuiltinCommand(&Stub::cmdVersion, "version");
       this->withBuiltinCommand(&Stub::subcommand, "zip")
-        .withSubcommand(&Stub::cmdZipMake, "make --target=<zip-file> --directory=<path>");
+        .withSubcommand(&Stub::cmdZipMake, "make --target=<zip-file> --directory=<source-path>");
       return *this;
     }
     virtual const std::string* queryArgument(size_t index) const override {
@@ -441,17 +448,22 @@ namespace {
       STUB_LOG(Information) << "Embedded " << embedded << " bytes into '" << target << "'";
       return ExitCode::OK;
     }
+    ExitCode cmdRun() {
+      // egg run <script-path>
+      auto parser = this->makeOptionParser()
+        .withExtraneousArguments(OptionParser::Occurrences::One);
+      auto suboptions = parser.parse();
+      auto stream = File::resolveTextStream(suboptions.extraneous()[0]);
+      return this->runScript(*stream);
+    }
     ExitCode cmdSmokeTest() {
-      std::string name = "command/smoke-test.egg";
-      auto engine = this->makeEngine();
-      EggboxTextStream stream{ name };
-      auto script = engine->loadScriptFromTextStream(stream);
-      auto retval = script->run();
-      if (retval->getPrimitiveFlag() != ValueFlags::Void) {
-        STUB_LOG(Error) << "'" << name << "' did not return 'void'";
-        return ExitCode::Error;
-      }
-      return ExitCode::OK;
+      // egg smoke-test
+      // NOTE: We force using the script from the eggbox
+      auto parser = this->makeOptionParser();
+      auto suboptions = parser.parse();
+      auto& eggbox = this->getEggbox();
+      EggboxTextStream stream{ eggbox, "command/smoke-test.egg" };
+      return this->runScript(stream);
     }
     ExitCode cmdVersion() {
       STUB_LOG(Information) << "egg v" << Version();
@@ -466,13 +478,31 @@ namespace {
       auto target = suboptions.get("target");
       auto directory = suboptions.get("directory");
       uint64_t compressed, uncompressed;
-      auto entries = Zip::createFileFromDirectory(target, directory, compressed, uncompressed);
+      auto entries = EggboxFactory::createZipFileFromDirectory(target, directory, compressed, uncompressed);
       std::string readable = "1 entry";
       if (entries != 1) {
         readable = std::to_string(entries) + " entries";
       }
       auto ratio = (uncompressed > 0) ? (compressed * 100) / uncompressed : 100;
       STUB_LOG(Information) << "Zipped " << readable << " into '" << target << "' (compressed=" << compressed << " uncompressed=" << uncompressed << " ratio=" << ratio << "%)";
+      return ExitCode::OK;
+    }
+    IEggbox& getEggbox() {
+      if (this->configuration.eggbox == nullptr) {
+        assert(this->ueggbox == nullptr);
+        this->ueggbox = egg::ovum::EggboxFactory::openDefault();
+        this->configuration.eggbox = this->ueggbox.get();
+      }
+      return *this->configuration.eggbox;
+    }
+    ExitCode runScript(TextStream& stream) {
+      auto engine = this->makeEngine();
+      auto script = engine->loadScriptFromTextStream(stream);
+      auto retval = script->run();
+      if (retval->getPrimitiveFlag() != ValueFlags::Void) {
+        STUB_LOG(Error) << "'" << stream.getResourceName() << "' did not return 'void'";
+        return ExitCode::Error;
+      }
       return ExitCode::OK;
     }
     void badUsage(const std::string& message) {
