@@ -11,8 +11,9 @@ namespace {
   bool isEndOfLine(int ch) {
     return (ch == '\r') || (ch == '\n');
   }
-  // See https://en.wikipedia.org/wiki/UTF-8
+
   int readContinuation(ByteStream& stream, int value, size_t count) {
+    // See https://en.wikipedia.org/wiki/UTF-8
     do {
       auto b = stream.get();
       if (b < 0) {
@@ -26,6 +27,7 @@ namespace {
     } while (--count);
     return value;
   }
+
   int readCodepoint(ByteStream& stream) {
     auto b = stream.get();
     if (b < 0x80) {
@@ -49,10 +51,11 @@ namespace {
     }
     throw egg::ovum::Exception("Invalid UTF-8 encoding (bad lead byte): '{resource}'").with("resource", stream.getResourceName());
   }
+
   std::shared_ptr<IEggboxFileEntry> makeEggboxFileEntry(IEggbox& eggbox, const std::string& subpath) {
     auto entry = eggbox.findFileEntryBySubpath(subpath);
     if (entry == nullptr) {
-      throw Exception("Entry not found in eggbox: '{entry}'").with("entry", subpath).with("eggbox", eggbox.getResourcePath());
+      throw Exception("Entry not found in eggbox: '{entry}'").with("entry", subpath).with("eggbox", eggbox.getResourcePath(nullptr));
     }
     return entry;
   }
@@ -65,7 +68,7 @@ EggboxByteStream::EggboxByteStream(const std::string& resource, std::shared_ptr<
 }
 
 EggboxByteStream::EggboxByteStream(IEggbox& eggbox, const std::string& subpath)
-  : EggboxByteStream(eggbox.getResourcePath() + subpath, makeEggboxFileEntry(eggbox, subpath)) {
+  : EggboxByteStream(eggbox.getResourcePath(&subpath), makeEggboxFileEntry(eggbox, subpath)) {
 }
 
 EggboxByteStream::~EggboxByteStream() {

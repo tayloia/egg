@@ -39,10 +39,17 @@ namespace {
     return std::filesystem::canonical("/proc/self/exe");
   }
 #endif
-  void terminate(std::string& str, char terminator) {
+  std::string terminate(const std::string& str, bool trailing, char terminator) {
     if (str.empty() || (str.back() != terminator)) {
-      str.push_back(terminator);
+      if (trailing) {
+        return str + terminator;
+      }
+    } else {
+      if (!trailing) {
+        return str.substr(0, str.size() - 1);
+      }
     }
+    return str;
   }
   class TemporaryDirectories final {
     TemporaryDirectories(const TemporaryDirectories&) = delete;
@@ -79,34 +86,18 @@ namespace {
 std::string egg::ovum::os::file::normalizePath(const std::string& path, bool trailingSlash) {
 #if EGG_PLATFORM == EGG_PLATFORM_MSVC
   auto result = transform(path, [](char x) { return (x == '\\') ? '/' : char(std::tolower(x)); });
-  if (trailingSlash) {
-    terminate(result, '/');
-  }
-  return result;
+  return terminate(result, trailingSlash, '/');
 #else
-  if (trailingSlash) {
-    auto result = path;
-    terminate(result, '/');
-    return result;
-  }
-  return path;
+  return terminate(path, trailingSlash, '/');
 #endif
 }
 
 std::string egg::ovum::os::file::denormalizePath(const std::string& path, bool trailingSlash) {
 #if EGG_PLATFORM == EGG_PLATFORM_MSVC
   auto result = replace(path, '/', '\\');
-  if (trailingSlash) {
-    terminate(result, '\\');
-  }
-  return result;
+  return terminate(result, trailingSlash, '\\');
 #else
-  if (trailingSlash) {
-    auto result = path;
-    terminate(result, '/');
-    return result;
-  }
-  return path;
+  return terminate(path, trailingSlash, '/');
 #endif
 }
 

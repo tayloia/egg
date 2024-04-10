@@ -9,56 +9,147 @@
 #include <fstream>
 
 namespace {
-  using namespace egg::ovum::os::zip;
+  using namespace egg::ovum;
 
-
-  class EggboxEmbedded : public egg::ovum::IEggbox {
-    EggboxEmbedded(const EggboxEmbedded&) = delete;
-    EggboxEmbedded& operator=(const EggboxEmbedded&) = delete;
+  class EggboxDirectory : public IEggbox {
+    EggboxDirectory(const EggboxDirectory&) = delete;
+    EggboxDirectory& operator=(const EggboxDirectory&) = delete;
   private:
-    class FileEntry : public egg::ovum::IEggboxFileEntry {
+    class FileEntry : public IEggboxFileEntry {
       FileEntry(const FileEntry&) = delete;
       FileEntry& operator=(const FileEntry&) = delete;
     private:
-      std::shared_ptr<IZipFileEntry> entry;
+      std::filesystem::path root;
+      std::filesystem::path subpath;
+      std::ifstream stream;
     public:
-      explicit FileEntry(std::shared_ptr<IZipFileEntry>&& entry)
+      FileEntry(const std::filesystem::path& root, const std::filesystem::path& subpath)
+        : root(root),
+          subpath(subpath) {
+        assert(this->root.is_absolute());
+        assert(this->subpath.is_relative());
+      }
+      virtual std::string getSubpath() const override {
+        return os::file::normalizePath(this->subpath.string(), false);
+      }
+      virtual std::string getName() const override {
+        return os::file::normalizePath(this->subpath.filename().string(), false);
+      }
+      virtual Kind getKind() const override {
+        if (std::filesystem::is_directory(this->root / this->subpath)) {
+          return Kind::Directory;
+        }
+        return Kind::File;
+      }
+      virtual std::istream& getReadStream() override {
+        assert(!this->stream.is_open());
+        this->stream.open(this->root / this->subpath, std::ios::in | std::ios::binary);
+        assert(this->stream.is_open());
+        return this->stream;
+      }
+      static std::shared_ptr<IEggboxFileEntry> make(const std::filesystem::path& root, const std::filesystem::path& subpath) {
+        return std::make_shared<FileEntry>(root, subpath);
+      }
+    };
+    std::filesystem::path root;
+    std::vector<std::filesystem::path> children;
+  public:
+    explicit EggboxDirectory(const std::filesystem::path& root)
+      : root(root) {
+    }
+    virtual std::string getResourcePath(const std::string* subpath) override {
+      std::filesystem::path full{ this->root };
+      if (subpath != nullptr) {
+        full /= os::file::denormalizePath(*subpath, false);
+      }
+      return os::file::normalizePath(full.string(), false);
+    }
+    virtual std::shared_ptr<IEggboxFileEntry> findFileEntryByIndex(size_t index) override {
+      if (this->children.empty()) {
+        // Use a set to sort the paths
+        std::set<std::filesystem::path> found;
+        for (auto& entry : std::filesystem::directory_iterator(this->root)) {
+          found.insert(std::filesystem::relative(entry.path(), this->root));
+        }
+        std::copy(found.begin(), found.end(), std::back_inserter(this->children));
+      }
+      if (index < this->children.size()) {
+        return FileEntry::make(this->root, this->children[index]);
+      }
+      return nullptr;
+    }
+    virtual std::shared_ptr<IEggboxFileEntry> findFileEntryBySubpath(const std::string& subpath) override {
+      std::filesystem::path sub{ os::file::normalizePath(subpath, false) };
+      auto full = this->root / sub;
+      if (std::filesystem::exists(full)) {
+        return FileEntry::make(this->root, sub);
+      }
+      return nullptr;
+    }
+  };
+
+  class EggboxEmbedded : public IEggbox {
+    EggboxEmbedded(const EggboxEmbedded&) = delete;
+    EggboxEmbedded& operator=(const EggboxEmbedded&) = delete;
+  private:
+    class FileEntry : public IEggboxFileEntry {
+      FileEntry(const FileEntry&) = delete;
+      FileEntry& operator=(const FileEntry&) = delete;
+    private:
+      std::shared_ptr<os::zip::IZipFileEntry> entry;
+    public:
+      FileEntry(std::shared_ptr<os::zip::IZipFileEntry>&& entry)
         : entry(std::move(entry)) {
         assert(this->entry != nullptr);
       }
+      virtual std::string getSubpath() const override {
+        return this->entry->getName();
+      }
       virtual std::string getName() const override {
-        return std::string();
+        auto name = this->entry->getName();
+        auto slash = name.rfind('/');
+        if (slash != std::string::npos) {
+          name.erase(0, slash);
+        }
+        return name;
+      }
+      virtual Kind getKind() const override {
+        return Kind::File;
       }
       virtual std::istream& getReadStream() override {
         return this->entry->getReadStream();
       }
-      static std::shared_ptr<IEggboxFileEntry> make(std::shared_ptr<IZipFileEntry>&& entry) {
+      static std::shared_ptr<IEggboxFileEntry> make(std::shared_ptr<os::zip::IZipFileEntry>&& entry) {
         if (entry == nullptr) {
           return nullptr;
         }
         return std::make_shared<FileEntry>(std::move(entry));
       }
     };
-    std::shared_ptr<IZipReader> reader;
+    std::shared_ptr<os::zip::IZipReader> reader;
+    std::string resource;
   public:
-    explicit EggboxEmbedded(const std::shared_ptr<IZipReader>& reader)
+    explicit EggboxEmbedded(const std::shared_ptr<os::zip::IZipReader>& reader)
       : reader(reader) {
       assert(this->reader != nullptr);
     }
-    virtual std::string getResourcePath() override {
-      return std::string();
+    virtual std::string getResourcePath(const std::string* subpath) override {
+      if (subpath != nullptr) {
+        return this->resource + "//" + *subpath;
+      }
+      return this->resource;
     }
-    virtual std::shared_ptr<egg::ovum::IEggboxFileEntry> findFileEntryByIndex(size_t index) override {
+    virtual std::shared_ptr<IEggboxFileEntry> findFileEntryByIndex(size_t index) override {
       // WIBBLE
       return FileEntry::make(this->reader->findFileEntryByIndex(index));
     }
-    virtual std::shared_ptr<egg::ovum::IEggboxFileEntry> findFileEntryBySubpath(const std::string& subpath) override {
+    virtual std::shared_ptr<IEggboxFileEntry> findFileEntryBySubpath(const std::string& subpath) override {
       // WIBBLE
       return FileEntry::make(this->reader->findFileEntryBySubpath(subpath));
     }
   };
 
-  uint64_t addFile(IZipWriter& writer, const std::string& name, const std::filesystem::path& native) {
+  uint64_t addFile(os::zip::IZipWriter& writer, const std::string& name, const std::filesystem::path& native) {
     std::ifstream ifs{ native, std::ios::binary };
     ifs.seekg(0, std::ios::end);
     auto bytes = ifs.tellg();
@@ -69,7 +160,7 @@ namespace {
     return uint64_t(bytes);
   }
 
-  uint64_t addDirectoryRecursive(IZipWriter& writer, const std::string& prefix, const std::filesystem::path& native, size_t& entries) {
+  uint64_t addDirectoryRecursive(os::zip::IZipWriter& writer, const std::string& prefix, const std::filesystem::path& native, size_t& entries) {
     uint64_t uncompressed = 0;
     std::error_code error;
     for (auto& entry : std::filesystem::directory_iterator(native, error)) {
@@ -82,9 +173,9 @@ namespace {
       }
     }
     if (error) {
-      throw egg::ovum::Exception("Cannot walk directory: {error}")
+      throw Exception("Cannot walk directory: {error}")
         .with("path", native.string())
-        .with("error", egg::ovum::os::process::format(error));
+        .with("error", os::process::format(error));
     }
     return uncompressed;
   }
@@ -110,6 +201,19 @@ size_t egg::ovum::EggboxFactory::createZipFileFromDirectory(const std::string& z
 std::shared_ptr<egg::ovum::IEggbox> egg::ovum::EggboxFactory::openDefault() {
   // WIBBLE
   return EggboxFactory::openEmbedded("EGGBOX");
+}
+
+std::shared_ptr<egg::ovum::IEggbox> egg::ovum::EggboxFactory::openDirectory(const std::string& path) {
+  // TODO optimize
+  auto full = std::filesystem::absolute(os::file::denormalizePath(path, false));
+  auto status = std::filesystem::status(full);
+  if (!std::filesystem::exists(status)) {
+    throw Exception("Eggbox directory does not exist").with("path", path).with("native", full.string());
+  }
+  if (!std::filesystem::is_directory(status)) {
+    throw Exception("Eggbox path is not a directory").with("path", path).with("native", full.string());
+  }
+  return std::make_shared<EggboxDirectory>(full);
 }
 
 std::shared_ptr<egg::ovum::IEggbox> egg::ovum::EggboxFactory::openEmbedded(const std::string& label) {

@@ -44,14 +44,13 @@ std::vector<std::string> egg::ovum::File::readDirectory(const std::string& path)
 }
 
 egg::ovum::File::Kind egg::ovum::File::getKind(const std::string& path) {
-  // Read the directory entries
+  // Read the status
   auto native = File::resolvePath(path);
   auto status = std::filesystem::status(native);
-  auto type = status.type();
-  if (type == std::filesystem::file_type::directory) {
+  if (std::filesystem::is_directory(status)) {
     return Kind::Directory;
   }
-  if (type == std::filesystem::file_type::regular) {
+  if (std::filesystem::is_regular_file(status)) {
     return Kind::File;
   }
   return Kind::Unknown;
@@ -80,8 +79,10 @@ bool egg::ovum::File::removeFile(const std::string& path) {
   // Remove the file
   auto native = File::resolvePath(path);
   auto status = std::filesystem::status(native);
-  auto type = status.type();
-  if ((type == std::filesystem::file_type::regular) || (type == std::filesystem::file_type::symlink)) {
+  if (!std::filesystem::exists(status)) {
+    return false;
+  }
+  if (std::filesystem::is_regular_file(status)) {
     std::error_code error;
     if (!std::filesystem::remove(native, error)) {
       throw Exception("Cannot remove file: {error}")
@@ -90,10 +91,7 @@ bool egg::ovum::File::removeFile(const std::string& path) {
     }
     return true;
   }
-  if (type == std::filesystem::file_type::not_found) {
-    return false;
-  }
   throw Exception("Cannot remove file: {error}")
     .with("path", path)
-    .with("error", "not a file");
+    .with("error", "not a regular file");
 }
