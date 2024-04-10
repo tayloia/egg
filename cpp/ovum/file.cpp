@@ -14,38 +14,26 @@ std::string egg::ovum::File::denormalizePath(const std::string& path, bool trail
   return os::file::denormalizePath(path, trailingSlash);
 }
 
-std::string egg::ovum::File::resolvePath(const std::string& path, bool trailingSlash) {
-  // Resolve a file path in normalized form
-  // TODO: support eggbox
-  if (path.starts_with("~/")) {
-    return os::file::denormalizePath(os::file::getDevelopmentDirectory() + path.substr(2), trailingSlash);
-  }
-  return os::file::denormalizePath(path, trailingSlash);
-}
-
 std::unique_ptr<egg::ovum::TextStream> egg::ovum::File::resolveTextStream(const std::string& path) {
   // Resolve a file text stream
   // TODO: support eggbox
-  auto resolved = File::resolvePath(path, false);
+  auto resolved = File::denormalizePath(path);
   return std::make_unique<FileTextStream>(resolved);
 }
 
-std::vector<std::string> egg::ovum::File::readDirectory(const std::string& path) {
+std::vector<std::string> egg::ovum::File::readDirectory(const std::filesystem::path& path) {
   // Read the directory entries
-  auto native = File::resolvePath(path);
   std::vector<std::string> filenames;
   std::error_code error;
-  for (auto& file : std::filesystem::directory_iterator(native, error)) {
-    auto utf8 = file.path().filename().u8string();
-    filenames.push_back(File::normalizePath(std::string(reinterpret_cast<char*>(utf8.data()), utf8.size())));
+  for (auto& file : std::filesystem::directory_iterator(path, error)) {
+    filenames.push_back(file.path().filename().string());
   }
   return filenames;
 }
 
-egg::ovum::File::Kind egg::ovum::File::getKind(const std::string& path) {
+egg::ovum::File::Kind egg::ovum::File::getKind(const std::filesystem::path& path) {
   // Read the status
-  auto native = File::resolvePath(path);
-  auto status = std::filesystem::status(native);
+  auto status = std::filesystem::status(path);
   if (std::filesystem::is_directory(status)) {
     return Kind::Directory;
   }
@@ -55,11 +43,11 @@ egg::ovum::File::Kind egg::ovum::File::getKind(const std::string& path) {
   return Kind::Unknown;
 }
 
-std::string egg::ovum::File::slurp(const std::string& path) {
+std::string egg::ovum::File::slurp(const std::filesystem::path& path) {
   // Slurp the entire file as a string of bytes
-  std::ifstream ifs{ File::resolvePath(path), std::ios::binary };
+  std::ifstream ifs{ path, std::ios::binary };
   if (!ifs) {
-    throw egg::ovum::Exception("Cannot read file: '{path}'").with("path", path);
+    throw egg::ovum::Exception("Cannot read file: '{path}'").with("path", path.generic_string());
   }
   ifs.seekg(0, std::ios::end);
   auto bytes = ifs.tellg();
@@ -69,23 +57,21 @@ std::string egg::ovum::File::slurp(const std::string& path) {
   return buffer;
 }
 
-bool egg::ovum::File::removeFile(const std::string& path) {
+bool egg::ovum::File::removeFile(const std::filesystem::path& path) {
   // Remove the file
-  auto native = File::resolvePath(path);
-  auto status = std::filesystem::status(native);
+  auto status = std::filesystem::status(path);
   if (!std::filesystem::exists(status)) {
     return false;
   }
   if (std::filesystem::is_regular_file(status)) {
     std::error_code error;
-    if (!std::filesystem::remove(native, error)) {
+    if (!std::filesystem::remove(path, error)) {
       throw Exception("Cannot remove file: {error}")
-        .with("path", path)
+        .with("path", path.generic_string())
         .with("error", egg::ovum::os::process::format(error));
     }
     return true;
   }
-  throw Exception("Cannot remove file: {error}")
-    .with("path", path)
-    .with("error", "not a regular file");
+  throw Exception("Path to remove is not a regular file: '{path}'")
+    .with("path", path.generic_string());
 }

@@ -55,7 +55,7 @@ namespace {
 }
 
 TEST(TestLexers, Verbatim) {
-  std::string path = "~/cpp/data/example.egg";
+  auto path = egg::test::resolvePath("cpp/data/example.egg");
   std::string slurped;
   FileTextStream(path).slurp(slurped);
   std::string verbatim;
@@ -263,7 +263,7 @@ TEST(TestLexers, Identifier) {
 }
 
 TEST(TestLexers, Factory) {
-  auto lexer = LexerFactory::createFromPath("~/cpp/data/example.egg");
+  auto lexer = LexerFactory::createFromPath(egg::test::resolvePath("cpp/data/example.egg"));
   // "// This is a test file\r\n"
   lexerStepComment(*lexer, "// This is a test file\r\n");
   // "var result = first--second;"

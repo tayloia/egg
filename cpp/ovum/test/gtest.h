@@ -55,6 +55,8 @@ namespace egg::test {
     auto* holder = registry.GetTestCasePatternHolder<T>(name, ::testing::internal::CodeLocation("C:\\Project\\egg\\build.sh", 7));
     return holder->AddTestSuiteInstantiation("", &T::generator, &T::name, file, line);
   }
+
+  std::filesystem::path resolvePath(const std::string& devpath);
 }
 
 // The following is almost the same as

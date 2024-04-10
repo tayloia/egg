@@ -9,18 +9,18 @@ using namespace egg::ovum;
 static const size_t expected_lengths[] = { 0,36,36,0,79,0,0,64,49,0,0,75,0,25,0,57,57,57,57,57,57,57,57,57,0,29,0,38,40,0,4,0,34,0,37,0,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,46,0,21,0,38,0,21,0,19,0,25,26,24,27,0,26,22,27,29,0,53,0,59,53,48,55,52,60,61,61,60,61,59,54,58,61,53,36,0,29,0,9,0,39,0,65,60,61,60,59,62,64,0,8,0,39,0,66,71,69,70,68,69,0,19,0,71,21,0,57,63,64,68,62,58,65,65,60,0,70,70,21,0,10,0,35,0,22,22,18,28,21,17,14,26,19,32,30,31,20,28,28,19,25,21,0,6,0,58,0,69,69,60,0,8,0,23,0,45,46,45,42,52,26,0,39,0,43,45,48,53,42,39,49,52,35,0,68,0,36,0,40,40,40,40,0,31,0,36,0,71,71,79,79,79,79,71,71,79,53,SIZE_MAX };
 
 TEST(TestStreams, FileStreamIn) {
-  FileStream fsi("~/cpp/data/utf-8-demo.txt");
+  FileStream fsi(egg::test::resolvePath("cpp/data/utf-8-demo.txt"));
   std::stringstream oss;
   oss << fsi.rdbuf();
   ASSERT_EQ(14270u, oss.str().size());
 }
 
 TEST(TestStreams, FileStreamInMissing) {
-  ASSERT_THROW(FileStream("~/missing"), Exception);
+  ASSERT_THROW(FileStream(egg::test::resolvePath("missing")), Exception);
 }
 
 TEST(TestStreams, ByteStream) {
-  FileStream fs("~/cpp/data/utf-8-demo.txt");
+  FileStream fs(egg::test::resolvePath("cpp/data/utf-8-demo.txt"));
   ByteStream bs(fs, "utf-8-demo.txt");
   ASSERT_EQ("utf-8-demo.txt", bs.getResourceName());
   size_t size = 0;
@@ -32,7 +32,7 @@ TEST(TestStreams, ByteStream) {
 }
 
 TEST(TestByteStream, FileByteStream) {
-  FileByteStream fbs("~/cpp/data/utf-8-demo.txt");
+  FileByteStream fbs(egg::test::resolvePath("cpp/data/utf-8-demo.txt"));
   ASSERT_ENDSWITH(fbs.getResourceName(), "utf-8-demo.txt");
   size_t size = 0;
   for (auto ch = fbs.get(); ch >= 0; ch = fbs.get()) {
@@ -43,7 +43,7 @@ TEST(TestByteStream, FileByteStream) {
 }
 
 TEST(TestByteStream, FileByteStreamMissing) {
-  ASSERT_THROW(FileByteStream("~/missing"), Exception);
+  ASSERT_THROW(FileByteStream(egg::test::resolvePath("missing")), Exception);
 }
 
 TEST(TestByteStream, StringByteStream) {
@@ -57,7 +57,7 @@ TEST(TestByteStream, StringByteStream) {
 }
 
 TEST(TestStreams, FileCharStream) {
-  FileCharStream fcs("~/cpp/data/utf-8-demo.txt");
+  FileCharStream fcs(egg::test::resolvePath("cpp/data/utf-8-demo.txt"));
   ASSERT_ENDSWITH(fcs.getResourceName(), "utf-8-demo.txt");
   size_t size = 0;
   for (auto ch = fcs.get(); ch >= 0; ch = fcs.get()) {
@@ -69,7 +69,7 @@ TEST(TestStreams, FileCharStream) {
 }
 
 TEST(TestStreams, FileCharStreamWithBOM) {
-  FileCharStream fcs("~/cpp/data/utf-8-demo.bom.txt");
+  FileCharStream fcs(egg::test::resolvePath("cpp/data/utf-8-demo.bom.txt"));
   ASSERT_ENDSWITH(fcs.getResourceName(), "utf-8-demo.bom.txt");
   size_t size = 0;
   for (auto ch = fcs.get(); ch >= 0; ch = fcs.get()) {
@@ -101,7 +101,7 @@ TEST(TestStreams, StringCharStreamBad) {
 }
 
 TEST(TestStreams, FileTextStream) {
-  FileTextStream fts("~/cpp/data/utf-8-demo.txt");
+  FileTextStream fts(egg::test::resolvePath("cpp/data/utf-8-demo.txt"));
   ASSERT_ENDSWITH(fts.getResourceName(), "utf-8-demo.txt");
   size_t size = 0;
   for (auto ch = fts.get(); ch >= 0; ch = fts.get()) {
@@ -141,8 +141,8 @@ TEST(TestStreams, StringTextStream) {
   ASSERT_EQ(-1, sts.get());
 }
 
-static size_t lastLine(const std::string& path) {
-  FileTextStream fts(path);
+static size_t lastLine(const std::string& devpath) {
+  FileTextStream fts(egg::test::resolvePath(devpath));
   while (fts.get() >= 0) {
     // Slurp the whole file
   }
@@ -150,13 +150,13 @@ static size_t lastLine(const std::string& path) {
 }
 
 TEST(TestStreams, FileTextStreamLastLine) {
-  ASSERT_EQ(213u, lastLine("~/cpp/data/utf-8-demo.txt"));
-  ASSERT_EQ(213u, lastLine("~/cpp/data/utf-8-demo.cr.txt"));
-  ASSERT_EQ(213u, lastLine("~/cpp/data/utf-8-demo.lf.txt"));
+  ASSERT_EQ(213u, lastLine("cpp/data/utf-8-demo.txt"));
+  ASSERT_EQ(213u, lastLine("cpp/data/utf-8-demo.cr.txt"));
+  ASSERT_EQ(213u, lastLine("cpp/data/utf-8-demo.lf.txt"));
 }
 
 TEST(TestStreams, FileTextStreamPeek) {
-  FileTextStream fts("~/cpp/data/utf-8-demo.txt");
+  FileTextStream fts(egg::test::resolvePath("cpp/data/utf-8-demo.txt"));
   ASSERT_EQ('\r', fts.peek());
   ASSERT_EQ('\n', fts.peek(1));
   ASSERT_EQ('U', fts.peek(2));
@@ -166,8 +166,8 @@ TEST(TestStreams, FileTextStreamPeek) {
   ASSERT_EQ('8', fts.peek(6));
 }
 
-static void readLines(const std::string& path) {
-  FileTextStream fts(path);
+static void readLines(const std::string& devpath) {
+  FileTextStream fts(egg::test::resolvePath(devpath));
   ASSERT_EQ(1u, fts.getCurrentLine());
   std::u32string text;
   size_t line;
@@ -178,62 +178,62 @@ static void readLines(const std::string& path) {
 }
 
 TEST(TestStreams, FileTextStreamReadLine) {
-  readLines("~/cpp/data/utf-8-demo.txt");
-  readLines("~/cpp/data/utf-8-demo.bom.txt");
-  readLines("~/cpp/data/utf-8-demo.cr.txt");
-  readLines("~/cpp/data/utf-8-demo.lf.txt");
+  readLines("cpp/data/utf-8-demo.txt");
+  readLines("cpp/data/utf-8-demo.bom.txt");
+  readLines("cpp/data/utf-8-demo.cr.txt");
+  readLines("cpp/data/utf-8-demo.lf.txt");
 }
 
 TEST(TestStreams, FileTextStreamSlurp) {
   std::string slurped;
-  FileTextStream("~/cpp/data/utf-8-demo.txt").slurp(slurped);
+  FileTextStream(egg::test::resolvePath("cpp/data/utf-8-demo.txt")).slurp(slurped);
   ASSERT_EQ(14270u, slurped.size());
   slurped.clear();
-  FileTextStream("~/cpp/data/utf-8-demo.bom.txt").slurp(slurped);
+  FileTextStream(egg::test::resolvePath("cpp/data/utf-8-demo.bom.txt")).slurp(slurped);
   ASSERT_EQ(14270u, slurped.size());
   slurped.clear();
-  FileTextStream("~/cpp/data/utf-8-demo.cr.txt").slurp(slurped);
+  FileTextStream(egg::test::resolvePath("cpp/data/utf-8-demo.cr.txt")).slurp(slurped);
   ASSERT_EQ(14058u, slurped.size());
   slurped.clear();
-  FileTextStream("~/cpp/data/utf-8-demo.lf.txt").slurp(slurped);
+  FileTextStream(egg::test::resolvePath("cpp/data/utf-8-demo.lf.txt")).slurp(slurped);
   ASSERT_EQ(14058u, slurped.size());
   slurped.clear();
-  FileTextStream("~/cpp/data/utf-8-demo.txt").slurp(slurped, '\n');
+  FileTextStream(egg::test::resolvePath("cpp/data/utf-8-demo.txt")).slurp(slurped, '\n');
   ASSERT_EQ(14058u, slurped.size());
   slurped.clear();
-  FileTextStream("~/cpp/data/utf-8-demo.bom.txt").slurp(slurped, '\n');
+  FileTextStream(egg::test::resolvePath("cpp/data/utf-8-demo.bom.txt")).slurp(slurped, '\n');
   ASSERT_EQ(14058u, slurped.size());
   slurped.clear();
-  FileTextStream("~/cpp/data/utf-8-demo.cr.txt").slurp(slurped, '\n');
+  FileTextStream(egg::test::resolvePath("cpp/data/utf-8-demo.cr.txt")).slurp(slurped, '\n');
   ASSERT_EQ(14058u, slurped.size());
   slurped.clear();
-  FileTextStream("~/cpp/data/utf-8-demo.lf.txt").slurp(slurped, '\n');
+  FileTextStream(egg::test::resolvePath("cpp/data/utf-8-demo.lf.txt")).slurp(slurped, '\n');
   ASSERT_EQ(14058u, slurped.size());
 }
 
 TEST(TestStreams, FileTextStreamSlurp32) {
   std::u32string slurped;
-  FileTextStream("~/cpp/data/utf-8-demo.txt").slurp(slurped);
+  FileTextStream(egg::test::resolvePath("cpp/data/utf-8-demo.txt")).slurp(slurped);
   ASSERT_EQ(7839u, slurped.size());
   slurped.clear();
-  FileTextStream("~/cpp/data/utf-8-demo.bom.txt").slurp(slurped);
+  FileTextStream(egg::test::resolvePath("cpp/data/utf-8-demo.bom.txt")).slurp(slurped);
   ASSERT_EQ(7839u, slurped.size());
   slurped.clear();
-  FileTextStream("~/cpp/data/utf-8-demo.cr.txt").slurp(slurped);
+  FileTextStream(egg::test::resolvePath("cpp/data/utf-8-demo.cr.txt")).slurp(slurped);
   ASSERT_EQ(7627u, slurped.size());
   slurped.clear();
-  FileTextStream("~/cpp/data/utf-8-demo.lf.txt").slurp(slurped);
+  FileTextStream(egg::test::resolvePath("cpp/data/utf-8-demo.lf.txt")).slurp(slurped);
   ASSERT_EQ(7627u, slurped.size());
   slurped.clear();
-  FileTextStream("~/cpp/data/utf-8-demo.txt").slurp(slurped, '\n');
+  FileTextStream(egg::test::resolvePath("cpp/data/utf-8-demo.txt")).slurp(slurped, '\n');
   ASSERT_EQ(7627u, slurped.size());
   slurped.clear();
-  FileTextStream("~/cpp/data/utf-8-demo.bom.txt").slurp(slurped, '\n');
+  FileTextStream(egg::test::resolvePath("cpp/data/utf-8-demo.bom.txt")).slurp(slurped, '\n');
   ASSERT_EQ(7627u, slurped.size());
   slurped.clear();
-  FileTextStream("~/cpp/data/utf-8-demo.cr.txt").slurp(slurped, '\n');
+  FileTextStream(egg::test::resolvePath("cpp/data/utf-8-demo.cr.txt")).slurp(slurped, '\n');
   ASSERT_EQ(7627u, slurped.size());
   slurped.clear();
-  FileTextStream("~/cpp/data/utf-8-demo.lf.txt").slurp(slurped, '\n');
+  FileTextStream(egg::test::resolvePath("cpp/data/utf-8-demo.lf.txt")).slurp(slurped, '\n');
   ASSERT_EQ(7627u, slurped.size());
 }

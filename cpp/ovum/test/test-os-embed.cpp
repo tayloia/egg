@@ -96,8 +96,8 @@ TEST(TestOS_Embed, UpdateResourceFromFile) {
   auto resource = egg::ovum::os::embed::findResourceByName(cloned, "PROGBITS", "JABBERWOCKY");
   ASSERT_EQ(nullptr, resource);
 
-  auto datapath = egg::ovum::File::resolvePath("~/cpp/data/jabberwocky.txt");
-  auto datasize = egg::ovum::os::embed::updateResourceFromFile(cloned, "PROGBITS", "JABBERWOCKY", datapath);
+  auto datapath = egg::test::resolvePath("cpp/data/jabberwocky.txt");
+  auto datasize = egg::ovum::os::embed::updateResourceFromFile(cloned, "PROGBITS", "JABBERWOCKY", datapath.string());
   ASSERT_EQ(1008u, datasize);
 
   resource = egg::ovum::os::embed::findResourceByName(cloned, "PROGBITS", "JABBERWOCKY");

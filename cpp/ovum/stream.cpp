@@ -97,10 +97,6 @@ bool egg::ovum::CharStream::rewind() {
   return this->bytes.rewind();
 }
 
-egg::ovum::FileStream::FileStream(const std::string& path, ios_base::openmode mode)
-  : FileStream(path, File::resolvePath(path), mode) {
-}
-
 bool egg::ovum::TextStream::ensure(size_t count) {
   int ch = 0;
   if (this->upcoming.empty()) {

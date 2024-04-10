@@ -10,7 +10,7 @@ namespace {
   public:
     static void run(const std::string& resource) {
       // Actually perform the testing
-      FileTextStream stream(resource);
+      FileTextStream stream(egg::test::resolvePath(resource));
       auto actual = TestScript::execute(stream);
       ASSERT_TRUE(stream.rewind());
       auto expected = TestScript::expectation(stream);
@@ -52,14 +52,14 @@ namespace {
 
   class TestScripts : public ::testing::TestWithParam<std::string> {
   private:
-    static const std::string directory;
-    static const size_t lbound = 1;
-    static const size_t ubound = 82; // Set to zero to perform directory search
+    inline static const std::filesystem::path directory = "cpp/yolk/test/scripts";
+    inline static const size_t lbound = 1;
+    inline static const size_t ubound = 82; // Set to zero to perform directory search
   public:
     void run() {
       // Actually perform the testing
       std::string script = this->GetParam();
-      auto resource = TestScripts::directory + "/" + script;
+      auto resource = TestScripts::directory.generic_string() + '/' + script;
       TestScript::run(resource);
     }
     static ::testing::internal::ParamGenerator<std::string> generator() {
@@ -118,8 +118,8 @@ namespace {
       // Find all the scripts
       auto results = File::readDirectory(TestScripts::directory);
       auto predicate = [](const std::string& path) {
-        return File::getKind(TestScripts::directory + "/" + path) != File::Kind::File;
-        };
+        return File::getKind(TestScripts::directory / path) != File::Kind::File;
+      };
       results.erase(std::remove_if(results.begin(), results.end(), predicate), results.end());
       if (results.empty()) {
         // Push a dummy entry so that problems with script discovery don't just skip all the tests
@@ -138,16 +138,14 @@ namespace {
       return results;
     }
   };
-
-  const std::string TestScripts::directory = "~/cpp/yolk/test/scripts";
 }
 
 TEST(TestScript, Working) {
-  TestScript::run("~/cpp/data/working.egg");
+  TestScript::run("cpp/data/working.egg");
 }
 
 TEST(TestScript, Coverage) {
-  TestScript::run("~/cpp/data/coverage.egg");
+  TestScript::run("cpp/data/coverage.egg");
 }
 
 TEST_P(TestScripts, Run) {

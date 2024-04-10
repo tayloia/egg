@@ -9,8 +9,8 @@ namespace {
     auto lexer = LexerFactory::createFromString(text);
     return EggTokenizerFactory::createFromLexer(allocator, lexer);
   }
-  std::shared_ptr<IEggTokenizer> createFromPath(IAllocator& allocator, const std::string& path) {
-    auto lexer = LexerFactory::createFromPath(path);
+  std::shared_ptr<IEggTokenizer> createFromPath(IAllocator& allocator, const std::string& devpath) {
+    auto lexer = LexerFactory::createFromPath(egg::test::resolvePath(devpath));
     return EggTokenizerFactory::createFromLexer(allocator, lexer);
   }
 }
@@ -240,7 +240,7 @@ TEST(TestEggTokenizer, Vexatious) {
 
 TEST(TestEggTokenizer, ExampleFile) {
   egg::test::Allocator allocator;
-  auto tokenizer = createFromPath(allocator, "~/cpp/data/example.egg");
+  auto tokenizer = createFromPath(allocator, "cpp/data/example.egg");
   size_t count = 0;
   EggTokenizerItem item;
   while (tokenizer->next(item) != EggTokenizerKind::EndOfFile) {

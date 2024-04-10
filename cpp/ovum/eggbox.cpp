@@ -200,7 +200,7 @@ size_t egg::ovum::EggboxFactory::createZipFileFromDirectory(const std::string& z
 std::shared_ptr<egg::ovum::IEggbox> egg::ovum::EggboxFactory::openDefault() {
   // WIBBLE
   auto executable = os::file::getExecutablePath();
-  return EggboxFactory::openEmbedded(executable, EggboxFactory::EGGBOX);
+  return EggboxFactory::openEmbedded(executable);
 }
 
 std::shared_ptr<egg::ovum::IEggbox> egg::ovum::EggboxFactory::openDirectory(const std::string& path) {

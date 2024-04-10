@@ -1,4 +1,5 @@
 #include "ovum/test.h"
+#include "ovum/os-file.h"
 
 // Reduce the warning level in MSVC
 #if EGG_PLATFORM == EGG_PLATFORM_MSVC
@@ -34,6 +35,11 @@ int egg::test::main(int argc, char** argv) {
   // If you see '!! This test has probably CRASHED !!' when not debugging set the following to 'false'
   testing::GTEST_FLAG(break_on_failure) = false;
   return RUN_ALL_TESTS();
+}
+
+std::filesystem::path egg::test::resolvePath(const std::string& path) {
+  // Resolve a file path in normalized form
+  return egg::ovum::os::file::denormalizePath(egg::ovum::os::file::getDevelopmentDirectory() + path, false);
 }
 
 ::testing::AssertionResult egg::test::assertContains(const char* haystack_expr, const char* needle_expr, const std::string& haystack, const std::string& needle) {

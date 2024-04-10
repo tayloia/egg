@@ -9,8 +9,8 @@ namespace {
     auto lexer = LexerFactory::createFromString(text);
     return JsonTokenizerFactory::createFromLexer(lexer);
   }
-  std::shared_ptr<IJsonTokenizer> createFromPath(const std::string& path) {
-    auto lexer = LexerFactory::createFromPath(path);
+  std::shared_ptr<IJsonTokenizer> createFromPath(const std::string& devpath) {
+    auto lexer = LexerFactory::createFromPath(egg::test::resolvePath(devpath));
     return JsonTokenizerFactory::createFromLexer(lexer);
   }
 }
@@ -211,7 +211,7 @@ TEST(TestJsonTokenizer, OperatorBad) {
 TEST(TestJsonTokenizer, ExampleFile) {
   // From https://en.wikipedia.org/wiki/JSON#JSON_sample
   JsonTokenizerItem item;
-  auto tokenizer = createFromPath("~/cpp/data/example.json");
+  auto tokenizer = createFromPath("cpp/data/example.json");
   size_t count = 0;
   while (tokenizer->next(item) != JsonTokenizerKind::EndOfFile) {
     count++;

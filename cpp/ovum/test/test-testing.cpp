@@ -1,4 +1,5 @@
 #include "ovum/test.h"
+#include "ovum/os-file.h"
 
 TEST(TestTesting, Empty) {
 }
@@ -74,6 +75,15 @@ TEST(TestTesting, Print) {
   egg::ovum::HardValue inner{ egg::ovum::ValueFactory::createStringLiteral(allocator, "message") };
   egg::ovum::HardValue outer{ egg::ovum::ValueFactory::createHardThrow(allocator, inner) };
   ASSERT_PRINT("message", outer);
+}
+
+TEST(TestTesting, ResolvePath) {
+  auto resolved = egg::test::resolvePath("path/to/file").string();
+  if (egg::ovum::os::file::slash() == '\\') {
+    ASSERT_ENDSWITH(resolved, "\\path\\to\\file");
+  } else {
+    ASSERT_ENDSWITH(resolved, "/path/to/file");
+  }
 }
 
 TEST(TestTesting, Logger) {

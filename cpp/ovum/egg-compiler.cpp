@@ -3064,13 +3064,13 @@ HardPtr<IVMProgram> egg::ovum::EggCompilerFactory::compileFromStream(IVM& vm, Te
   return nullptr;
 }
 
-HardPtr<IVMProgram> egg::ovum::EggCompilerFactory::compileFromPath(IVM& vm, const std::string& path, bool swallowBOM) {
-  FileTextStream stream{ path, swallowBOM };
+HardPtr<IVMProgram> egg::ovum::EggCompilerFactory::compileFromPath(IVM& vm, const std::filesystem::path& script, bool swallowBOM) {
+  FileTextStream stream{ script, swallowBOM };
   return EggCompilerFactory::compileFromStream(vm, stream);
 }
 
-HardPtr<IVMProgram> egg::ovum::EggCompilerFactory::compileFromText(IVM& vm, const std::string& text, const std::string& resource) {
-  StringTextStream stream{ text, resource };
+HardPtr<IVMProgram> egg::ovum::EggCompilerFactory::compileFromText(IVM& vm, const std::string& script, const std::string& resource) {
+  StringTextStream stream{ script, resource };
   return EggCompilerFactory::compileFromStream(vm, stream);
 }
 
