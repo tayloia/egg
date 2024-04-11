@@ -6,18 +6,10 @@
 
 #include <fstream>
 
-std::string egg::ovum::File::normalizePath(const std::string& path, bool trailingSlash) {
-  return os::file::normalizePath(path, trailingSlash);
-}
-
-std::string egg::ovum::File::denormalizePath(const std::string& path, bool trailingSlash) {
-  return os::file::denormalizePath(path, trailingSlash);
-}
-
 std::unique_ptr<egg::ovum::TextStream> egg::ovum::File::resolveTextStream(const std::string& path) {
   // Resolve a file text stream
   // TODO: support eggbox
-  auto resolved = File::denormalizePath(path);
+  auto resolved = os::file::denormalizePath(path, false);
   return std::make_unique<FileTextStream>(resolved);
 }
 

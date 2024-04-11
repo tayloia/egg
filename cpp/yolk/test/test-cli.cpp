@@ -24,7 +24,7 @@ namespace {
       std::string needle{ "/egg-test." };
       replaceFirst(exe, needle, "/egg.");
     }
-    return egg::ovum::os::file::denormalizePath(exe, false);
+    return exe;
   }
   std::string spawn(const std::string& arguments) {
     std::stringstream ss;
