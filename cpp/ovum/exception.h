@@ -11,6 +11,10 @@ namespace egg::ovum {
       this->emplace(key, value);
       return *this;
     }
+    Exception& populate(const std::function<void(Exception&)>& populator) {
+      populator(*this);
+      return *this;
+    }
     const std::string& get(const std::string& key) const {
       auto found = this->find(key);
       if (found != this->end()) {

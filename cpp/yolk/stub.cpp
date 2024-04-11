@@ -490,7 +490,7 @@ namespace {
     IEggbox& getEggbox() {
       if (this->configuration.eggbox == nullptr) {
         assert(this->ueggbox == nullptr);
-        this->ueggbox = egg::ovum::EggboxFactory::openDefault();
+        this->ueggbox = egg::ovum::EggboxFactory::createDefault();
         this->configuration.eggbox = this->ueggbox.get();
       }
       return *this->configuration.eggbox;

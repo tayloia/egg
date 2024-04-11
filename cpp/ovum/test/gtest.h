@@ -56,7 +56,7 @@ namespace egg::test {
     return holder->AddTestSuiteInstantiation("", &T::generator, &T::name, file, line);
   }
 
-  std::filesystem::path resolvePath(const std::string& devpath);
+  std::filesystem::path resolvePath(const std::filesystem::path& devpath);
 }
 
 // The following is almost the same as

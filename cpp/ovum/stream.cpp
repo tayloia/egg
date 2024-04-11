@@ -51,14 +51,6 @@ namespace {
     }
     throw egg::ovum::Exception("Invalid UTF-8 encoding (bad lead byte): '{resource}'").with("resource", stream.getResourceName());
   }
-
-  std::shared_ptr<IEggboxFileEntry> makeEggboxFileEntry(IEggbox& eggbox, const std::string& subpath) {
-    auto entry = eggbox.findFileEntryBySubpath(subpath);
-    if (entry == nullptr) {
-      throw Exception("Entry not found in eggbox: '{entry}'").with("entry", subpath).with("eggbox", eggbox.getResourcePath(nullptr));
-    }
-    return entry;
-  }
 }
 
 EggboxByteStream::EggboxByteStream(const std::string& resource, std::shared_ptr<IEggboxFileEntry>&& entry)
@@ -68,7 +60,7 @@ EggboxByteStream::EggboxByteStream(const std::string& resource, std::shared_ptr<
 }
 
 EggboxByteStream::EggboxByteStream(IEggbox& eggbox, const std::string& subpath)
-  : EggboxByteStream(eggbox.getResourcePath(&subpath), makeEggboxFileEntry(eggbox, subpath)) {
+  : EggboxByteStream(eggbox.getResourcePath(&subpath), eggbox.getFileEntry(subpath)) {
 }
 
 EggboxByteStream::~EggboxByteStream() {

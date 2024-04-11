@@ -1,3 +1,7 @@
+namespace egg::ovum {
+  class IEggbox;
+}
+
 namespace egg::test {
   class Allocator final : public egg::ovum::AllocatorDefault {
     Allocator(const Allocator&) = delete;
@@ -147,6 +151,11 @@ namespace egg::test {
       }
       return true;
     }
+  };
+
+  class Eggbox {
+  public:
+    static std::shared_ptr<egg::ovum::IEggbox> createTest(const std::filesystem::path& subdir = "box");
   };
 
   inline ::testing::AssertionResult assertValueEQ(const char* lhs_expression, const char* rhs_expression, const egg::ovum::HardValue& lhs, const egg::ovum::HardValue& rhs) {

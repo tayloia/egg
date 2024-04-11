@@ -54,23 +54,17 @@ namespace {
       : root(root) {
     }
     virtual std::string getResourcePath(const std::string* subpath) override {
-      std::filesystem::path full{ this->root };
       if (subpath != nullptr) {
-        full /= os::file::denormalizePath(*subpath, false);
+        return os::file::normalizePath(this->root.string(), true) + *subpath;
       }
-      return os::file::normalizePath(full.string(), false);
+      return os::file::normalizePath(this->root.string(), true);
+    }
+    virtual size_t getFileEntryCount() override {
+      this->ensureChildren();
+      return this->children.size();
     }
     virtual std::shared_ptr<IEggboxFileEntry> findFileEntryByIndex(size_t index) override {
-      if (this->children.empty()) {
-        // Use a set to sort the paths
-        std::set<std::filesystem::path> found;
-        for (auto& entry : std::filesystem::recursive_directory_iterator(this->root)) {
-          if (entry.is_regular_file()) {
-            found.insert(std::filesystem::relative(entry.path(), this->root));
-          }
-        }
-        std::copy(found.begin(), found.end(), std::back_inserter(this->children));
-      }
+      this->ensureChildren();
       if (index < this->children.size()) {
         return FileEntry::make(this->root, this->children[index]);
       }
@@ -83,6 +77,29 @@ namespace {
         return FileEntry::make(this->root, sub);
       }
       return nullptr;
+    }
+    virtual std::shared_ptr<IEggboxFileEntry> getFileEntry(const std::string& subpath) override {
+      auto entry = this->findFileEntryBySubpath(subpath);
+      if (entry == nullptr) {
+        throw Exception("Entry not found in eggbox: '{entry}'")
+          .with("entry", subpath)
+          .with("eggbox", this->getResourcePath(nullptr))
+          .with("native", (this->root / subpath).string());
+      }
+      return entry;
+    }
+  private:
+    void ensureChildren() {
+      if (this->children.empty()) {
+        // Use a set to sort the paths
+        std::set<std::filesystem::path> found;
+        for (auto& entry : std::filesystem::recursive_directory_iterator(this->root)) {
+          if (entry.is_regular_file()) {
+            found.insert(std::filesystem::relative(entry.path(), this->root));
+          }
+        }
+        std::copy(found.begin(), found.end(), std::back_inserter(this->children));
+      }
     }
   };
 
@@ -135,11 +152,89 @@ namespace {
       }
       return this->resource;
     }
+    virtual size_t getFileEntryCount() override {
+      return this->reader->getFileEntryCount();
+    }
     virtual std::shared_ptr<IEggboxFileEntry> findFileEntryByIndex(size_t index) override {
       return FileEntry::make(this->reader->findFileEntryByIndex(index));
     }
     virtual std::shared_ptr<IEggboxFileEntry> findFileEntryBySubpath(const std::string& subpath) override {
       return FileEntry::make(this->reader->findFileEntryBySubpath(subpath));
+    }
+    virtual std::shared_ptr<IEggboxFileEntry> getFileEntry(const std::string& subpath) override {
+      auto entry = this->reader->findFileEntryBySubpath(subpath);
+      if (entry == nullptr) {
+        throw Exception("Entry not found in eggbox: '{entry}'")
+          .with("entry", subpath)
+          .with("eggbox", this->getResourcePath(nullptr));
+      }
+      return FileEntry::make(std::move(entry));
+    }
+  };
+
+  class EggboxChain : public IEggboxChain {
+    EggboxChain(const EggboxChain&) = delete;
+    EggboxChain& operator=(const EggboxChain&) = delete;
+  private:
+    struct Entry {
+      IEggbox* eggbox;
+      std::shared_ptr<IEggboxFileEntry> file;
+    };
+    std::map<std::string, Entry> entries;
+    std::vector<std::shared_ptr<IEggbox>> subboxes;
+  public:
+    EggboxChain() {
+    }
+    virtual std::string getResourcePath(const std::string* subpath) override {
+      if (subpath == nullptr) {
+        return "~";
+      }
+      auto found = this->entries.find(*subpath);
+      if (found == this->entries.end()) {
+        return "~/" + *subpath;
+      }
+      return found->second.eggbox->getResourcePath(subpath);
+    }
+    virtual size_t getFileEntryCount() override {
+      return this->entries.size();
+    }
+    virtual std::shared_ptr<IEggboxFileEntry> findFileEntryByIndex(size_t index) override {
+      if (index < this->entries.size()) {
+        auto i = this->entries.begin();
+        std::advance(i, index);
+        return i->second.file;
+      }
+      return nullptr;
+    }
+    virtual std::shared_ptr<IEggboxFileEntry> findFileEntryBySubpath(const std::string& subpath) override {
+      auto found = this->entries.find(subpath);
+      if (found == this->entries.end()) {
+        return nullptr;
+      }
+      return found->second.file;
+    }
+    virtual std::shared_ptr<IEggboxFileEntry> getFileEntry(const std::string& subpath) override {
+      auto found = this->entries.find(subpath);
+      if (found == this->entries.end()) {
+        throw Exception("Entry not found in eggbox: '{entry}'")
+          .with("entry", subpath)
+          .populate([this](Exception& exception) {
+            size_t index = 0;
+            for (auto& eggbox : this->subboxes) {
+              exception.emplace("eggbox" + std::to_string(++index), eggbox->getResourcePath(nullptr));
+            }
+          });
+      }
+      return found->second.file;
+    }
+    virtual IEggboxChain& with(const std::shared_ptr<IEggbox>& subbox) override {
+      this->subboxes.push_back(subbox);
+      auto found = subbox->findFileEntryByIndex(0);
+      for (size_t index = 0; found != nullptr; ++index) {
+        this->entries.emplace(found->getSubpath(), Entry{ subbox.get(), found});
+        found = subbox->findFileEntryByIndex(index);
+      }
+      return *this;
     }
   };
 
@@ -195,12 +290,6 @@ size_t egg::ovum::EggboxFactory::createZipFileFromDirectory(const std::filesyste
   return entries;
 }
 
-std::shared_ptr<egg::ovum::IEggbox> egg::ovum::EggboxFactory::openDefault() {
-  // WIBBLE
-  auto executable = os::file::getExecutablePath();
-  return EggboxFactory::openEmbedded(executable);
-}
-
 std::shared_ptr<egg::ovum::IEggbox> egg::ovum::EggboxFactory::openDirectory(const std::filesystem::path& path) {
   auto full = std::filesystem::absolute(path);
   auto status = std::filesystem::status(full);
@@ -246,3 +335,15 @@ std::shared_ptr<egg::ovum::IEggbox> egg::ovum::EggboxFactory::openEmbedded(const
   auto reader = os::zip::openReadStream(stream);
   return std::make_shared<EggboxZip>(reader, executable.generic_string() + "//~" + label);
 }
+
+std::shared_ptr<egg::ovum::IEggboxChain> egg::ovum::EggboxFactory::createChain() {
+  return std::make_shared<EggboxChain>();
+}
+
+std::shared_ptr<egg::ovum::IEggboxChain> egg::ovum::EggboxFactory::createDefault() {
+  auto chain = EggboxFactory::createChain();
+  assert(chain != nullptr);
+  chain->with(EggboxFactory::openEmbedded(os::file::getExecutablePath()));
+  return chain;
+}
+

@@ -120,7 +120,7 @@ $(OBJ_DIR)/cpp/ovum/version.%: CXXFLAGS += -DEGG_COMMIT=\"$(shell git rev-parse 
 $(ALL_OBJS): Makefile | $(ALL_DIRS)
 
 # Testsuite dependencies
-$(TEST_EXE): $(EGG_OBJS) $(TEST_OBJS) | $(STUB_EXE)
+$(TEST_EXE): $(EGG_OBJS) $(TEST_OBJS) | $(STUB_EXE) $(EGG_EXE)
 
 # Command-line dependencies
 $(STUB_EXE): $(EGG_OBJS) $(STUB_OBJS)
