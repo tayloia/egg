@@ -6,13 +6,6 @@
 
 #include <fstream>
 
-std::unique_ptr<egg::ovum::TextStream> egg::ovum::File::resolveTextStream(const std::string& path) {
-  // Resolve a file text stream
-  // TODO: support eggbox
-  auto resolved = os::file::denormalizePath(path, false);
-  return std::make_unique<FileTextStream>(resolved);
-}
-
 std::vector<std::string> egg::ovum::File::readDirectory(const std::filesystem::path& path) {
   // Read the directory entries
   std::vector<std::string> filenames;

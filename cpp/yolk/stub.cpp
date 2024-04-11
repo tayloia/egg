@@ -101,7 +101,7 @@ namespace {
     struct Configuration {
       IAllocator* allocator = nullptr;
       ILogger* logger = nullptr;
-      IEggbox* eggbox = nullptr;
+      std::shared_ptr<IEggbox> eggbox = nullptr;
       Severity loglevel = Configuration::makeLogLevelMask(Severity::Information);
       bool profileAllocator = false;
       bool profileMemory = false;
@@ -123,7 +123,6 @@ namespace {
     std::vector<size_t> breadcrumbs;
     Configuration configuration;
     AllocatorDefault uallocator;
-    std::shared_ptr<IEggbox> ueggbox;
   public:
     Stub() {
     }
@@ -177,8 +176,8 @@ namespace {
       this->configuration.logger = &target;
       return *this;
     }
-    virtual IStub& withEggbox(IEggbox& target) override {
-      this->configuration.eggbox = &target;
+    virtual IStub& withEggbox(const std::shared_ptr<IEggbox>& target) override {
+      this->configuration.eggbox = target;
       return *this;
     }
     virtual IStub& withArgument(const std::string& argument) override {
@@ -453,17 +452,13 @@ namespace {
       auto parser = this->makeOptionParser()
         .withExtraneousArguments(OptionParser::Occurrences::One);
       auto suboptions = parser.parse();
-      auto stream = File::resolveTextStream(suboptions.extraneous()[0]);
-      return this->runScript(*stream);
+      return this->runEggboxScript(suboptions.extraneous()[0]);
     }
     ExitCode cmdSmokeTest() {
       // egg smoke-test
-      // NOTE: We force using the script from the eggbox
       auto parser = this->makeOptionParser();
       auto suboptions = parser.parse();
-      auto& eggbox = this->getEggbox();
-      EggboxTextStream stream{ eggbox, "command/smoke-test.egg" };
-      return this->runScript(stream);
+      return this->runEggboxScript("command/smoke-test.egg");
     }
     ExitCode cmdVersion() {
       STUB_LOG(Information) << "egg v" << Version();
@@ -489,11 +484,13 @@ namespace {
     }
     IEggbox& getEggbox() {
       if (this->configuration.eggbox == nullptr) {
-        assert(this->ueggbox == nullptr);
-        this->ueggbox = egg::ovum::EggboxFactory::createDefault();
-        this->configuration.eggbox = this->ueggbox.get();
+        this->configuration.eggbox = egg::ovum::EggboxFactory::createDefault();
       }
       return *this->configuration.eggbox;
+    }
+    ExitCode runEggboxScript(const std::string& subpath) {
+      EggboxTextStream stream{ this->getEggbox(), subpath };
+      return this->runScript(stream);
     }
     ExitCode runScript(TextStream& stream) {
       auto engine = this->makeEngine();

@@ -68,6 +68,10 @@
       </AdditionalInputs>
     </CustomBuild>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\box\command\debug.egg" />
+    <None Include="..\..\box\command\smoke-test.egg" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
     <ProjectGuid>{1F2B7D35-7C01-446A-B258-1D43A2224D9F}</ProjectGuid>

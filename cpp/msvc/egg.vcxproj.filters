@@ -4,6 +4,10 @@
     <Filter Include="Source Files">
       <UniqueIdentifier>{351ff443-d9dd-4ce8-bd41-a5fff04ca486}</UniqueIdentifier>
     </Filter>
+    <Filter Include="command">
+      <UniqueIdentifier>{2a14f634-266e-40ae-8b1c-e29d28e606e0}</UniqueIdentifier>
+      <Extensions>$(EggRoot)box\command\*.egg</Extensions>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\stub\main.cpp">
@@ -11,6 +15,14 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\sandwich.cmd" />
+    <CustomBuild Include="..\..\sandwich.cmd" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\box\command\debug.egg">
+      <Filter>command</Filter>
+    </None>
+    <None Include="..\..\box\command\smoke-test.egg">
+      <Filter>command</Filter>
+    </None>
   </ItemGroup>
 </Project>

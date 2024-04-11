@@ -1,5 +1,6 @@
 #include "yolk/test.h"
 #include "yolk/stub.h"
+#include "ovum/eggbox.h"
 #include "ovum/version.h"
 
 namespace {
@@ -21,11 +22,14 @@ namespace {
       "Try 'executable help' for more information\n";
     egg::test::Allocator allocator;
     egg::test::Logger logger;
+    std::shared_ptr<egg::ovum::IEggbox> eggbox;
     std::unique_ptr<egg::yolk::IStub> stub;
     explicit Stub(std::initializer_list<std::string> argv)
-      : stub(egg::yolk::IStub::make()) {
+      : eggbox(egg::test::Eggbox::createTest()),
+        stub(egg::yolk::IStub::make()) {
       this->stub->withAllocator(this->allocator);
       this->stub->withLogger(this->logger);
+      this->stub->withEggbox(egg::test::Eggbox::createTest());
       this->stub->withBuiltins();
       for (const auto& arg : argv) {
         this->stub->withArgument(arg);
@@ -167,4 +171,10 @@ TEST(TestStub, ProfileAll) {
   ASSERT_CONTAINS(logged, "\n<COMMAND><INFORMATION>profile: time: ");
   ASSERT_CONTAINS(logged, "\n<COMMAND><INFORMATION>profile: memory: ");
   ASSERT_CONTAINS(logged, "\n<COMMAND><INFORMATION>profile: allocator: ");
+}
+
+TEST(TestStub, RunCommandDebug) {
+  Stub stub{ "/path/to/executable.exe", "run", "command/debug.egg" };
+  auto logged = stub.expect(egg::yolk::IStub::ExitCode::OK);
+  ASSERT_EQ("WIBBLE", logged);
 }
