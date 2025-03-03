@@ -1,0 +1,10 @@
+int() f;
+type Class {
+  static int i = f();
+};
+int g() {
+  return Class.i;
+}
+f = g;
+print(g());
+///<RUNTIME><ERROR><RESOURCE>(6,10-14): Recursive type manifestation instantiation

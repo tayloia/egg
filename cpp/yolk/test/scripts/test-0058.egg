@@ -1,0 +1,10 @@
+int counter = 0;
+type Class {
+  static int f() {
+    ++counter;
+    return counter;
+  }
+};
+assert(Class.f() == 1);
+assert(Class.f() == 2);
+assert(Class.f() == 3);

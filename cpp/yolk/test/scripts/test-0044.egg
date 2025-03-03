@@ -1,0 +1,15 @@
+int? countdown(int* p) {
+  assert(type.of(p) == "int*");
+  var v = *p;
+  if (v > 0) {
+    --*p;
+    return v;
+  }
+  return null;
+}
+float counter = 5;
+while (var i = countdown(&counter)) {
+  assert(type.of(i) == "int");
+  print(i);
+}
+///<RUNTIME><ERROR><RESOURCE>(11,26-33): Type mismatch for parameter 'p': Expected 'int*', but instead got a value of type 'float*'

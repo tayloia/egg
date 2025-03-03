@@ -1,0 +1,284 @@
+{
+  // Empty block
+}
+{
+  // Arrays
+  var a = [0];
+  assert(a[0] == 0);
+  a[0] += 123;
+  assert(a[0] == 123);
+  assert(a.length == 1);
+}
+{
+  // Dictionaries
+  var d = { a: "hello" };
+  assert(d.a == "hello");
+  assert(d["a"] == "hello");
+}
+{
+  // Boolean operations
+  bool b = true;
+  assert(!b == false);
+  assert((b & false) == false);
+  assert((b | false) == true);
+  assert((b ^ false) == true);
+  assert((b && false) == false);
+  assert((b || false) == true);
+  assert((b & true) == true);
+  assert((b | true) == true);
+  assert((b ^ true) == false);
+  assert((b && true) == true);
+  assert((b || true) == true);
+}
+{
+  // Integer operations
+  int i = 240;
+  assert(i + 1 == 241);
+  assert(i - 1 == 239);
+  assert(i * 2 == 480);
+  assert(i / 2 == 120);
+  assert(i % 2 == 0);
+  assert(i < 241);
+  assert(i <= 240);
+  assert(i == 240);
+  assert(i != 239);
+  assert(i >= 240);
+  assert(i > 239);
+  assert((i & 63) == 48); // Java/C/C++ operator precedence
+  assert((i | 63) == 255);
+  assert((i ^ 63) == 207);
+  assert(i << 1 == 480);
+  assert(i >> 1 == 120);
+  assert(i >>> 1 == 120);
+  assert(i <| 100 == 100);
+  assert(i >| 100 == 240);
+  i = -1;
+  assert(-i == 1);
+  assert(~i == 0);
+}
+{
+  // Float operations
+  float f = 240;
+  assert(f + 1 == 241);
+  assert(f - 1 == 239);
+  assert(f * 2 == 480);
+  assert(f / 2 == 120);
+  assert(f % 2 == 0);
+  assert(f < 241);
+  assert(f <= 240);
+  assert(f == 240);
+  assert(f != 239);
+  assert(f >= 240);
+  assert(f > 239);
+  assert(f <| 100 == 100);
+  assert(f >| 100 == 240);
+}
+{
+  // Boolean modification
+  bool b = false;
+  b |= true;
+  assert(b == true);
+  b &= true;
+  assert(b == true);
+  b ^= true;
+  assert(b == false);
+  b ||= true;
+  assert(b == true);
+  b &&= true;
+  assert(b == true);
+}
+{
+  // Integer modification
+  int i = 0;
+  i += 10;
+  assert(i == 10);
+  i -= 20;
+  assert(i == -10);
+  i *= -2;
+  assert(i == 20);
+  i /= 3;
+  assert(i == 6);
+  i %= 5;
+  assert(i == 1);
+  i <<= 9;
+  assert(i == 512);
+  i >>= 3;
+  assert(i == 64);
+  i >>>= 2;
+  assert(i == 16);
+  i |= 15;
+  assert(i == 31);
+  i &= 49;
+  assert(i == 17);
+  i ^= 7;
+  assert(i == 22);
+  i <|= 20;
+  assert(i == 20);
+  i >|= 10;
+  assert(i == 20);
+}
+{
+  // Ternary operator
+  var i = 42;
+  var j = (i > 0) ? "positive" : -1;
+  assert(j == "positive");
+}
+{
+  // Void coalescing
+  int i;
+  i !!= 123;
+  assert(i == 123);
+  i !!= 456;
+  assert(i == 123);
+}
+{
+  // Null coalescing
+  int? i = 123;
+  assert((null ?? i) == 123);
+  assert((i ?? null) == 123);
+  assert((i ?? 456) == 123);
+  i ??= 456;
+  assert(i == 123);
+  i = null;
+  i ??= 456;
+  assert(i == 456);
+}
+{
+  // Test optional parts of a for-statement
+  int n = 0;
+  for (int i = 0; i < 10; ++i) {
+    ++n;
+  }
+  assert(n == 10);
+  int j = 0;
+  for (; j < 10; ++j) {
+    ++n;
+  }
+  assert(n == 20);
+  for (j = 0; ; ++j) {
+    if (j == 10) {
+      break;
+    }
+    ++n;
+  }
+  assert(n == 30);
+  for (; n < 40;) {
+    ++n;
+  }
+  assert(n == 40);
+  for (;;) {
+    if (n == 50) {
+      break;
+    }
+    ++n;
+  }
+  assert(n == 50);
+}
+{
+  // Test explicit types
+  bool b = false;
+  assert(type.of(b) == "bool");
+  int i = 123;
+  assert(type.of(i) == "int");
+  float f = 3.14159;
+  assert(type.of(f) == "float");
+  string s = "hello world";
+  assert(type.of(s) == "string");
+}
+{
+  // Test inferred types
+  var b = false;
+  assert(type.of(b) == "bool");
+  var i = 123;
+  assert(type.of(i) == "int");
+  var f = 3.14159;
+  assert(type.of(f) == "float");
+  var s = "hello world";
+  assert(type.of(s) == "string");
+}
+{
+  // Test guards
+  any a = 123;
+  if (int i = a) {
+    a = "first";
+  }
+  assert(a == "first");
+  if (int i = a) {
+    a = "second";
+  }
+  assert(a == "first");
+}
+{
+  // Test exceptions
+  string state = "before";
+  bool final = false;
+  try {
+    if (state == "before") {
+      throw "thrown";
+    }
+    assert(false);
+  } catch (any ex) {
+    assert(ex == "thrown");
+    state = "caught";
+  } finally {
+    final = true;
+  }
+  assert(state == "caught");
+  assert(final == true);
+}
+{
+  // Test switch
+  int state = 1;
+  switch (state) {
+  case 0:
+    continue;
+  case 1:
+    state = 2;
+    break;
+  default:
+    state = 0;
+    break;
+  }
+  assert(state == 2);
+}
+{
+  // Test while loop
+  int i = 0;
+  while (i < 10) {
+    i += 3;
+  }
+  assert(i == 12);
+}
+{
+  // Test do loop
+  int i = 0;
+  do {
+    i += 3;
+  } while (i < 10);
+  assert(i == 12);
+}
+{
+  // Test for loop
+  int i = 0;
+  for (var j = 0; j < 10; ++j) {
+    i += 3;
+  }
+  assert(i == 30);
+}
+{
+  // Test foreach loop
+  int i = 0;
+  for (var j : [3, 1, 4, 1, 5, 9]) {
+    i += j;
+  }
+  assert(i == 23);
+}
+{
+  // Test function definition
+  int f(int p) {
+    return p * p;
+  }
+  assert(f(3) == 9);
+}
+print("SUCCESS");
+///>SUCCESS

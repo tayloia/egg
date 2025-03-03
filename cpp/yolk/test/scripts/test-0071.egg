@@ -1,0 +1,3 @@
+int i;
+i[0] = 1;
+///<COMPILER><ERROR><RESOURCE>(2,1-8): Values of type 'int' do not support indexing

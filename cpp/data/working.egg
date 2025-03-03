@@ -1,0 +1,30 @@
+// 0 1 1 2 3 5 8 13 21 34 55
+int fibonacci(int n) {
+  if (n < 2) {
+    return n;
+  }
+  return fibonacci(n - 1) + fibonacci(n - 2);
+}
+print(fibonacci(10));
+///>55
+
+// This is a test file
+var s = 0;
+for (var i = 0; i < 100; ++i) {
+  s += i;
+}
+print(s);
+///>4950
+
+switch (s) {
+case 123:
+case 234:
+default:
+  break;
+}
+
+try {
+  //func(named:a,b,c);
+} catch (any ex) {
+  throw;
+}

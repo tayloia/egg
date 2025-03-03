@@ -1,0 +1,5 @@
+int v = 1;
+assert(v == 1);
+v ??= 2;
+assert(v == 1);
+///<COMPILER><WARNING><RESOURCE>(3,1-7): Operator '??=' has no effect when applied to variable 'v' (declared as 'int')

@@ -1,2 +1,0 @@
-print(123 ? "yes" : "no");
-///<COMPILER><ERROR><RESOURCE>(1,11): Expected condition of ternary '?:' operator to be 'bool', but got 'int' instead

@@ -1,0 +1,25 @@
+print(type.of(object.index));
+///>object.Index
+
+var v = ["one", "two", "three"];
+print(v);
+///>["one","two","three"]
+print(type.of(v));
+///>string[]
+
+var p = object.index.ref(v, 1);
+print(type.of(p));
+///>string*
+print(v);
+///>["one","two","three"]
+
+*p = "hello";
+print(v);
+///>["one","hello","three"]
+
+v[1] = "goodbye";
+print(v);
+///>["one","goodbye","three"]
+
+print(*p);
+///>goodbye

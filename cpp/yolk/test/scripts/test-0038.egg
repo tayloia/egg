@@ -1,0 +1,4 @@
+int positive(int x) {
+  return;
+}
+///<COMPILER><ERROR><RESOURCE>(2,3-8): Expected 'return' statement with a value of type 'int'

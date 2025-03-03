@@ -1,0 +1,3 @@
+string s;
+s.length = "a";
+///<COMPILER><ERROR><RESOURCE>(2,1-14): Values of type 'string' do not support modification of property 'length'

@@ -1,0 +1,7 @@
+type Class {
+  //int a { get; set; mul; del; }
+  static int i = 1;
+};
+assert(Class.i == 1);
+Class.i = 2;
+///<COMPILER><ERROR><RESOURCE>(6,1-11): Type 'Class' does not support modification of property 'i'

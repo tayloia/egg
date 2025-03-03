@@ -1,0 +1,285 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Test Files">
+      <UniqueIdentifier>{f8183c1a-ec54-45fd-ba1d-9f1205a078b1}</UniqueIdentifier>
+      <Extensions>.cpp</Extensions>
+    </Filter>
+    <Filter Include="Infrastructure Files">
+      <UniqueIdentifier>{f0a684c1-52a5-44a3-b1ff-08cb43a7d0e9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Test Scripts">
+      <UniqueIdentifier>{5a94480c-c1c0-4f87-ae70-ece0f8ebcf01}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="yolk-test.pch.cpp">
+      <Filter>Infrastructure Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ovum\test\gtest.cpp">
+      <Filter>Infrastructure Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\yolk\test\test-scripts.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\yolk\test\test-cli.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\ovum\test\etest.h">
+      <Filter>Infrastructure Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ovum\test\gtest.h">
+      <Filter>Infrastructure Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\yolk\test\scripts\test-0001.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0002.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0003.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0004.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0005.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0006.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0007.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0008.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0009.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0010.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0011.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0012.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0013.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0014.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0015.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0016.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0017.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0018.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0019.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0020.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0021.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0022.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0023.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0024.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0025.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0026.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0027.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0028.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0029.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0030.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0031.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0032.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0033.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0034.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0035.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0036.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0037.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0038.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0039.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0040.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0041.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0042.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0043.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0044.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0045.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0046.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0047.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0048.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0049.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0050.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0051.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0052.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0053.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0054.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0055.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0056.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0057.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0058.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0059.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0060.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0061.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0062.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0063.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0064.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0065.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0066.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0067.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0068.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0069.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0070.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0071.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0072.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0073.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0074.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0075.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0076.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0077.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0078.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0079.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0080.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0081.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+    <None Include="..\yolk\test\scripts\test-0082.egg">
+      <Filter>Test Scripts</Filter>
+    </None>
+  </ItemGroup>
+</Project>

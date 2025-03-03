@@ -1,0 +1,7 @@
+int countdown(int counter) {
+  while (counter > 0) {
+    yield counter;
+    --counter;
+  }
+}
+///<COMPILER><ERROR><RESOURCE>(3,5-9): 'yield' statements are only valid within generator definitions

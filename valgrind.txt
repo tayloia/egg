@@ -1,0 +1,1895 @@
+Grinding tests bin/wsl/gcc/release/egg-testsuite.exe
+valgrind -v --leak-check=full --show-leak-kinds=all --track-origins=yes bin/wsl/gcc/release/egg-testsuite.exe
+[==========] Running 536 tests from 28 test suites.
+[----------] Global test environment set-up.
+[----------] 24 tests from TestArithmetic
+[ RUN      ] TestArithmetic.Zero
+[       OK ] TestArithmetic.Zero (10 ms)
+[ RUN      ] TestArithmetic.Half
+[       OK ] TestArithmetic.Half (10 ms)
+[ RUN      ] TestArithmetic.Nine
+[       OK ] TestArithmetic.Nine (3 ms)
+[ RUN      ] TestArithmetic.SNaN
+[       OK ] TestArithmetic.SNaN (2 ms)
+[ RUN      ] TestArithmetic.QNaN
+[       OK ] TestArithmetic.QNaN (2 ms)
+[ RUN      ] TestArithmetic.PInf
+[       OK ] TestArithmetic.PInf (2 ms)
+[ RUN      ] TestArithmetic.NInf
+[       OK ] TestArithmetic.NInf (2 ms)
+[ RUN      ] TestArithmetic.Format
+[       OK ] TestArithmetic.Format (23 ms)
+[ RUN      ] TestArithmetic.Denormals
+[       OK ] TestArithmetic.Denormals (4 ms)
+[ RUN      ] TestArithmetic.OrderInt
+[       OK ] TestArithmetic.OrderInt (4 ms)
+[ RUN      ] TestArithmetic.OrderFloat
+[       OK ] TestArithmetic.OrderFloat (9 ms)
+[ RUN      ] TestArithmetic.CompareInt
+[       OK ] TestArithmetic.CompareInt (0 ms)
+[ RUN      ] TestArithmetic.CompareLT
+[       OK ] TestArithmetic.CompareLT (8 ms)
+[ RUN      ] TestArithmetic.CompareLE
+[       OK ] TestArithmetic.CompareLE (8 ms)
+[ RUN      ] TestArithmetic.CompareEQ
+[       OK ] TestArithmetic.CompareEQ (7 ms)
+[ RUN      ] TestArithmetic.CompareNE
+[       OK ] TestArithmetic.CompareNE (8 ms)
+[ RUN      ] TestArithmetic.CompareGE
+[       OK ] TestArithmetic.CompareGE (10 ms)
+[ RUN      ] TestArithmetic.CompareGT
+[       OK ] TestArithmetic.CompareGT (8 ms)
+[ RUN      ] TestArithmetic.MinimumInt
+[       OK ] TestArithmetic.MinimumInt (1 ms)
+[ RUN      ] TestArithmetic.MaximumInt
+[       OK ] TestArithmetic.MaximumInt (1 ms)
+[ RUN      ] TestArithmetic.MinimumFloat
+[       OK ] TestArithmetic.MinimumFloat (6 ms)
+[ RUN      ] TestArithmetic.MinimumFloatIEEE
+[       OK ] TestArithmetic.MinimumFloatIEEE (5 ms)
+[ RUN      ] TestArithmetic.MaximumFloat
+[       OK ] TestArithmetic.MaximumFloat (7 ms)
+[ RUN      ] TestArithmetic.MaximumFloatIEEE
+[       OK ] TestArithmetic.MaximumFloatIEEE (5 ms)
+[----------] 24 tests from TestArithmetic (162 ms total)
+
+[----------] 3 tests from TestEggCompiler
+[ RUN      ] TestEggCompiler.ExplicitSteps
+$$$ Collected 27 from basket
+[       OK ] TestEggCompiler.ExplicitSteps (274 ms)
+[ RUN      ] TestEggCompiler.Success
+$$$ Collected 27 from basket
+[       OK ] TestEggCompiler.Success (23 ms)
+[ RUN      ] TestEggCompiler.Failure
+<COMPILER><ERROR>(1,7): Unexpected character: '$'
+$$$ Collected 27 from basket
+[       OK ] TestEggCompiler.Failure (69 ms)
+[----------] 3 tests from TestEggCompiler (367 ms total)
+
+[----------] 94 tests from TestEggParser
+[ RUN      ] TestEggParser.Ranges
+[       OK ] TestEggParser.Ranges (29 ms)
+[ RUN      ] TestEggParser.Empty
+[       OK ] TestEggParser.Empty (4 ms)
+[ RUN      ] TestEggParser.WhitespaceComment
+[       OK ] TestEggParser.WhitespaceComment (3 ms)
+[ RUN      ] TestEggParser.BadSyntax
+[       OK ] TestEggParser.BadSyntax (9 ms)
+[ RUN      ] TestEggParser.HelloWorld
+[       OK ] TestEggParser.HelloWorld (3 ms)
+[ RUN      ] TestEggParser.ExpressionUnary
+[       OK ] TestEggParser.ExpressionUnary (2 ms)
+[ RUN      ] TestEggParser.ExpressionBinary
+[       OK ] TestEggParser.ExpressionBinary (2 ms)
+[ RUN      ] TestEggParser.ExpressionTernary
+[       OK ] TestEggParser.ExpressionTernary (5 ms)
+[ RUN      ] TestEggParser.VariableDeclareExplicit
+[       OK ] TestEggParser.VariableDeclareExplicit (8 ms)
+[ RUN      ] TestEggParser.VariableDeclareBad
+[       OK ] TestEggParser.VariableDeclareBad (9 ms)
+[ RUN      ] TestEggParser.VariableDeclareBadNullable
+[       OK ] TestEggParser.VariableDeclareBadNullable (2 ms)
+[ RUN      ] TestEggParser.VariableDefineExplicit
+[       OK ] TestEggParser.VariableDefineExplicit (8 ms)
+[ RUN      ] TestEggParser.VariableDefineInfer
+[       OK ] TestEggParser.VariableDefineInfer (4 ms)
+[ RUN      ] TestEggParser.VariableDefineInferNullable
+[       OK ] TestEggParser.VariableDefineInferNullable (1 ms)
+[ RUN      ] TestEggParser.TypeUnaryNullable
+[       OK ] TestEggParser.TypeUnaryNullable (3 ms)
+[ RUN      ] TestEggParser.TypeUnaryNullableRepeated
+[       OK ] TestEggParser.TypeUnaryNullableRepeated (6 ms)
+[ RUN      ] TestEggParser.TypeUnaryNullableRepeatedWhitespace
+[       OK ] TestEggParser.TypeUnaryNullableRepeatedWhitespace (5 ms)
+[ RUN      ] TestEggParser.TypeUnaryPointer
+[       OK ] TestEggParser.TypeUnaryPointer (2 ms)
+[ RUN      ] TestEggParser.TypeUnaryPointerRepeated
+[       OK ] TestEggParser.TypeUnaryPointerRepeated (1 ms)
+[ RUN      ] TestEggParser.TypeUnaryPointerRepeatedWhitespace
+[       OK ] TestEggParser.TypeUnaryPointerRepeatedWhitespace (1 ms)
+[ RUN      ] TestEggParser.TypeUnaryIterator
+[       OK ] TestEggParser.TypeUnaryIterator (2 ms)
+[ RUN      ] TestEggParser.TypeUnaryIteratorRepeated
+[       OK ] TestEggParser.TypeUnaryIteratorRepeated (2 ms)
+[ RUN      ] TestEggParser.TypeUnaryIteratorRepeatedWhitespace
+[       OK ] TestEggParser.TypeUnaryIteratorRepeatedWhitespace (2 ms)
+[ RUN      ] TestEggParser.TypeUnaryArray
+[       OK ] TestEggParser.TypeUnaryArray (2 ms)
+[ RUN      ] TestEggParser.TypeUnaryArrayRepeated
+[       OK ] TestEggParser.TypeUnaryArrayRepeated (1 ms)
+[ RUN      ] TestEggParser.TypeBinaryUnion
+[       OK ] TestEggParser.TypeBinaryUnion (4 ms)
+[ RUN      ] TestEggParser.TypeBinaryUnionRepeated
+[       OK ] TestEggParser.TypeBinaryUnionRepeated (2 ms)
+[ RUN      ] TestEggParser.TypeBinaryMap
+[       OK ] TestEggParser.TypeBinaryMap (3 ms)
+[ RUN      ] TestEggParser.TypeBinaryMapRepeated
+[       OK ] TestEggParser.TypeBinaryMapRepeated (3 ms)
+[ RUN      ] TestEggParser.ConstructString
+[       OK ] TestEggParser.ConstructString (3 ms)
+[ RUN      ] TestEggParser.ValueCall
+[       OK ] TestEggParser.ValueCall (4 ms)
+[ RUN      ] TestEggParser.ValueIndex
+[       OK ] TestEggParser.ValueIndex (2 ms)
+[ RUN      ] TestEggParser.ValueProperty
+[       OK ] TestEggParser.ValueProperty (3 ms)
+[ RUN      ] TestEggParser.ValueArray
+[       OK ] TestEggParser.ValueArray (16 ms)
+[ RUN      ] TestEggParser.ValueEon
+[       OK ] TestEggParser.ValueEon (8 ms)
+[ RUN      ] TestEggParser.ValueObject
+[       OK ] TestEggParser.ValueObject (16 ms)
+[ RUN      ] TestEggParser.ValueClass
+[       OK ] TestEggParser.ValueClass (2 ms)
+[ RUN      ] TestEggParser.StatementNudge
+[       OK ] TestEggParser.StatementNudge (9 ms)
+[ RUN      ] TestEggParser.StatementForLoop
+[       OK ] TestEggParser.StatementForLoop (12 ms)
+[ RUN      ] TestEggParser.StatementForEach
+[       OK ] TestEggParser.StatementForEach (5 ms)
+[ RUN      ] TestEggParser.StatementDefineFunction
+[       OK ] TestEggParser.StatementDefineFunction (6 ms)
+[ RUN      ] TestEggParser.StatementIf
+[       OK ] TestEggParser.StatementIf (8 ms)
+[ RUN      ] TestEggParser.StatementIfGuardExplicit
+[       OK ] TestEggParser.StatementIfGuardExplicit (5 ms)
+[ RUN      ] TestEggParser.StatementIfGuardInfer
+[       OK ] TestEggParser.StatementIfGuardInfer (3 ms)
+[ RUN      ] TestEggParser.StatementIfGuardInferNullable
+[       OK ] TestEggParser.StatementIfGuardInferNullable (4 ms)
+[ RUN      ] TestEggParser.StatementIfElse
+[       OK ] TestEggParser.StatementIfElse (4 ms)
+[ RUN      ] TestEggParser.StatementIfElseGuardExplicit
+[       OK ] TestEggParser.StatementIfElseGuardExplicit (2 ms)
+[ RUN      ] TestEggParser.StatementIfElseGuardInfer
+[       OK ] TestEggParser.StatementIfElseGuardInfer (2 ms)
+[ RUN      ] TestEggParser.StatementIfElseGuardInferNullable
+[       OK ] TestEggParser.StatementIfElseGuardInferNullable (2 ms)
+[ RUN      ] TestEggParser.StatementIfElseIf
+[       OK ] TestEggParser.StatementIfElseIf (3 ms)
+[ RUN      ] TestEggParser.StatementReturn
+[       OK ] TestEggParser.StatementReturn (3 ms)
+[ RUN      ] TestEggParser.StatementReturnValue
+[       OK ] TestEggParser.StatementReturnValue (3 ms)
+[ RUN      ] TestEggParser.StatementYield
+[       OK ] TestEggParser.StatementYield (8 ms)
+[ RUN      ] TestEggParser.StatementYieldValue
+[       OK ] TestEggParser.StatementYieldValue (4 ms)
+[ RUN      ] TestEggParser.StatementYieldBreak
+[       OK ] TestEggParser.StatementYieldBreak (3 ms)
+[ RUN      ] TestEggParser.StatementYieldContinue
+[       OK ] TestEggParser.StatementYieldContinue (3 ms)
+[ RUN      ] TestEggParser.StatementTryCatch
+[       OK ] TestEggParser.StatementTryCatch (9 ms)
+[ RUN      ] TestEggParser.StatementTryCatchCatch
+[       OK ] TestEggParser.StatementTryCatchCatch (2 ms)
+[ RUN      ] TestEggParser.StatementTryCatchCatchFinally
+[       OK ] TestEggParser.StatementTryCatchCatchFinally (5 ms)
+[ RUN      ] TestEggParser.StatementTryCatchFinally
+[       OK ] TestEggParser.StatementTryCatchFinally (2 ms)
+[ RUN      ] TestEggParser.StatementTryFinally
+[       OK ] TestEggParser.StatementTryFinally (2 ms)
+[ RUN      ] TestEggParser.StatementThrow
+[       OK ] TestEggParser.StatementThrow (4 ms)
+[ RUN      ] TestEggParser.StatementRethrow
+[       OK ] TestEggParser.StatementRethrow (2 ms)
+[ RUN      ] TestEggParser.StatementWhileLoop
+[       OK ] TestEggParser.StatementWhileLoop (6 ms)
+[ RUN      ] TestEggParser.StatementDoLoop
+[       OK ] TestEggParser.StatementDoLoop (6 ms)
+[ RUN      ] TestEggParser.StatementBreak
+[       OK ] TestEggParser.StatementBreak (2 ms)
+[ RUN      ] TestEggParser.StatementContinue
+[       OK ] TestEggParser.StatementContinue (3 ms)
+[ RUN      ] TestEggParser.StatementSwitch
+[       OK ] TestEggParser.StatementSwitch (11 ms)
+[ RUN      ] TestEggParser.StatementDiscard
+[       OK ] TestEggParser.StatementDiscard (5 ms)
+[ RUN      ] TestEggParser.StatementBlock
+[       OK ] TestEggParser.StatementBlock (11 ms)
+[ RUN      ] TestEggParser.StatementOrphanCatch
+[       OK ] TestEggParser.StatementOrphanCatch (2 ms)
+[ RUN      ] TestEggParser.StatementOrphanElse
+[       OK ] TestEggParser.StatementOrphanElse (2 ms)
+[ RUN      ] TestEggParser.StatementOrphanFinally
+[       OK ] TestEggParser.StatementOrphanFinally (2 ms)
+[ RUN      ] TestEggParser.StatementTypeAlias
+[       OK ] TestEggParser.StatementTypeAlias (5 ms)
+[ RUN      ] TestEggParser.StatementTypeEmpty
+[       OK ] TestEggParser.StatementTypeEmpty (5 ms)
+[ RUN      ] TestEggParser.StatementTypeStaticData
+[       OK ] TestEggParser.StatementTypeStaticData (7 ms)
+[ RUN      ] TestEggParser.StatementTypeStaticFunction
+[       OK ] TestEggParser.StatementTypeStaticFunction (5 ms)
+[ RUN      ] TestEggParser.StatementTypeInstanceData
+[       OK ] TestEggParser.StatementTypeInstanceData (4 ms)
+[ RUN      ] TestEggParser.StatementTypeInstanceFunction
+[       OK ] TestEggParser.StatementTypeInstanceFunction (3 ms)
+[ RUN      ] TestEggParser.StatementTypeStaticFunctionError
+[       OK ] TestEggParser.StatementTypeStaticFunctionError (8 ms)
+[ RUN      ] TestEggParser.StatementTypeNonStaticDataError
+[       OK ] TestEggParser.StatementTypeNonStaticDataError (7 ms)
+[ RUN      ] TestEggParser.StatementTypeStaticDataError
+[       OK ] TestEggParser.StatementTypeStaticDataError (3 ms)
+[ RUN      ] TestEggParser.StatementTypeNonStaticFunctionError
+[       OK ] TestEggParser.StatementTypeNonStaticFunctionError (3 ms)
+[ RUN      ] TestEggParser.StatementTypeStaticGet
+[       OK ] TestEggParser.StatementTypeStaticGet (3 ms)
+[ RUN      ] TestEggParser.StatementTypeStaticSet
+[       OK ] TestEggParser.StatementTypeStaticSet (6 ms)
+[ RUN      ] TestEggParser.StatementTypeModifiabilityAll
+[       OK ] TestEggParser.StatementTypeModifiabilityAll (11 ms)
+[ RUN      ] TestEggParser.StatementTypeModifiabilityGet
+[       OK ] TestEggParser.StatementTypeModifiabilityGet (2 ms)
+[ RUN      ] TestEggParser.StatementTypeModifiabilitySetGet
+[       OK ] TestEggParser.StatementTypeModifiabilitySetGet (2 ms)
+[ RUN      ] TestEggParser.StatementTypeModifiabilityEmpty
+[       OK ] TestEggParser.StatementTypeModifiabilityEmpty (3 ms)
+[ RUN      ] TestEggParser.StatementTypeModifiabilityDuplicate
+[       OK ] TestEggParser.StatementTypeModifiabilityDuplicate (2 ms)
+[ RUN      ] TestEggParser.StatementTypeModifiabilityUnknown
+[       OK ] TestEggParser.StatementTypeModifiabilityUnknown (3 ms)
+[ RUN      ] TestEggParser.AmbiguousFunctionCall
+[       OK ] TestEggParser.AmbiguousFunctionCall (2 ms)
+[ RUN      ] TestEggParser.AmbiguousFunctionDeclaration
+[       OK ] TestEggParser.AmbiguousFunctionDeclaration (2 ms)
+[ RUN      ] TestEggParser.AmbiguousObjectAll
+[       OK ] TestEggParser.AmbiguousObjectAll (2 ms)
+[----------] 94 tests from TestEggParser (494 ms total)
+
+[----------] 2 tests from TestEggRunner
+[ RUN      ] TestEggRunner.Succeeded
+Hello, World!
+$$$ Collected 38 from basket
+[       OK ] TestEggRunner.Succeeded (44 ms)
+[ RUN      ] TestEggRunner.Failed
+<RUNTIME><ERROR>greeting.egg(2,3-7): Unknown identifier: 'print'
+$$$ Collected 36 from basket
+[       OK ] TestEggRunner.Failed (40 ms)
+[----------] 2 tests from TestEggRunner (85 ms total)
+
+[----------] 17 tests from TestEggTokenizer
+[ RUN      ] TestEggTokenizer.GetKeywordString
+[       OK ] TestEggTokenizer.GetKeywordString (1 ms)
+[ RUN      ] TestEggTokenizer.GetOperatorString
+[       OK ] TestEggTokenizer.GetOperatorString (2 ms)
+[ RUN      ] TestEggTokenizer.TryParseKeyword
+[       OK ] TestEggTokenizer.TryParseKeyword (3 ms)
+[ RUN      ] TestEggTokenizer.TryParseOperator
+[       OK ] TestEggTokenizer.TryParseOperator (7 ms)
+[ RUN      ] TestEggTokenizer.EmptyFile
+[       OK ] TestEggTokenizer.EmptyFile (2 ms)
+[ RUN      ] TestEggTokenizer.Comment
+[       OK ] TestEggTokenizer.Comment (4 ms)
+[ RUN      ] TestEggTokenizer.Integer
+[       OK ] TestEggTokenizer.Integer (4 ms)
+[ RUN      ] TestEggTokenizer.Float
+[       OK ] TestEggTokenizer.Float (4 ms)
+[ RUN      ] TestEggTokenizer.String
+[       OK ] TestEggTokenizer.String (4 ms)
+[ RUN      ] TestEggTokenizer.Keyword
+[       OK ] TestEggTokenizer.Keyword (10 ms)
+[ RUN      ] TestEggTokenizer.Operator
+[       OK ] TestEggTokenizer.Operator (12 ms)
+[ RUN      ] TestEggTokenizer.Identifier
+[       OK ] TestEggTokenizer.Identifier (4 ms)
+[ RUN      ] TestEggTokenizer.Attribute
+[       OK ] TestEggTokenizer.Attribute (8 ms)
+[ RUN      ] TestEggTokenizer.Line
+[       OK ] TestEggTokenizer.Line (6 ms)
+[ RUN      ] TestEggTokenizer.Column
+[       OK ] TestEggTokenizer.Column (5 ms)
+[ RUN      ] TestEggTokenizer.Vexatious
+[       OK ] TestEggTokenizer.Vexatious (10 ms)
+[ RUN      ] TestEggTokenizer.ExampleFile
+[       OK ] TestEggTokenizer.ExampleFile (7 ms)
+[----------] 17 tests from TestEggTokenizer (104 ms total)
+
+[----------] 18 tests from TestEonTokenizer
+[ RUN      ] TestEonTokenizer.EmptyFile
+[       OK ] TestEonTokenizer.EmptyFile (4 ms)
+[ RUN      ] TestEonTokenizer.Comment
+[       OK ] TestEonTokenizer.Comment (4 ms)
+[ RUN      ] TestEonTokenizer.EmptyObject
+[       OK ] TestEonTokenizer.EmptyObject (4 ms)
+[ RUN      ] TestEonTokenizer.EmptyArray
+[       OK ] TestEonTokenizer.EmptyArray (2 ms)
+[ RUN      ] TestEonTokenizer.Null
+[       OK ] TestEonTokenizer.Null (6 ms)
+[ RUN      ] TestEonTokenizer.BooleanFalse
+[       OK ] TestEonTokenizer.BooleanFalse (5 ms)
+[ RUN      ] TestEonTokenizer.BooleanTrue
+[       OK ] TestEonTokenizer.BooleanTrue (5 ms)
+[ RUN      ] TestEonTokenizer.Integer
+[       OK ] TestEonTokenizer.Integer (8 ms)
+[ RUN      ] TestEonTokenizer.Float
+[       OK ] TestEonTokenizer.Float (8 ms)
+[ RUN      ] TestEonTokenizer.String
+[       OK ] TestEonTokenizer.String (9 ms)
+[ RUN      ] TestEonTokenizer.Identifier
+[       OK ] TestEonTokenizer.Identifier (2 ms)
+[ RUN      ] TestEonTokenizer.SequentialOperators
+[       OK ] TestEonTokenizer.SequentialOperators (4 ms)
+[ RUN      ] TestEonTokenizer.CharacterBad
+[       OK ] TestEonTokenizer.CharacterBad (12 ms)
+[ RUN      ] TestEonTokenizer.NumberBad
+[       OK ] TestEonTokenizer.NumberBad (25 ms)
+[ RUN      ] TestEonTokenizer.StringBad
+[       OK ] TestEonTokenizer.StringBad (9 ms)
+[ RUN      ] TestEonTokenizer.OperatorBad
+[       OK ] TestEonTokenizer.OperatorBad (3 ms)
+[ RUN      ] TestEonTokenizer.Contiguous
+[       OK ] TestEonTokenizer.Contiguous (8 ms)
+[ RUN      ] TestEonTokenizer.ExampleFile
+[       OK ] TestEonTokenizer.ExampleFile (7 ms)
+[----------] 18 tests from TestEonTokenizer (134 ms total)
+
+[----------] 2 tests from TestException
+[ RUN      ] TestException.Throw
+[       OK ] TestException.Throw (7 ms)
+[ RUN      ] TestException.Catch
+[       OK ] TestException.Catch (6 ms)
+[----------] 2 tests from TestException (13 ms total)
+
+[----------] 10 tests from TestFile
+[ RUN      ] TestFile.NormalizePath
+[       OK ] TestFile.NormalizePath (3 ms)
+[ RUN      ] TestFile.DenormalizePath
+[       OK ] TestFile.DenormalizePath (8 ms)
+[ RUN      ] TestFile.GetTildeDirectory
+[       OK ] TestFile.GetTildeDirectory (2 ms)
+[ RUN      ] TestFile.GetCurrentDirectory
+[       OK ] TestFile.GetCurrentDirectory (1 ms)
+[ RUN      ] TestFile.ResolvePath
+[       OK ] TestFile.ResolvePath (2 ms)
+[ RUN      ] TestFile.ReadDirectory
+[       OK ] TestFile.ReadDirectory (29 ms)
+[ RUN      ] TestFile.KindUnknown
+[       OK ] TestFile.KindUnknown (3 ms)
+[ RUN      ] TestFile.KindDirectory
+[       OK ] TestFile.KindDirectory (1 ms)
+[ RUN      ] TestFile.KindFile
+[       OK ] TestFile.KindFile (2 ms)
+[ RUN      ] TestFile.GetExecutablePath
+[       OK ] TestFile.GetExecutablePath (10 ms)
+[----------] 10 tests from TestFile (68 ms total)
+
+[----------] 5 tests from TestGC
+[ RUN      ] TestGC.Atomic8
+[       OK ] TestGC.Atomic8 (2 ms)
+[ RUN      ] TestGC.Atomic64
+[       OK ] TestGC.Atomic64 (1 ms)
+[ RUN      ] TestGC.Monitor
+[       OK ] TestGC.Monitor (6 ms)
+[ RUN      ] TestGC.HardReferenceCountedNone
+[       OK ] TestGC.HardReferenceCountedNone (4 ms)
+[ RUN      ] TestGC.HardPtr
+[       OK ] TestGC.HardPtr (10 ms)
+[----------] 5 tests from TestGC (25 ms total)
+
+[----------] 19 tests from TestJsonTokenizer
+[ RUN      ] TestJsonTokenizer.EmptyFile
+[       OK ] TestJsonTokenizer.EmptyFile (3 ms)
+[ RUN      ] TestJsonTokenizer.EmptyObject
+[       OK ] TestJsonTokenizer.EmptyObject (3 ms)
+[ RUN      ] TestJsonTokenizer.EmptyArray
+[       OK ] TestJsonTokenizer.EmptyArray (2 ms)
+[ RUN      ] TestJsonTokenizer.Null
+[       OK ] TestJsonTokenizer.Null (5 ms)
+[ RUN      ] TestJsonTokenizer.BooleanFalse
+[       OK ] TestJsonTokenizer.BooleanFalse (4 ms)
+[ RUN      ] TestJsonTokenizer.BooleanTrue
+[       OK ] TestJsonTokenizer.BooleanTrue (4 ms)
+[ RUN      ] TestJsonTokenizer.IntegerPositive
+[       OK ] TestJsonTokenizer.IntegerPositive (4 ms)
+[ RUN      ] TestJsonTokenizer.IntegerNegative
+[       OK ] TestJsonTokenizer.IntegerNegative (5 ms)
+[ RUN      ] TestJsonTokenizer.FloatPositive
+[       OK ] TestJsonTokenizer.FloatPositive (4 ms)
+[ RUN      ] TestJsonTokenizer.FloatNegative
+[       OK ] TestJsonTokenizer.FloatNegative (4 ms)
+[ RUN      ] TestJsonTokenizer.String
+[       OK ] TestJsonTokenizer.String (4 ms)
+[ RUN      ] TestJsonTokenizer.SequentialOperators
+[       OK ] TestJsonTokenizer.SequentialOperators (3 ms)
+[ RUN      ] TestJsonTokenizer.CharacterBad
+[       OK ] TestJsonTokenizer.CharacterBad (7 ms)
+[ RUN      ] TestJsonTokenizer.CommentBad
+[       OK ] TestJsonTokenizer.CommentBad (5 ms)
+[ RUN      ] TestJsonTokenizer.IdentifierBad
+[       OK ] TestJsonTokenizer.IdentifierBad (3 ms)
+[ RUN      ] TestJsonTokenizer.NumberBad
+[       OK ] TestJsonTokenizer.NumberBad (19 ms)
+[ RUN      ] TestJsonTokenizer.StringBad
+[       OK ] TestJsonTokenizer.StringBad (6 ms)
+[ RUN      ] TestJsonTokenizer.OperatorBad
+[       OK ] TestJsonTokenizer.OperatorBad (3 ms)
+[ RUN      ] TestJsonTokenizer.ExampleFile
+[       OK ] TestJsonTokenizer.ExampleFile (5 ms)
+[----------] 19 tests from TestJsonTokenizer (105 ms total)
+
+[----------] 14 tests from TestLexers
+[ RUN      ] TestLexers.Verbatim
+[       OK ] TestLexers.Verbatim (12 ms)
+[ RUN      ] TestLexers.Comment
+[       OK ] TestLexers.Comment (8 ms)
+[ RUN      ] TestLexers.CommentBad
+[       OK ] TestLexers.CommentBad (4 ms)
+[ RUN      ] TestLexers.Integer
+[       OK ] TestLexers.Integer (6 ms)
+[ RUN      ] TestLexers.IntegerBad
+[       OK ] TestLexers.IntegerBad (12 ms)
+[ RUN      ] TestLexers.Float
+[       OK ] TestLexers.Float (13 ms)
+[ RUN      ] TestLexers.FloatBad
+[       OK ] TestLexers.FloatBad (15 ms)
+[ RUN      ] TestLexers.QuotedString
+[       OK ] TestLexers.QuotedString (17 ms)
+[ RUN      ] TestLexers.QuotedStringBad
+[       OK ] TestLexers.QuotedStringBad (18 ms)
+[ RUN      ] TestLexers.BackquotedString
+[       OK ] TestLexers.BackquotedString (9 ms)
+[ RUN      ] TestLexers.BackquotedStringBad
+[       OK ] TestLexers.BackquotedStringBad (3 ms)
+[ RUN      ] TestLexers.Operator
+[       OK ] TestLexers.Operator (4 ms)
+[ RUN      ] TestLexers.Identifier
+[       OK ] TestLexers.Identifier (8 ms)
+[ RUN      ] TestLexers.Factory
+[       OK ] TestLexers.Factory (16 ms)
+[----------] 14 tests from TestLexers (153 ms total)
+
+[----------] 7 tests from TestMemory
+[ RUN      ] TestMemory.AllocatorDefault
+[       OK ] TestMemory.AllocatorDefault (2 ms)
+[ RUN      ] TestMemory.MemoryEmpty
+[       OK ] TestMemory.MemoryEmpty (5 ms)
+[ RUN      ] TestMemory.MemoryImmutable
+[       OK ] TestMemory.MemoryImmutable (3 ms)
+[ RUN      ] TestMemory.MemoryMutable
+[       OK ] TestMemory.MemoryMutable (3 ms)
+[ RUN      ] TestMemory.MemoryTag
+[       OK ] TestMemory.MemoryTag (2 ms)
+[ RUN      ] TestMemory.MemoryBuilder
+[       OK ] TestMemory.MemoryBuilder (10 ms)
+[ RUN      ] TestMemory.MemoryShared
+[       OK ] TestMemory.MemoryShared (9 ms)
+[----------] 7 tests from TestMemory (39 ms total)
+
+[----------] 9 tests from TestPoly
+[ RUN      ] TestPoly.CreateSoftValue
+$$$ Collected 28 from basket
+[       OK ] TestPoly.CreateSoftValue (8 ms)
+[ RUN      ] TestPoly.CreateSoftValueInit
+$$$ Collected 28 from basket
+[       OK ] TestPoly.CreateSoftValueInit (8 ms)
+[ RUN      ] TestPoly.SoftValueVoid
+$$$ Collected 28 from basket
+[       OK ] TestPoly.SoftValueVoid (11 ms)
+[ RUN      ] TestPoly.SoftValueNull
+$$$ Collected 28 from basket
+[       OK ] TestPoly.SoftValueNull (8 ms)
+[ RUN      ] TestPoly.SoftValueBool
+$$$ Collected 28 from basket
+[       OK ] TestPoly.SoftValueBool (8 ms)
+[ RUN      ] TestPoly.SoftValueInt
+$$$ Collected 28 from basket
+[       OK ] TestPoly.SoftValueInt (8 ms)
+[ RUN      ] TestPoly.SoftValueFloat
+$$$ Collected 28 from basket
+[       OK ] TestPoly.SoftValueFloat (9 ms)
+[ RUN      ] TestPoly.SoftValueString
+$$$ Collected 28 from basket
+[       OK ] TestPoly.SoftValueString (10 ms)
+[ RUN      ] TestPoly.SoftValueObject
+$$$ Collected 29 from basket
+[       OK ] TestPoly.SoftValueObject (9 ms)
+[----------] 9 tests from TestPoly (84 ms total)
+
+[----------] 8 tests from TestPrint
+[ RUN      ] TestPrint.Null
+[       OK ] TestPrint.Null (2 ms)
+[ RUN      ] TestPrint.Bool
+[       OK ] TestPrint.Bool (4 ms)
+[ RUN      ] TestPrint.Int
+[       OK ] TestPrint.Int (6 ms)
+[ RUN      ] TestPrint.UInt
+[       OK ] TestPrint.UInt (4 ms)
+[ RUN      ] TestPrint.Float
+[       OK ] TestPrint.Float (7 ms)
+[ RUN      ] TestPrint.Double
+[       OK ] TestPrint.Double (7 ms)
+[ RUN      ] TestPrint.String
+[       OK ] TestPrint.String (7 ms)
+[ RUN      ] TestPrint.ValueConstants
+[       OK ] TestPrint.ValueConstants (10 ms)
+[----------] 8 tests from TestPrint (50 ms total)
+
+[----------] 14 tests from TestStreams
+[ RUN      ] TestStreams.FileStreamIn
+[       OK ] TestStreams.FileStreamIn (7 ms)
+[ RUN      ] TestStreams.FileStreamInMissing
+[       OK ] TestStreams.FileStreamInMissing (6 ms)
+[ RUN      ] TestStreams.ByteStream
+[       OK ] TestStreams.ByteStream (13 ms)
+[ RUN      ] TestStreams.FileCharStream
+[       OK ] TestStreams.FileCharStream (20 ms)
+[ RUN      ] TestStreams.FileCharStreamWithBOM
+[       OK ] TestStreams.FileCharStreamWithBOM (19 ms)
+[ RUN      ] TestStreams.StringCharStream
+[       OK ] TestStreams.StringCharStream (4 ms)
+[ RUN      ] TestStreams.StringCharStreamBad
+[       OK ] TestStreams.StringCharStreamBad (11 ms)
+[ RUN      ] TestStreams.FileTextStream
+[       OK ] TestStreams.FileTextStream (24 ms)
+[ RUN      ] TestStreams.StringTextStream
+[       OK ] TestStreams.StringTextStream (10 ms)
+[ RUN      ] TestStreams.FileTextStreamLastLine
+[       OK ] TestStreams.FileTextStreamLastLine (61 ms)
+[ RUN      ] TestStreams.FileTextStreamPeek
+[       OK ] TestStreams.FileTextStreamPeek (7 ms)
+[ RUN      ] TestStreams.FileTextStreamReadLine
+[       OK ] TestStreams.FileTextStreamReadLine (77 ms)
+[ RUN      ] TestStreams.FileTextStreamSlurp
+[       OK ] TestStreams.FileTextStreamSlurp (167 ms)
+[ RUN      ] TestStreams.FileTextStreamSlurp32
+[       OK ] TestStreams.FileTextStreamSlurp32 (158 ms)
+[----------] 14 tests from TestStreams (592 ms total)
+
+[----------] 3 tests from TestByteStream
+[ RUN      ] TestByteStream.FileByteStream
+[       OK ] TestByteStream.FileByteStream (13 ms)
+[ RUN      ] TestByteStream.FileByteStreamMissing
+[       OK ] TestByteStream.FileByteStreamMissing (2 ms)
+[ RUN      ] TestByteStream.StringByteStream
+[       OK ] TestByteStream.StringByteStream (2 ms)
+[----------] 3 tests from TestByteStream (18 ms total)
+
+[----------] 24 tests from TestString
+[ RUN      ] TestString.Empty
+[       OK ] TestString.Empty (3 ms)
+[ RUN      ] TestString.FromBytes
+[       OK ] TestString.FromBytes (2 ms)
+[ RUN      ] TestString.FromUTF8
+[       OK ] TestString.FromUTF8 (2 ms)
+[ RUN      ] TestString.ToUTF8
+[       OK ] TestString.ToUTF8 (4 ms)
+[ RUN      ] TestString.Assignment
+[       OK ] TestString.Assignment (7 ms)
+[ RUN      ] TestString.AssertMacros
+[       OK ] TestString.AssertMacros (3 ms)
+[ RUN      ] TestString.Equals
+[       OK ] TestString.Equals (18 ms)
+[ RUN      ] TestString.Less
+[       OK ] TestString.Less (15 ms)
+[ RUN      ] TestString.Compare
+[       OK ] TestString.Compare (18 ms)
+[ RUN      ] TestString.Contains
+[       OK ] TestString.Contains (16 ms)
+[ RUN      ] TestString.StartsWith
+[       OK ] TestString.StartsWith (15 ms)
+[ RUN      ] TestString.IndexOfCodePoint
+[       OK ] TestString.IndexOfCodePoint (10 ms)
+[ RUN      ] TestString.IndexOfString
+[       OK ] TestString.IndexOfString (20 ms)
+[ RUN      ] TestString.LastIndexOfCodePoint
+[       OK ] TestString.LastIndexOfCodePoint (8 ms)
+[ RUN      ] TestString.LastIndexOfString
+[       OK ] TestString.LastIndexOfString (23 ms)
+[ RUN      ] TestString.Substring
+[       OK ] TestString.Substring (26 ms)
+[ RUN      ] TestString.Slice
+[       OK ] TestString.Slice (19 ms)
+[ RUN      ] TestString.SplitEmpty
+[       OK ] TestString.SplitEmpty (19 ms)
+[ RUN      ] TestString.SplitSingle
+[       OK ] TestString.SplitSingle (12 ms)
+[ RUN      ] TestString.SplitString
+[       OK ] TestString.SplitString (9 ms)
+[ RUN      ] TestString.Repeat
+[       OK ] TestString.Repeat (14 ms)
+[ RUN      ] TestString.Replace
+[       OK ] TestString.Replace (25 ms)
+[ RUN      ] TestString.PadLeft
+[       OK ] TestString.PadLeft (13 ms)
+[ RUN      ] TestString.PadRight
+[       OK ] TestString.PadRight (13 ms)
+[----------] 24 tests from TestString (329 ms total)
+
+[----------] 15 tests from TestTesting
+[ RUN      ] TestTesting.Empty
+[       OK ] TestTesting.Empty (0 ms)
+[ RUN      ] TestTesting.Truth
+[       OK ] TestTesting.Truth (0 ms)
+[ RUN      ] TestTesting.Fails
+[       OK ] TestTesting.Fails (22 ms)
+[ RUN      ] TestTesting.String
+[       OK ] TestTesting.String (2 ms)
+[ RUN      ] TestTesting.Value
+[       OK ] TestTesting.Value (2 ms)
+[ RUN      ] TestTesting.Contains
+[       OK ] TestTesting.Contains (1 ms)
+[ RUN      ] TestTesting.NotContains
+[       OK ] TestTesting.NotContains (1 ms)
+[ RUN      ] TestTesting.StartsWith
+[       OK ] TestTesting.StartsWith (1 ms)
+[ RUN      ] TestTesting.EndsWith
+[       OK ] TestTesting.EndsWith (1 ms)
+[ RUN      ] TestTesting.ContainsNegative
+[       OK ] TestTesting.ContainsNegative (12 ms)
+[ RUN      ] TestTesting.NotContainsNegative
+[       OK ] TestTesting.NotContainsNegative (7 ms)
+[ RUN      ] TestTesting.StartsWithNegative
+[       OK ] TestTesting.StartsWithNegative (7 ms)
+[ RUN      ] TestTesting.EndsWithNegative
+[       OK ] TestTesting.EndsWithNegative (7 ms)
+[ RUN      ] TestTesting.Throws
+[       OK ] TestTesting.Throws (1 ms)
+[ RUN      ] TestTesting.Logger
+<COMPILER><DEBUG>alpha
+<RUNTIME><VERBOSE>beta
+<INFORMATION>gamma
+<COMPILER><WARNING>delta
+<RUNTIME><ERROR>epsilon
+zeta
+[       OK ] TestTesting.Logger (16 ms)
+[----------] 15 tests from TestTesting (88 ms total)
+
+[----------] 17 tests from TestType
+[ RUN      ] TestType.ForgePrimitiveVoid
+[       OK ] TestType.ForgePrimitiveVoid (8 ms)
+[ RUN      ] TestType.ForgePrimitiveUnion
+[       OK ] TestType.ForgePrimitiveUnion (7 ms)
+[ RUN      ] TestType.ForgePrimitiveNullable
+[       OK ] TestType.ForgePrimitiveNullable (9 ms)
+[ RUN      ] TestType.ForgePrimitiveVoidable
+[       OK ] TestType.ForgePrimitiveVoidable (6 ms)
+[ RUN      ] TestType.ForgeFunctionSignatureAssignableAlways
+[       OK ] TestType.ForgeFunctionSignatureAssignableAlways (17 ms)
+[ RUN      ] TestType.ForgeFunctionSignatureAssignableSometimes
+[       OK ] TestType.ForgeFunctionSignatureAssignableSometimes (11 ms)
+[ RUN      ] TestType.ForgeFunctionSignatureAssignableNever
+[       OK ] TestType.ForgeFunctionSignatureAssignableNever (9 ms)
+[ RUN      ] TestType.ForgeFunctionSignature
+[       OK ] TestType.ForgeFunctionSignature (8 ms)
+[ RUN      ] TestType.ForgePropertySignatureClosed
+[       OK ] TestType.ForgePropertySignatureClosed (11 ms)
+[ RUN      ] TestType.ForgePropertySignatureOpen
+[       OK ] TestType.ForgePropertySignatureOpen (10 ms)
+[ RUN      ] TestType.ForgeComplexNone
+[       OK ] TestType.ForgeComplexNone (6 ms)
+[ RUN      ] TestType.ForgeComplexArithmetic
+[       OK ] TestType.ForgeComplexArithmetic (7 ms)
+[ RUN      ] TestType.ForgeComplexIntArray
+[       OK ] TestType.ForgeComplexIntArray (13 ms)
+[ RUN      ] TestType.ForgeComplexArithmeticArray
+[       OK ] TestType.ForgeComplexArithmeticArray (8 ms)
+[ RUN      ] TestType.ForgeComplexIntPointer
+[       OK ] TestType.ForgeComplexIntPointer (7 ms)
+[ RUN      ] TestType.ForgeComplexArithmeticPointer
+[       OK ] TestType.ForgeComplexArithmeticPointer (7 ms)
+[ RUN      ] TestType.ForgeFunctionTwice
+[       OK ] TestType.ForgeFunctionTwice (15 ms)
+[----------] 17 tests from TestType (169 ms total)
+
+[----------] 1 test from TestUTF32
+[ RUN      ] TestUTF32.toReadable
+[       OK ] TestUTF32.toReadable (5 ms)
+[----------] 1 test from TestUTF32 (5 ms total)
+
+[----------] 8 tests from TestLang
+[ RUN      ] TestLang.BitsHasAllSet
+[       OK ] TestLang.BitsHasAllSet (3 ms)
+[ RUN      ] TestLang.BitsHasAnySet
+[       OK ] TestLang.BitsHasAnySet (0 ms)
+[ RUN      ] TestLang.BitsHasOneSet
+[       OK ] TestLang.BitsHasOneSet (0 ms)
+[ RUN      ] TestLang.BitsMask
+[       OK ] TestLang.BitsMask (3 ms)
+[ RUN      ] TestLang.BitsSet
+[       OK ] TestLang.BitsSet (3 ms)
+[ RUN      ] TestLang.BitsClear
+[       OK ] TestLang.BitsClear (3 ms)
+[ RUN      ] TestLang.BitsInvert
+[       OK ] TestLang.BitsInvert (3 ms)
+[ RUN      ] TestLang.StringBuilder
+[       OK ] TestLang.StringBuilder (5 ms)
+[----------] 8 tests from TestLang (25 ms total)
+
+[----------] 1 test from TestUtility
+[ RUN      ] TestUtility.MantissaExponent
+[       OK ] TestUtility.MantissaExponent (21 ms)
+[----------] 1 test from TestUtility (22 ms total)
+
+[----------] 39 tests from TestValue
+[ RUN      ] TestValue.Uninitialized
+[       OK ] TestValue.Uninitialized (2 ms)
+[ RUN      ] TestValue.Void
+[       OK ] TestValue.Void (1 ms)
+[ RUN      ] TestValue.Null
+[       OK ] TestValue.Null (1 ms)
+[ RUN      ] TestValue.Bool
+[       OK ] TestValue.Bool (3 ms)
+[ RUN      ] TestValue.Int
+[       OK ] TestValue.Int (5 ms)
+[ RUN      ] TestValue.Float
+[       OK ] TestValue.Float (6 ms)
+[ RUN      ] TestValue.String
+[       OK ] TestValue.String (5 ms)
+[ RUN      ] TestValue.Value
+[       OK ] TestValue.Value (3 ms)
+[ RUN      ] TestValue.Set
+[       OK ] TestValue.Set (2 ms)
+[ RUN      ] TestValue.MutateIntAssign
+[       OK ] TestValue.MutateIntAssign (9 ms)
+[ RUN      ] TestValue.MutateIntDecrement
+[       OK ] TestValue.MutateIntDecrement (2 ms)
+[ RUN      ] TestValue.MutateIntIncrement
+[       OK ] TestValue.MutateIntIncrement (1 ms)
+[ RUN      ] TestValue.MutateIntAdd
+[       OK ] TestValue.MutateIntAdd (2 ms)
+[ RUN      ] TestValue.MutateIntSubtract
+[       OK ] TestValue.MutateIntSubtract (2 ms)
+[ RUN      ] TestValue.MutateIntMultiply
+[       OK ] TestValue.MutateIntMultiply (2 ms)
+[ RUN      ] TestValue.MutateIntDivide
+[       OK ] TestValue.MutateIntDivide (4 ms)
+[ RUN      ] TestValue.MutateIntRemainder
+[       OK ] TestValue.MutateIntRemainder (6 ms)
+[ RUN      ] TestValue.MutateIntBitwiseAnd
+[       OK ] TestValue.MutateIntBitwiseAnd (2 ms)
+[ RUN      ] TestValue.MutateIntBitwiseOr
+[       OK ] TestValue.MutateIntBitwiseOr (2 ms)
+[ RUN      ] TestValue.MutateIntBitwiseXor
+[       OK ] TestValue.MutateIntBitwiseXor (2 ms)
+[ RUN      ] TestValue.MutateIntShiftLeft
+[       OK ] TestValue.MutateIntShiftLeft (2 ms)
+[ RUN      ] TestValue.MutateIntShiftRight
+[       OK ] TestValue.MutateIntShiftRight (2 ms)
+[ RUN      ] TestValue.MutateIntShiftRightUnsigned
+[       OK ] TestValue.MutateIntShiftRightUnsigned (2 ms)
+[ RUN      ] TestValue.MutateIntNoop
+[       OK ] TestValue.MutateIntNoop (1 ms)
+[ RUN      ] TestValue.MutateFloatAssign
+[       OK ] TestValue.MutateFloatAssign (7 ms)
+[ RUN      ] TestValue.MutateFloatDecrement
+[       OK ] TestValue.MutateFloatDecrement (2 ms)
+[ RUN      ] TestValue.MutateFloatIncrement
+[       OK ] TestValue.MutateFloatIncrement (1 ms)
+[ RUN      ] TestValue.MutateFloatAdd
+[       OK ] TestValue.MutateFloatAdd (3 ms)
+[ RUN      ] TestValue.MutateFloatSubtract
+[       OK ] TestValue.MutateFloatSubtract (3 ms)
+[ RUN      ] TestValue.MutateFloatMultiply
+[       OK ] TestValue.MutateFloatMultiply (4 ms)
+[ RUN      ] TestValue.MutateFloatDivide
+[       OK ] TestValue.MutateFloatDivide (5 ms)
+[ RUN      ] TestValue.MutateFloatRemainder
+[       OK ] TestValue.MutateFloatRemainder (5 ms)
+[ RUN      ] TestValue.MutateFloatBitwiseAnd
+[       OK ] TestValue.MutateFloatBitwiseAnd (4 ms)
+[ RUN      ] TestValue.MutateFloatBitwiseOr
+[       OK ] TestValue.MutateFloatBitwiseOr (2 ms)
+[ RUN      ] TestValue.MutateFloatBitwiseXor
+[       OK ] TestValue.MutateFloatBitwiseXor (2 ms)
+[ RUN      ] TestValue.MutateFloatShiftLeft
+[       OK ] TestValue.MutateFloatShiftLeft (2 ms)
+[ RUN      ] TestValue.MutateFloatShiftRight
+[       OK ] TestValue.MutateFloatShiftRight (2 ms)
+[ RUN      ] TestValue.MutateFloatShiftRightUnsigned
+[       OK ] TestValue.MutateFloatShiftRightUnsigned (2 ms)
+[ RUN      ] TestValue.MutateFloatNoop
+[       OK ] TestValue.MutateFloatNoop (1 ms)
+[----------] 39 tests from TestValue (139 ms total)
+
+[----------] 87 tests from TestVM
+[ RUN      ] TestVM.CreateDefaultInstance
+[       OK ] TestVM.CreateDefaultInstance (8 ms)
+[ RUN      ] TestVM.CreateStringUTF8
+$$$ Collected 27 from basket
+[       OK ] TestVM.CreateStringUTF8 (8 ms)
+[ RUN      ] TestVM.CreateString
+$$$ Collected 27 from basket
+[       OK ] TestVM.CreateString (15 ms)
+[ RUN      ] TestVM.CreateStringUTF32
+$$$ Collected 27 from basket
+[       OK ] TestVM.CreateStringUTF32 (9 ms)
+[ RUN      ] TestVM.CreateHardValueVoid
+$$$ Collected 27 from basket
+[       OK ] TestVM.CreateHardValueVoid (8 ms)
+[ RUN      ] TestVM.CreateHardValueNull
+$$$ Collected 27 from basket
+[       OK ] TestVM.CreateHardValueNull (8 ms)
+[ RUN      ] TestVM.CreateHardValueBool
+$$$ Collected 27 from basket
+[       OK ] TestVM.CreateHardValueBool (8 ms)
+[ RUN      ] TestVM.CreateHardValueInt
+$$$ Collected 27 from basket
+[       OK ] TestVM.CreateHardValueInt (8 ms)
+[ RUN      ] TestVM.CreateHardValueFloat
+$$$ Collected 27 from basket
+[       OK ] TestVM.CreateHardValueFloat (8 ms)
+[ RUN      ] TestVM.CreateHardValueString
+$$$ Collected 27 from basket
+[       OK ] TestVM.CreateHardValueString (14 ms)
+[ RUN      ] TestVM.CreateHardValue
+$$$ Collected 27 from basket
+[       OK ] TestVM.CreateHardValue (9 ms)
+[ RUN      ] TestVM.FindManifestation
+$$$ Collected 27 from basket
+[       OK ] TestVM.FindManifestation (9 ms)
+[ RUN      ] TestVM.CreateProgram
+$$$ Collected 27 from basket
+[       OK ] TestVM.CreateProgram (12 ms)
+[ RUN      ] TestVM.RunProgram
+hello world
+$$$ Collected 30 from basket
+[       OK ] TestVM.RunProgram (11 ms)
+[ RUN      ] TestVM.StepProgram
+$$$ Collected 30 from basket
+[       OK ] TestVM.StepProgram (10 ms)
+[ RUN      ] TestVM.PrintPrint
+[builtin print]
+$$$ Collected 38 from basket
+[       OK ] TestVM.PrintPrint (17 ms)
+[ RUN      ] TestVM.PrintUnknown
+<ERROR>test: Unknown identifier: 'unknown'
+$$$ Collected 42 from basket
+[       OK ] TestVM.PrintUnknown (13 ms)
+[ RUN      ] TestVM.VariableDeclare
+<ERROR>test: Variable uninitialized: 'v'
+$$$ Collected 43 from basket
+[       OK ] TestVM.VariableDeclare (21 ms)
+[ RUN      ] TestVM.VariableDeclareTwice
+<ERROR>test: Variable symbol already declared: 'v'
+$$$ Collected 44 from basket
+[       OK ] TestVM.VariableDeclareTwice (11 ms)
+[ RUN      ] TestVM.VariableDefine
+12345
+$$$ Collected 39 from basket
+[       OK ] TestVM.VariableDefine (17 ms)
+[ RUN      ] TestVM.VariableUndeclare
+<ERROR>test: Unknown identifier: 'i'
+$$$ Collected 43 from basket
+[       OK ] TestVM.VariableUndeclare (12 ms)
+[ RUN      ] TestVM.VariableDefineNull
+null
+$$$ Collected 39 from basket
+[       OK ] TestVM.VariableDefineNull (12 ms)
+[ RUN      ] TestVM.VariableDefineBool
+true
+$$$ Collected 39 from basket
+[       OK ] TestVM.VariableDefineBool (13 ms)
+[ RUN      ] TestVM.VariableDefineInt
+12345
+$$$ Collected 39 from basket
+[       OK ] TestVM.VariableDefineInt (11 ms)
+[ RUN      ] TestVM.VariableDefineFloat
+1234.5
+$$$ Collected 39 from basket
+[       OK ] TestVM.VariableDefineFloat (12 ms)
+[ RUN      ] TestVM.VariableDefineString
+hello world
+$$$ Collected 39 from basket
+[       OK ] TestVM.VariableDefineString (12 ms)
+[ RUN      ] TestVM.VariableDefineObject
+[builtin print]
+$$$ Collected 39 from basket
+[       OK ] TestVM.VariableDefineObject (12 ms)
+[ RUN      ] TestVM.BuiltinDeclare
+<ERROR>test: Variable symbol already declared as a builtin: 'print'
+$$$ Collected 43 from basket
+[       OK ] TestVM.BuiltinDeclare (10 ms)
+[ RUN      ] TestVM.BuiltinDefine
+<ERROR>test: Variable symbol already declared as a builtin: 'print'
+$$$ Collected 43 from basket
+[       OK ] TestVM.BuiltinDefine (10 ms)
+[ RUN      ] TestVM.BuiltinSet
+<ERROR>test: Cannot re-assign built-in value: 'print'
+$$$ Collected 42 from basket
+[       OK ] TestVM.BuiltinSet (19 ms)
+[ RUN      ] TestVM.AssertTrue
+$$$ Collected 38 from basket
+[       OK ] TestVM.AssertTrue (11 ms)
+[ RUN      ] TestVM.AssertFalse
+<ERROR>test: Assertion failure
+$$$ Collected 42 from basket
+[       OK ] TestVM.AssertFalse (13 ms)
+[ RUN      ] TestVM.ExpandoPair
+{x:{}}{}
+$$$ Collected 44 from basket
+[       OK ] TestVM.ExpandoPair (22 ms)
+[ RUN      ] TestVM.ExpandoCycle
+{x:{x:{x:<cycle>}}}{x:{x:{x:<cycle>}}}
+$$$ Collected 46 from basket
+[       OK ] TestVM.ExpandoCycle (16 ms)
+[ RUN      ] TestVM.ExpandoCollector
+0
+0
+6
+$$$ Collected 40 from basket
+[       OK ] TestVM.ExpandoCollector (26 ms)
+[ RUN      ] TestVM.ExpandoKeys
+true
+1234.5
+12345
+null
+{n:null,b:true,i:12345,f:1234.5,s:"hello world",o:<cycle>}
+hello world
+$$$ Collected 52 from basket
+[       OK ] TestVM.ExpandoKeys (33 ms)
+[ RUN      ] TestVM.UnaryNegate
+-123
+123
+-123.5
+123.5
+$$$ Collected 38 from basket
+[       OK ] TestVM.UnaryNegate (16 ms)
+[ RUN      ] TestVM.UnaryBitwiseNot
+-6
+4
+$$$ Collected 38 from basket
+[       OK ] TestVM.UnaryBitwiseNot (11 ms)
+[ RUN      ] TestVM.UnaryLogicalNot
+true
+false
+$$$ Collected 38 from basket
+[       OK ] TestVM.UnaryLogicalNot (12 ms)
+[ RUN      ] TestVM.BinaryAdd
+579
+579.25
+579.5
+579.75
+$$$ Collected 38 from basket
+[       OK ] TestVM.BinaryAdd (20 ms)
+[ RUN      ] TestVM.BinarySubtract
+-333
+-332.75
+-333.5
+-333.25
+$$$ Collected 38 from basket
+[       OK ] TestVM.BinarySubtract (15 ms)
+[ RUN      ] TestVM.BinaryMultiply
+56088
+56202.0
+56149.5
+56263.625
+$$$ Collected 38 from basket
+[       OK ] TestVM.BinaryMultiply (15 ms)
+[ RUN      ] TestVM.BinaryDivide
+0
+0.270285087719
+0.269441401972
+0.269989047097
+$$$ Collected 38 from basket
+[       OK ] TestVM.BinaryDivide (15 ms)
+[ RUN      ] TestVM.BinaryDivideZero
+#+INF
+#+INF
+#+INF
+#NAN
+#NAN
+<ERROR>test: Integer division by zero in division operator '/'
+$$$ Collected 42 from basket
+[       OK ] TestVM.BinaryDivideZero (20 ms)
+[ RUN      ] TestVM.BinaryRemainder
+21
+21.25
+19.5
+19.75
+$$$ Collected 38 from basket
+[       OK ] TestVM.BinaryRemainder (15 ms)
+[ RUN      ] TestVM.BinaryRemainderZero
+#NAN
+#NAN
+#NAN
+#NAN
+#NAN
+<ERROR>test: Integer division by zero in remainder operator '%'
+$$$ Collected 42 from basket
+[       OK ] TestVM.BinaryRemainderZero (18 ms)
+[ RUN      ] TestVM.BinaryCompare
+true
+true
+false
+true
+false
+false
+$$$ Collected 38 from basket
+[       OK ] TestVM.BinaryCompare (20 ms)
+[ RUN      ] TestVM.BinaryBitwiseBool
+false
+false
+false
+true
+false
+true
+true
+true
+false
+true
+true
+false
+$$$ Collected 38 from basket
+[       OK ] TestVM.BinaryBitwiseBool (29 ms)
+[ RUN      ] TestVM.BinaryBitwiseInt
+2
+11
+9
+$$$ Collected 38 from basket
+[       OK ] TestVM.BinaryBitwiseInt (14 ms)
+[ RUN      ] TestVM.BinaryShift
+28
+1
+-28
+-2
+1
+28
+-2
+-28
+1
+28
+4611686018427387902
+-28
+$$$ Collected 38 from basket
+[       OK ] TestVM.BinaryShift (28 ms)
+[ RUN      ] TestVM.BinaryLogical
+false
+false
+false
+true
+false
+true
+true
+true
+null
+456
+123
+123
+$$$ Collected 38 from basket
+[       OK ] TestVM.BinaryLogical (29 ms)
+[ RUN      ] TestVM.Ternary
+2
+1
+$$$ Collected 38 from basket
+[       OK ] TestVM.Ternary (15 ms)
+[ RUN      ] TestVM.MutateDecrement
+12345
+12344
+$$$ Collected 39 from basket
+[       OK ] TestVM.MutateDecrement (17 ms)
+[ RUN      ] TestVM.MutateIncrement
+12345
+12346
+$$$ Collected 39 from basket
+[       OK ] TestVM.MutateIncrement (12 ms)
+[ RUN      ] TestVM.MutateAdd
+12345
+12345.0
+12468
+12468.5
+12468.5
+136.75
+<ERROR>test: Mutation add '+=' is only supported for values of type 'int' or 'float', but right-hand side is a value of type 'string'
+$$$ Collected 49 from basket
+[       OK ] TestVM.MutateAdd (36 ms)
+[ RUN      ] TestVM.MutateSubtract
+12345
+12345.0
+12222
+12221.5
+-12221.5
+110.25
+<ERROR>test: Mutation subtract '-=' is only supported for values of type 'int' or 'float', but right-hand side is a value of type 'string'
+$$$ Collected 49 from basket
+[       OK ] TestVM.MutateSubtract (29 ms)
+[ RUN      ] TestVM.MutateMultiply
+0
+0.0
+1518435
+1524607.5
+1524607.5
+1636.375
+<ERROR>test: Mutation multiply '*=' is only supported for values of type 'int' or 'float', but right-hand side is a value of type 'string'
+$$$ Collected 49 from basket
+[       OK ] TestVM.MutateMultiply (28 ms)
+[ RUN      ] TestVM.MutateDivide
+#+INF
+4938.0
+4938.0
+61.75
+49.4
+<ERROR>test: Division by zero in mutation divide '/='
+$$$ Collected 48 from basket
+[       OK ] TestVM.MutateDivide (26 ms)
+[ RUN      ] TestVM.MutateRemainder
+#NAN
+0.5
+0.5
+1.5
+0.5
+<ERROR>test: Division by zero in mutation remainder '%='
+$$$ Collected 48 from basket
+[       OK ] TestVM.MutateRemainder (25 ms)
+[ RUN      ] TestVM.MutateBitwiseAnd
+false
+false
+false
+true
+8
+<ERROR>test: Mutation bitwise-and '&=' is only supported for matching values of type 'bool' or 'int', but left- and right-hand sides have different types
+$$$ Collected 48 from basket
+[       OK ] TestVM.MutateBitwiseAnd (28 ms)
+[ RUN      ] TestVM.MutateBitwiseOr
+false
+true
+true
+true
+12347
+<ERROR>test: Mutation bitwise-or '|=' is only supported for matching values of type 'bool' or 'int', but left- and right-hand sides have different types
+$$$ Collected 48 from basket
+[       OK ] TestVM.MutateBitwiseOr (25 ms)
+[ RUN      ] TestVM.MutateBitwiseXor
+false
+true
+true
+false
+12339
+<ERROR>test: Mutation bitwise-xor '^=' is only supported for matching values of type 'bool' or 'int', but left- and right-hand sides have different types
+$$$ Collected 48 from basket
+[       OK ] TestVM.MutateBitwiseXor (25 ms)
+[ RUN      ] TestVM.MutateShiftLeft
+12641280
+12
+-12641280
+-13
+<ERROR>test: Mutation shift left '<<=' is only supported for values of type 'int', but right-hand side is 'false'
+$$$ Collected 47 from basket
+[       OK ] TestVM.MutateShiftLeft (24 ms)
+[ RUN      ] TestVM.MutateShiftRight
+12
+12641280
+-13
+-12641280
+<ERROR>test: Mutation shift right '>>=' is only supported for values of type 'int', but right-hand side is 'false'
+$$$ Collected 47 from basket
+[       OK ] TestVM.MutateShiftRight (22 ms)
+[ RUN      ] TestVM.MutateShiftRightUnsigned
+12
+12641280
+18014398509481971
+-12641280
+<ERROR>test: Mutation unsigned shift right '>>>=' is only supported for values of type 'int', but right-hand side is 'false'
+$$$ Collected 47 from basket
+[       OK ] TestVM.MutateShiftRightUnsigned (22 ms)
+[ RUN      ] TestVM.Block
+a
+b
+$$$ Collected 38 from basket
+[       OK ] TestVM.Block (12 ms)
+[ RUN      ] TestVM.If
+X2
+12
+$$$ Collected 42 from basket
+[       OK ] TestVM.If (21 ms)
+[ RUN      ] TestVM.IfElse
+X2
+1Y
+$$$ Collected 42 from basket
+[       OK ] TestVM.IfElse (21 ms)
+[ RUN      ] TestVM.While
+1
+2
+3
+4
+5
+6
+7
+8
+9
+$$$ Collected 39 from basket
+[       OK ] TestVM.While (18 ms)
+[ RUN      ] TestVM.Do
+1
+2
+3
+4
+5
+6
+7
+8
+9
+$$$ Collected 39 from basket
+[       OK ] TestVM.Do (18 ms)
+[ RUN      ] TestVM.For
+1
+2
+3
+4
+5
+6
+7
+8
+9
+$$$ Collected 39 from basket
+[       OK ] TestVM.For (19 ms)
+[ RUN      ] TestVM.SwitchCaseBreak
+one
+two
+three
+four
+five
+$$$ Collected 39 from basket
+[       OK ] TestVM.SwitchCaseBreak (31 ms)
+[ RUN      ] TestVM.SwitchCaseContinue
+one
+two
+two
+three
+four
+four
+five
+one
+two
+$$$ Collected 39 from basket
+[       OK ] TestVM.SwitchCaseContinue (27 ms)
+[ RUN      ] TestVM.SwitchDefaultBreak
+one
+two
+three
+four
+five
+other
+other
+other
+other
+$$$ Collected 39 from basket
+[       OK ] TestVM.SwitchDefaultBreak (27 ms)
+[ RUN      ] TestVM.SwitchDefaultContinue
+one
+two
+three
+three
+four
+five
+other
+one
+other
+one
+other
+one
+other
+one
+other
+one
+$$$ Collected 39 from basket
+[       OK ] TestVM.SwitchDefaultContinue (27 ms)
+[ RUN      ] TestVM.SwitchCaseMultiple
+odd
+even
+odd
+even
+odd
+even
+odd
+even
+odd
+$$$ Collected 39 from basket
+[       OK ] TestVM.SwitchCaseMultiple (20 ms)
+[ RUN      ] TestVM.Throw
+<ERROR>exception
+$$$ Collected 38 from basket
+[       OK ] TestVM.Throw (13 ms)
+[ RUN      ] TestVM.TryCatchNoThrow
+try
+$$$ Collected 38 from basket
+[       OK ] TestVM.TryCatchNoThrow (14 ms)
+[ RUN      ] TestVM.TryCatchThrow
+try
+catch:exception
+$$$ Collected 39 from basket
+[       OK ] TestVM.TryCatchThrow (17 ms)
+[ RUN      ] TestVM.TryFinallyNoThrow
+try
+finally
+$$$ Collected 38 from basket
+[       OK ] TestVM.TryFinallyNoThrow (12 ms)
+[ RUN      ] TestVM.TryFinallyThrow
+try
+finally
+<ERROR>exception
+$$$ Collected 38 from basket
+[       OK ] TestVM.TryFinallyThrow (14 ms)
+[ RUN      ] TestVM.TryCatchFinallyNoThrow
+try
+finally
+$$$ Collected 38 from basket
+[       OK ] TestVM.TryCatchFinallyNoThrow (13 ms)
+[ RUN      ] TestVM.TryCatchFinallyThrow
+try
+catch:exception
+finally
+$$$ Collected 39 from basket
+[       OK ] TestVM.TryCatchFinallyThrow (15 ms)
+[ RUN      ] TestVM.TryCatchFinallyThrowAnotherCatch
+try
+catch:exception1
+finally
+<ERROR>exception2
+$$$ Collected 39 from basket
+[       OK ] TestVM.TryCatchFinallyThrowAnotherCatch (17 ms)
+[ RUN      ] TestVM.TryCatchFinallyThrowAnotherFinally
+try
+catch:exception1
+finally
+<ERROR>exception3
+$$$ Collected 39 from basket
+[       OK ] TestVM.TryCatchFinallyThrowAnotherFinally (17 ms)
+[ RUN      ] TestVM.TryCatchRethrow
+try
+catch:exception
+<ERROR>exception
+$$$ Collected 39 from basket
+[       OK ] TestVM.TryCatchRethrow (30 ms)
+[ RUN      ] TestVM.TryCatchFinallyRethrow
+try
+catch:exception
+finally
+<ERROR>exception
+$$$ Collected 39 from basket
+[       OK ] TestVM.TryCatchFinallyRethrow (16 ms)
+[----------] 87 tests from TestVM (1556 ms total)
+
+[----------] 1 test from TestCLI
+[ RUN      ] TestCLI.Spawn
+cpp/yolk/test/test-cli.cpp:50: Failure
+Expected equality of these values:
+  arg0 + "\n" + arg1 + "\n"
+    Which is: "/mnt/c/Project/egg/bin/wsl/gcc/release/egg.exe\n--WIBBLE\n"
+  output
+    Which is: ""
+With diff:
+@@ -1,2 +1,1 @@
+-/mnt/c/Project/egg/bin/wsl/gcc/release/egg.exe
+---WIBBLE\n
++""
+
+
+[  FAILED  ] TestCLI.Spawn (57 ms)
+[----------] 1 test from TestCLI (58 ms total)
+
+[----------] 2 tests from TestScript
+[ RUN      ] TestScript.Working
+55
+4950
+$$$ Collected 219 from basket
+[       OK ] TestScript.Working (161 ms)
+[ RUN      ] TestScript.Coverage
+SUCCESS
+$$$ Collected 88 from basket
+[       OK ] TestScript.Coverage (253 ms)
+[----------] 2 tests from TestScript (415 ms total)
+
+[----------] 10 tests from TestUTF
+[ RUN      ] TestUTF.UTF32toUTF8/Nul
+[       OK ] TestUTF.UTF32toUTF8/Nul (1 ms)
+[ RUN      ] TestUTF.UTF32toUTF8/Dollar
+[       OK ] TestUTF.UTF32toUTF8/Dollar (0 ms)
+[ RUN      ] TestUTF.UTF32toUTF8/Pound
+[       OK ] TestUTF.UTF32toUTF8/Pound (0 ms)
+[ RUN      ] TestUTF.UTF32toUTF8/Euro
+[       OK ] TestUTF.UTF32toUTF8/Euro (0 ms)
+[ RUN      ] TestUTF.UTF32toUTF8/Egg
+[       OK ] TestUTF.UTF32toUTF8/Egg (0 ms)
+[ RUN      ] TestUTF.UTF8toUTF32/Nul
+[       OK ] TestUTF.UTF8toUTF32/Nul (1 ms)
+[ RUN      ] TestUTF.UTF8toUTF32/Dollar
+[       OK ] TestUTF.UTF8toUTF32/Dollar (0 ms)
+[ RUN      ] TestUTF.UTF8toUTF32/Pound
+[       OK ] TestUTF.UTF8toUTF32/Pound (0 ms)
+[ RUN      ] TestUTF.UTF8toUTF32/Euro
+[       OK ] TestUTF.UTF8toUTF32/Euro (0 ms)
+[ RUN      ] TestUTF.UTF8toUTF32/Egg
+[       OK ] TestUTF.UTF8toUTF32/Egg (0 ms)
+[----------] 10 tests from TestUTF (8 ms total)
+
+[----------] 82 tests from TestScripts
+[ RUN      ] TestScripts.Run/0001
+Hello, World!
+$$$ Collected 38 from basket
+[       OK ] TestScripts.Run/0001 (13 ms)
+[ RUN      ] TestScripts.Run/0002
+7
+$$$ Collected 38 from basket
+[       OK ] TestScripts.Run/0002 (12 ms)
+[ RUN      ] TestScripts.Run/0003
+3
+$$$ Collected 38 from basket
+[       OK ] TestScripts.Run/0003 (10 ms)
+[ RUN      ] TestScripts.Run/0004
+13.5
+$$$ Collected 38 from basket
+[       OK ] TestScripts.Run/0004 (9 ms)
+[ RUN      ] TestScripts.Run/0005
+3.5
+$$$ Collected 38 from basket
+[       OK ] TestScripts.Run/0005 (11 ms)
+[ RUN      ] TestScripts.Run/0006
+0.666666666667
+$$$ Collected 38 from basket
+[       OK ] TestScripts.Run/0006 (10 ms)
+[ RUN      ] TestScripts.Run/0007
+The answer is 42
+$$$ Collected 38 from basket
+[       OK ] TestScripts.Run/0007 (11 ms)
+[ RUN      ] TestScripts.Run/0008
+hello
+
+world
+$$$ Collected 38 from basket
+[       OK ] TestScripts.Run/0008 (12 ms)
+[ RUN      ] TestScripts.Run/0009
+42
+$$$ Collected 39 from basket
+[       OK ] TestScripts.Run/0009 (10 ms)
+[ RUN      ] TestScripts.Run/0010
+42.0
+$$$ Collected 39 from basket
+[       OK ] TestScripts.Run/0010 (10 ms)
+[ RUN      ] TestScripts.Run/0011
+42.0
+$$$ Collected 39 from basket
+[       OK ] TestScripts.Run/0011 (10 ms)
+[ RUN      ] TestScripts.Run/0012
+<COMPILER><ERROR>~/cpp/yolk/test/scripts/test-0012.egg(1,9-12): Cannot initialize 'f' of type 'int' with a value of type 'float'
+$$$ Collected 27 from basket
+[       OK ] TestScripts.Run/0012 (15 ms)
+[ RUN      ] TestScripts.Run/0013
+Hello, World!
+$$$ Collected 39 from basket
+[       OK ] TestScripts.Run/0013 (13 ms)
+[ RUN      ] TestScripts.Run/0014
+13
+7
+$$$ Collected 39 from basket
+[       OK ] TestScripts.Run/0014 (13 ms)
+[ RUN      ] TestScripts.Run/0015
+H
+!
+<RUNTIME><ERROR>~/cpp/yolk/test/scripts/test-0015.egg(6,7-11): String index 13 is out of range for a string of length 13
+$$$ Collected 47 from basket
+[       OK ] TestScripts.Run/0015 (17 ms)
+[ RUN      ] TestScripts.Run/0016
+$
+£
+€
+🥚
+$$$ Collected 39 from basket
+[       OK ] TestScripts.Run/0016 (20 ms)
+[ RUN      ] TestScripts.Run/0017
+$
+£
+€
+🥚
+$
+£
+€
+🥚
+$$$ Collected 41 from basket
+[       OK ] TestScripts.Run/0017 (16 ms)
+[ RUN      ] TestScripts.Run/0018
+true
+false
+false
+true
+<RUNTIME><ERROR>~/cpp/yolk/test/scripts/test-0018.egg(11,7-11): Expected left-hand side of comparison operator '<' to be an 'int' or 'float', but instead got a value of type 'string'
+$$$ Collected 48 from basket
+[       OK ] TestScripts.Run/0018 (18 ms)
+[ RUN      ] TestScripts.Run/0019
+true
+egg
+true
+false
+0
+-1
+1
+true
+false
+true
+false
+1
+null
+3
+1
+banana
+123<>hello<>3.14159
+
+1
+1|2
+egg
+on
+
+egg
+eggeggeggeggeggeggeggeggeggegg
+bonono
+bonona
+banono
+b-a-n-a-n-a
+     egg
+egg[][][
+$$$ Collected 38 from basket
+[       OK ] TestScripts.Run/0019 (76 ms)
+[ RUN      ] TestScripts.Run/0020
+<RUNTIME><ERROR>~/cpp/yolk/test/scripts/test-0020.egg(2,8-18): Assertion is untrue: 36 == 42
+$$$ Collected 52 from basket
+[       OK ] TestScripts.Run/0020 (17 ms)
+[ RUN      ] TestScripts.Run/0021
+0
+[]
+3
+[1,2.0,"three"]
+2.0
+$$$ Collected 44 from basket
+[       OK ] TestScripts.Run/0021 (18 ms)
+[ RUN      ] TestScripts.Run/0022
+[]
+[null,null,null]
+[null,"hello",null]
+$$$ Collected 43 from basket
+[       OK ] TestScripts.Run/0022 (21 ms)
+[ RUN      ] TestScripts.Run/0023
+<COMPILER><ERROR>~/cpp/yolk/test/scripts/test-0023.egg(2,1-12): Values of type 'string' do not support modification of property 'length'
+$$$ Collected 27 from basket
+[       OK ] TestScripts.Run/0023 (15 ms)
+[ RUN      ] TestScripts.Run/0024
+{}
+{p:123}
+{p:123,i:"hello"}
+{i:"hello"}
+$$$ Collected 44 from basket
+[       OK ] TestScripts.Run/0024 (22 ms)
+[ RUN      ] TestScripts.Run/0025
+55
+CAUGHT:~/cpp/yolk/test/scripts/test-0025.egg(2,10-15): Assertion is untrue: -1 >= 0
+$$$ Collected 234 from basket
+[       OK ] TestScripts.Run/0025 (81 ms)
+[ RUN      ] TestScripts.Run/0026
+1
+2.0
+three
+$$$ Collected 44 from basket
+[       OK ] TestScripts.Run/0026 (13 ms)
+[ RUN      ] TestScripts.Run/0027
+{key:"a",value:1}
+{key:"b",value:2.0}
+{key:"c",value:"three"}
+$$$ Collected 68 from basket
+[       OK ] TestScripts.Run/0027 (21 ms)
+[ RUN      ] TestScripts.Run/0028
+~/cpp/yolk/test/scripts/test-0028.egg(2,10-19): Assertion is untrue: 2 == 3
+{key:"message",value:"Assertion is untrue: 2 == 3"}
+{key:"resource",value:"~/cpp/yolk/test/scripts/test-0028.egg"}
+{key:"line",value:2}
+{key:"column",value:10}
+{key:"left",value:2}
+{key:"operator",value:"=="}
+{key:"right",value:3}
+$$$ Collected 104 from basket
+[       OK ] TestScripts.Run/0028 (18 ms)
+[ RUN      ] TestScripts.Run/0029
+Hello
+<RUNTIME><ERROR>~/cpp/yolk/test/scripts/test-0029.egg(4,1-9): Cannot re-assign built-in value: 'print'
+$$$ Collected 47 from basket
+[       OK ] TestScripts.Run/0029 (11 ms)
+[ RUN      ] TestScripts.Run/0030
+<COMPILER><ERROR>~/cpp/yolk/test/scripts/test-0030.egg(10,14-16): Value of type 'int' is not iterable in 'for' statement
+$$$ Collected 27 from basket
+[       OK ] TestScripts.Run/0030 (17 ms)
+[ RUN      ] TestScripts.Run/0031
+<COMPILER><ERROR>~/cpp/yolk/test/scripts/test-0031.egg(1,12-14): Cannot initialize 'a' of type 'string' with a value of type 'int'
+$$$ Collected 27 from basket
+[       OK ] TestScripts.Run/0031 (11 ms)
+[ RUN      ] TestScripts.Run/0032
+<COMPILER><ERROR>~/cpp/yolk/test/scripts/test-0032.egg(1,7-19): Expected left-hand side of addition operator '+' to be an 'int' or 'float', but instead got a value of type 'string'
+$$$ Collected 27 from basket
+[       OK ] TestScripts.Run/0032 (14 ms)
+[ RUN      ] TestScripts.Run/0033
+<COMPILER><ERROR>~/cpp/yolk/test/scripts/test-0033.egg(1,7-9): Expected condition of ternary operator '?:' to be a 'bool', but instead got a value of type 'int'
+$$$ Collected 27 from basket
+[       OK ] TestScripts.Run/0033 (11 ms)
+[ RUN      ] TestScripts.Run/0034
+<COMPILER><ERROR>~/cpp/yolk/test/scripts/test-0034.egg(1,7-20): Type 'string' does not have a static property named 'unknown'
+$$$ Collected 27 from basket
+[       OK ] TestScripts.Run/0034 (16 ms)
+[ RUN      ] TestScripts.Run/0035
+yes
+no
+maybe
+$$$ Collected 43 from basket
+[       OK ] TestScripts.Run/0035 (17 ms)
+[ RUN      ] TestScripts.Run/0036
+int: 123
+float: 123.45
+unknown: hello
+$$$ Collected 48 from basket
+[       OK ] TestScripts.Run/0036 (19 ms)
+[ RUN      ] TestScripts.Run/0037
+<COMPILER><ERROR>~/cpp/yolk/test/scripts/test-0037.egg(5,22): Unknown identifier: 'i'
+$$$ Collected 27 from basket
+[       OK ] TestScripts.Run/0037 (15 ms)
+[ RUN      ] TestScripts.Run/0038
+<COMPILER><ERROR>~/cpp/yolk/test/scripts/test-0038.egg(2,3-8): Expected 'return' statement with a value of type 'int'
+$$$ Collected 27 from basket
+[       OK ] TestScripts.Run/0038 (10 ms)
+[ RUN      ] TestScripts.Run/0039
+<COMPILER><ERROR>~/cpp/yolk/test/scripts/test-0039.egg(2,3-8): Expected 'return' statement with a value of type 'int'
+$$$ Collected 27 from basket
+[       OK ] TestScripts.Run/0039 (10 ms)
+[ RUN      ] TestScripts.Run/0040
+int?(int)
+int
+123
+<RUNTIME><ERROR>~/cpp/yolk/test/scripts/test-0040.egg(14,5-22): Type mismatch setting variable 'b': expected 'int' but instead got 'null'
+$$$ Collected 52 from basket
+[       OK ] TestScripts.Run/0040 (19 ms)
+[ RUN      ] TestScripts.Run/0041
+5
+4
+3
+2
+1
+$$$ Collected 42 from basket
+[       OK ] TestScripts.Run/0041 (20 ms)
+[ RUN      ] TestScripts.Run/0042
+<COMPILER><WARNING>~/cpp/yolk/test/scripts/test-0042.egg(4,10): Guarded assignment to 'i' of type 'int?' will always succeed
+null
+$$$ Collected 43 from basket
+[       OK ] TestScripts.Run/0042 (18 ms)
+[ RUN      ] TestScripts.Run/0043
+5
+4
+3
+2
+1
+$$$ Collected 60 from basket
+[       OK ] TestScripts.Run/0043 (39 ms)
+[ RUN      ] TestScripts.Run/0044
+<RUNTIME><ERROR>~/cpp/yolk/test/scripts/test-0044.egg(11,26-33): Type mismatch for parameter 'p': Expected 'int*', but instead got a value of type 'float*'
+$$$ Collected 51 from basket
+[       OK ] TestScripts.Run/0044 (20 ms)
+[ RUN      ] TestScripts.Run/0045
+5
+4
+3
+2
+1
+$$$ Collected 42 from basket
+[       OK ] TestScripts.Run/0045 (18 ms)
+[ RUN      ] TestScripts.Run/0046
+5
+4
+3
+2
+1
+$$$ Collected 45 from basket
+[       OK ] TestScripts.Run/0046 (23 ms)
+[ RUN      ] TestScripts.Run/0047
+5
+4
+3
+2
+1
+$$$ Collected 45 from basket
+[       OK ] TestScripts.Run/0047 (23 ms)
+[ RUN      ] TestScripts.Run/0048
+5
+4
+3
+2
+1
+$$$ Collected 45 from basket
+[       OK ] TestScripts.Run/0048 (26 ms)
+[ RUN      ] TestScripts.Run/0049
+5
+4
+3
+2
+1
+$$$ Collected 45 from basket
+[       OK ] TestScripts.Run/0049 (33 ms)
+[ RUN      ] TestScripts.Run/0050
+5
+4
+3
+2
+1
+$$$ Collected 43 from basket
+[       OK ] TestScripts.Run/0050 (18 ms)
+[ RUN      ] TestScripts.Run/0051
+countdown_explicit:321
+countdown_while:321
+countdown_do:321
+countdown_for:321
+countdown_break:321
+countdown_continue:321
+countdown_array:321
+countdown_arraywise:[3,2,1]
+countdown_elementwise:321
+countdown_any_array:321
+countdown_any_string:321
+<RUNTIME><ERROR>~/cpp/yolk/test/scripts/test-0051.egg(83,3-7): Cannot 'yield ...' multiple values from a value of type 'int'
+$$$ Collected 167 from basket
+[       OK ] TestScripts.Run/0051 (81 ms)
+[ RUN      ] TestScripts.Run/0052
+<COMPILER><ERROR>~/cpp/yolk/test/scripts/test-0052.egg(2,13-15): Cannot initialize 'i' of type 'int' with a value of type 'float'
+$$$ Collected 27 from basket
+[       OK ] TestScripts.Run/0052 (16 ms)
+[ RUN      ] TestScripts.Run/0053
+$$$ Collected 40 from basket
+[       OK ] TestScripts.Run/0053 (15 ms)
+[ RUN      ] TestScripts.Run/0054
+$$$ Collected 39 from basket
+[       OK ] TestScripts.Run/0054 (22 ms)
+[ RUN      ] TestScripts.Run/0055
+$$$ Collected 41 from basket
+[       OK ] TestScripts.Run/0055 (31 ms)
+[ RUN      ] TestScripts.Run/0056
+$$$ Collected 42 from basket
+[       OK ] TestScripts.Run/0056 (13 ms)
+[ RUN      ] TestScripts.Run/0057
+<RUNTIME><ERROR>~/cpp/yolk/test/scripts/test-0057.egg(6,10-14): Recursive type manifestation instantiation
+$$$ Collected 50 from basket
+[       OK ] TestScripts.Run/0057 (17 ms)
+[ RUN      ] TestScripts.Run/0058
+$$$ Collected 43 from basket
+[       OK ] TestScripts.Run/0058 (18 ms)
+[ RUN      ] TestScripts.Run/0059
+<COMPILER><ERROR>~/cpp/yolk/test/scripts/test-0059.egg(6,3-8): Cannot mix 'return' and 'yield statements within generator definitions
+$$$ Collected 27 from basket
+[       OK ] TestScripts.Run/0059 (14 ms)
+[ RUN      ] TestScripts.Run/0060
+<COMPILER><ERROR>~/cpp/yolk/test/scripts/test-0060.egg(3,5-9): 'yield' statements are only valid within generator definitions
+$$$ Collected 27 from basket
+[       OK ] TestScripts.Run/0060 (11 ms)
+[ RUN      ] TestScripts.Run/0061
+<COMPILER><ERROR>~/cpp/yolk/test/scripts/test-0061.egg(6,1-11): Type 'Class' does not support modification of property 'i'
+$$$ Collected 27 from basket
+[       OK ] TestScripts.Run/0061 (12 ms)
+[ RUN      ] TestScripts.Run/0062
+<COMPILER><ERROR>~/cpp/yolk/test/scripts/test-0062.egg(7,8-14): Type 'Class' does not have a static property named 'c' (though values of type 'Class' support a property with that name)
+$$$ Collected 27 from basket
+[       OK ] TestScripts.Run/0062 (17 ms)
+[ RUN      ] TestScripts.Run/0063
+<COMPILER><ERROR>~/cpp/yolk/test/scripts/test-0063.egg(2,3-16): Expected '=' after identifier 'i' in definition of static property, but instead got operator '{'
+$$$ Collected 27 from basket
+[       OK ] TestScripts.Run/0063 (9 ms)
+[ RUN      ] TestScripts.Run/0064
+$$$ Collected 39 from basket
+[       OK ] TestScripts.Run/0064 (11 ms)
+[ RUN      ] TestScripts.Run/0065
+<COMPILER><WARNING>~/cpp/yolk/test/scripts/test-0065.egg(2,16-18): Duplicate 'ref' access clause in instance data declaration of 'i'
+$$$ Collected 39 from basket
+[       OK ] TestScripts.Run/0065 (13 ms)
+[ RUN      ] TestScripts.Run/0066
+$$$ Collected 54 from basket
+[       OK ] TestScripts.Run/0066 (32 ms)
+[ RUN      ] TestScripts.Run/0067
+$$$ Collected 54 from basket
+[       OK ] TestScripts.Run/0067 (20 ms)
+[ RUN      ] TestScripts.Run/0068
+<COMPILER><ERROR>~/cpp/yolk/test/scripts/test-0068.egg(16,1-19): Values of type 'Class' do not support modification of property 'd'
+$$$ Collected 27 from basket
+[       OK ] TestScripts.Run/0068 (18 ms)
+[ RUN      ] TestScripts.Run/0069
+<COMPILER><ERROR>~/cpp/yolk/test/scripts/test-0069.egg(2,1-12): Type identifier 'Class' cannot be modified
+$$$ Collected 27 from basket
+[       OK ] TestScripts.Run/0069 (11 ms)
+[ RUN      ] TestScripts.Run/0070
+<COMPILER><ERROR>~/cpp/yolk/test/scripts/test-0070.egg(2,1-20): Type identifier 'Arithmetic' cannot be modified
+$$$ Collected 27 from basket
+[       OK ] TestScripts.Run/0070 (10 ms)
+[ RUN      ] TestScripts.Run/0071
+<COMPILER><ERROR>~/cpp/yolk/test/scripts/test-0071.egg(2,1-8): Values of type 'int' do not support indexing
+$$$ Collected 27 from basket
+[       OK ] TestScripts.Run/0071 (11 ms)
+[ RUN      ] TestScripts.Run/0072
+<COMPILER><ERROR>~/cpp/yolk/test/scripts/test-0072.egg(2,1-8): Values of type 'string' do not support modification via indexing
+$$$ Collected 27 from basket
+[       OK ] TestScripts.Run/0072 (11 ms)
+[ RUN      ] TestScripts.Run/0073
+<COMPILER><ERROR>~/cpp/yolk/test/scripts/test-0073.egg(2,1-8): Values of type 'string' do not support pointer operator '*'
+$$$ Collected 27 from basket
+[       OK ] TestScripts.Run/0073 (10 ms)
+[ RUN      ] TestScripts.Run/0074
+<COMPILER><ERROR>~/cpp/yolk/test/scripts/test-0074.egg(2,1-14): Values of type 'string' do not support modification of property 'length'
+$$$ Collected 27 from basket
+[       OK ] TestScripts.Run/0074 (10 ms)
+[ RUN      ] TestScripts.Run/0075
+<COMPILER><ERROR>~/cpp/yolk/test/scripts/test-0075.egg(8,1-11): 'Class' property 'i' (declared as 'int') cannot be assigned a value of type 'string'
+$$$ Collected 27 from basket
+[       OK ] TestScripts.Run/0075 (17 ms)
+[ RUN      ] TestScripts.Run/0076
+<COMPILER><WARNING>~/cpp/yolk/test/scripts/test-0076.egg(3,1-7): Operator '??=' has no effect when applied to variable 'v' (declared as 'int')
+$$$ Collected 39 from basket
+[       OK ] TestScripts.Run/0076 (17 ms)
+[ RUN      ] TestScripts.Run/0077
+<RUNTIME><ERROR>~/cpp/yolk/test/scripts/test-0077.egg(10,1-3): Increment operator '++' is only supported for values of type 'int'
+$$$ Collected 47 from basket
+[       OK ] TestScripts.Run/0077 (20 ms)
+[ RUN      ] TestScripts.Run/0078
+<RUNTIME><ERROR>~/cpp/yolk/test/scripts/test-0078.egg(10,1-3): Increment operator '++' is only supported for values of type 'int'
+$$$ Collected 47 from basket
+[       OK ] TestScripts.Run/0078 (17 ms)
+[ RUN      ] TestScripts.Run/0079
+{}
+void
+{i:123}
+123
+void
+{i:123,a:10}
+10
+{i:123,a:9}
+9
+{i:123,a:"text"}
+any?*
+123
+{i:321,a:"text"}
+321
+{a:"text"}
+$$$ Collected 47 from basket
+[       OK ] TestScripts.Run/0079 (39 ms)
+[ RUN      ] TestScripts.Run/0080
+object.Property
+{}
+object
+any?*
+{}
+{i:"hello"}
+{i:"goodbye"}
+goodbye
+$$$ Collected 44 from basket
+[       OK ] TestScripts.Run/0080 (18 ms)
+[ RUN      ] TestScripts.Run/0081
+object.Index
+["one","two","three"]
+string[]
+string*
+["one","two","three"]
+["one","hello","three"]
+["one","goodbye","three"]
+goodbye
+$$$ Collected 46 from basket
+[       OK ] TestScripts.Run/0081 (26 ms)
+[ RUN      ] TestScripts.Run/0082
+<RUNTIME><ERROR>~/cpp/yolk/test/scripts/test-0082.egg(19,7): Variable uninitialized: 'o'
+$$$ Collected 50 from basket
+[       OK ] TestScripts.Run/0082 (30 ms)
+[----------] 82 tests from TestScripts (1613 ms total)
+
+[----------] Global test environment tear-down
+[==========] 536 tests from 28 test suites ran. (6980 ms total)
+[  PASSED  ] 535 tests.
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] TestCLI.Spawn
+
+ 1 FAILED TEST

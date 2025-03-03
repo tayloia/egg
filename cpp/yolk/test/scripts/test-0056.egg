@@ -1,0 +1,9 @@
+string value = "one";
+type Class {
+  static int i = value;
+};
+value = "two";
+// type 'Class' is instantiated on the following line
+assert(Class.i == "two");
+value = "three";
+assert(Class.i == "two");

@@ -1,0 +1,32 @@
+#include "ovum/platform.h"
+
+#include <atomic>
+#include <cassert>
+#include <cmath>
+#include <cstring>
+#include <filesystem>
+#include <functional>
+#include <list>
+#include <memory>
+#include <mutex>
+#include <set>
+#include <shared_mutex>
+#include <source_location>
+#include <string>
+#include <sstream>
+
+#include "ovum/interfaces.h"
+#include "ovum/utility.h"
+#include "ovum/hardptr.h"
+#include "ovum/softptr.h"
+#include "ovum/memory.h"
+#include "ovum/print.h"
+#include "ovum/string.h"
+#include "ovum/object.h"
+#include "ovum/arithmetic.h"
+#include "ovum/type.h"
+#include "ovum/value.h"
+#include "ovum/function.h"
+#include "ovum/os-memory.h"
+#include "ovum/basket.h"
+#include "ovum/vm.h"

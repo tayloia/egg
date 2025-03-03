@@ -1,0 +1,4 @@
+type Class {
+  static int i = 123;
+};
+assert(Class.i == 123);

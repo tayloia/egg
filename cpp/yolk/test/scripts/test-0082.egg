@@ -1,0 +1,20 @@
+assert(type.of(object.index) == "object.Index");
+var i = object.index;
+assert(type.of(i) == "object.Index");
+assert(string(i) == "[object.index]");
+
+assert(type.of(object.property) == "object.Property");
+var p = object.property;
+assert(type.of(p) == "object.Property");
+assert(string(p) == "[object.property]");
+
+assert(string(p.get(p, "get")) == "[object.property.get]");
+
+assert(type.of(object.property.get) == "object");
+var g = object.property.get;
+assert(type.of(g) == "object");
+assert(string(g) == "[object.property.get]");
+
+object.Object o;
+print(o);
+///<RUNTIME><ERROR><RESOURCE>(19,7): Variable uninitialized: 'o'

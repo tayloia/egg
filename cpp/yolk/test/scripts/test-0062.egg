@@ -1,0 +1,8 @@
+type Class {
+  static int a = 1;
+  static int b() { return 2; }
+  int c;
+  int d();
+};
+assert(Class.c == 1);
+///<COMPILER><ERROR><RESOURCE>(7,8-14): Type 'Class' does not have a static property named 'c' (though values of type 'Class' support a property with that name)
