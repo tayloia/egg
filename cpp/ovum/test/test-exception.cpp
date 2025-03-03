@@ -1,5 +1,4 @@
 #include "ovum/test.h"
-#include "ovum/exception.h"
 
 TEST(TestException, Throw) {
   ASSERT_THROW(throw egg::ovum::Exception("Hello world"), egg::ovum::Exception);
@@ -60,8 +59,7 @@ TEST(TestException, Print) {
   auto expected = "<FORMAT>\n"
                   "  alpha=<ALPHA>\n"
                   "  beta=<BETA>\n"
-                  "  gamma=<GAMMA>\n"
-                  "  what=<FORMAT>";
+                  "  gamma=<GAMMA>";
   ASSERT_EQ(actual, expected);
 }
 
@@ -93,5 +91,16 @@ TEST(TestException, Query) {
     ASSERT_EQ("value", value);
     ASSERT_FALSE(exception.query("unknown", value));
     ASSERT_EQ("value", value);
+  }
+}
+
+TEST(TestException, Internal) {
+  try {
+    throw egg::ovum::InternalException("reason");
+  } catch (const egg::ovum::Exception& exception) {
+    auto where = "ovum/test/test-exception.cpp(" + std::to_string(__LINE__ - 2) + ')';
+    ASSERT_EQ(where + ": reason", exception.what());
+    ASSERT_EQ("reason", exception.get("reason"));
+    ASSERT_EQ(where, exception.get("where"));
   }
 }

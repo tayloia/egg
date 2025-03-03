@@ -4,32 +4,34 @@
 
 TEST(TestOS_File, NormalizePath) {
   ASSERT_EQ("/path/to/file", egg::ovum::os::file::normalizePath("/path/to/file", false));
-  ASSERT_EQ("/path/to/file/", egg::ovum::os::file::normalizePath("/path/to/file/", false));
+  ASSERT_EQ("/path/to/file", egg::ovum::os::file::normalizePath("/path/to/file/", false));
   ASSERT_EQ("/path/to/file/", egg::ovum::os::file::normalizePath("/path/to/file", true));
   ASSERT_EQ("/path/to/file/", egg::ovum::os::file::normalizePath("/path/to/file/", true));
   if (egg::ovum::os::file::slash() == '\\') {
     ASSERT_EQ("c:/path/to/file", egg::ovum::os::file::normalizePath("C:\\Path\\to\\file", false));
-    ASSERT_EQ("c:/path/to/file/", egg::ovum::os::file::normalizePath("C:\\Path\\to\\file\\", false));
+    ASSERT_EQ("c:/path/to/file", egg::ovum::os::file::normalizePath("C:\\Path\\to\\file\\", false));
     ASSERT_EQ("c:/path/to/file/", egg::ovum::os::file::normalizePath("C:\\Path\\to\\file", true));
     ASSERT_EQ("c:/path/to/file/", egg::ovum::os::file::normalizePath("C:\\Path\\to\\file\\", true));
   }
 }
 
 TEST(TestOS_File, DenormalizePath) {
-  ASSERT_EQ("C:\\Path\\to\\file", egg::ovum::os::file::denormalizePath("C:\\Path\\to\\file", false));
-  ASSERT_EQ("C:\\Path\\to\\file\\", egg::ovum::os::file::denormalizePath("C:\\Path\\to\\file\\", false));
   if (egg::ovum::os::file::slash() == '\\') {
+    ASSERT_EQ("C:\\Path\\to\\file", egg::ovum::os::file::denormalizePath("C:\\Path\\to\\file", false));
+    ASSERT_EQ("C:\\Path\\to\\file", egg::ovum::os::file::denormalizePath("C:\\Path\\to\\file\\", false));
     ASSERT_EQ("C:\\Path\\to\\file\\", egg::ovum::os::file::denormalizePath("C:\\Path\\to\\file", true));
     ASSERT_EQ("C:\\Path\\to\\file\\", egg::ovum::os::file::denormalizePath("C:\\Path\\to\\file\\", true));
     ASSERT_EQ("\\path\\to\\file", egg::ovum::os::file::denormalizePath("/path/to/file", false));
-    ASSERT_EQ("\\path\\to\\file\\", egg::ovum::os::file::denormalizePath("/path/to/file/", false));
+    ASSERT_EQ("\\path\\to\\file", egg::ovum::os::file::denormalizePath("/path/to/file/", false));
     ASSERT_EQ("\\path\\to\\file\\", egg::ovum::os::file::denormalizePath("/path/to/file", true));
     ASSERT_EQ("\\path\\to\\file\\", egg::ovum::os::file::denormalizePath("/path/to/file/", true));
   } else {
+    ASSERT_EQ("C:\\Path\\to\\file", egg::ovum::os::file::denormalizePath("C:\\Path\\to\\file", false));
+    ASSERT_EQ("C:\\Path\\to\\file\\", egg::ovum::os::file::denormalizePath("C:\\Path\\to\\file\\", false));
     ASSERT_EQ("C:\\Path\\to\\file/", egg::ovum::os::file::denormalizePath("C:\\Path\\to\\file", true));
     ASSERT_EQ("C:\\Path\\to\\file\\/", egg::ovum::os::file::denormalizePath("C:\\Path\\to\\file\\", true));
     ASSERT_EQ("/path/to/file", egg::ovum::os::file::denormalizePath("/path/to/file", false));
-    ASSERT_EQ("/path/to/file/", egg::ovum::os::file::denormalizePath("/path/to/file/", false));
+    ASSERT_EQ("/path/to/file", egg::ovum::os::file::denormalizePath("/path/to/file/", false));
     ASSERT_EQ("/path/to/file/", egg::ovum::os::file::denormalizePath("/path/to/file", true));
     ASSERT_EQ("/path/to/file/", egg::ovum::os::file::denormalizePath("/path/to/file/", true));
   }

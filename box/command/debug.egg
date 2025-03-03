@@ -1,0 +1,2 @@
+type version = import("@version");
+print("v", version.semver());

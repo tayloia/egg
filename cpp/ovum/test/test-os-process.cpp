@@ -79,3 +79,10 @@ TEST(TestOS_Process, PlinesFail) {
   ASSERT_LT(0, exitcode);
   ASSERT_NE("", ss.str());
 }
+
+TEST(TestOS_Process, Snapshot) {
+  auto snapshot = egg::ovum::os::process::snapshot();
+  ASSERT_GE(snapshot.microsecondsUser, 0u);
+  ASSERT_GE(snapshot.microsecondsSystem, 0u);
+  ASSERT_GT(snapshot.microsecondsElapsed, 0u);
+}

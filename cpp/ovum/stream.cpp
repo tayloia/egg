@@ -1,6 +1,7 @@
 #include "ovum/ovum.h"
-#include "ovum/exception.h"
+#include "ovum/eggbox.h"
 #include "ovum/file.h"
+#include "ovum/os-zip.h"
 #include "ovum/stream.h"
 #include "ovum/utf.h"
 
@@ -10,8 +11,9 @@ namespace {
   bool isEndOfLine(int ch) {
     return (ch == '\r') || (ch == '\n');
   }
-  // See https://en.wikipedia.org/wiki/UTF-8
+
   int readContinuation(ByteStream& stream, int value, size_t count) {
+    // See https://en.wikipedia.org/wiki/UTF-8
     do {
       auto b = stream.get();
       if (b < 0) {
@@ -25,6 +27,7 @@ namespace {
     } while (--count);
     return value;
   }
+
   int readCodepoint(ByteStream& stream) {
     auto b = stream.get();
     if (b < 0x80) {
@@ -48,6 +51,20 @@ namespace {
     }
     throw egg::ovum::Exception("Invalid UTF-8 encoding (bad lead byte): '{resource}'").with("resource", stream.getResourceName());
   }
+}
+
+EggboxByteStream::EggboxByteStream(const std::string& resource, std::shared_ptr<IEggboxFileEntry>&& entry)
+  : ByteStream(entry->getReadStream(), resource),
+    entry(std::move(entry)) {
+  assert(this->entry != nullptr);
+}
+
+EggboxByteStream::EggboxByteStream(IEggbox& eggbox, const std::string& subpath)
+  : EggboxByteStream(eggbox.getResourcePath(&subpath), eggbox.getFileEntry(subpath)) {
+}
+
+EggboxByteStream::~EggboxByteStream() {
+  // Required to be in this source file to have access to the destructor of 'Impl'
 }
 
 int egg::ovum::CharStream::get() {

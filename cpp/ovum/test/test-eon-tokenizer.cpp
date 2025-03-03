@@ -1,5 +1,4 @@
 #include "ovum/test.h"
-#include "ovum/exception.h"
 #include "ovum/lexer.h"
 #include "ovum/eon-tokenizer.h"
 
@@ -10,8 +9,8 @@ namespace {
     auto lexer = LexerFactory::createFromString(text);
     return EonTokenizerFactory::createFromLexer(allocator, lexer);
   }
-  std::shared_ptr<IEonTokenizer> createFromPath(IAllocator& allocator, const std::string& path) {
-    auto lexer = LexerFactory::createFromPath(path);
+  std::shared_ptr<IEonTokenizer> createFromPath(IAllocator& allocator, const std::string& devpath) {
+    auto lexer = LexerFactory::createFromPath(egg::test::resolvePath(devpath));
     return EonTokenizerFactory::createFromLexer(allocator, lexer);
   }
 }
@@ -280,7 +279,7 @@ TEST(TestEonTokenizer, Contiguous) {
 TEST(TestEonTokenizer, ExampleFile) {
   egg::test::Allocator allocator;
   EonTokenizerItem item;
-  auto tokenizer = createFromPath(allocator, "~/cpp/data/example.eon");
+  auto tokenizer = createFromPath(allocator, "cpp/data/example.eon");
   size_t count = 0;
   while (tokenizer->next(item) != EonTokenizerKind::EndOfFile) {
     count++;

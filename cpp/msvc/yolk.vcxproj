@@ -19,6 +19,8 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\yolk\engine.cpp" />
+    <ClCompile Include="..\yolk\options.cpp" />
     <ClCompile Include="..\yolk\stub.cpp" />
     <ClCompile Include="yolk.pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
@@ -33,6 +35,8 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\yolk\engine.h" />
+    <ClInclude Include="..\yolk\options.h" />
     <ClInclude Include="..\yolk\stub.h" />
     <ClInclude Include="..\yolk\test.h" />
     <ClInclude Include="..\yolk\yolk.h" />

@@ -2,11 +2,14 @@
 #include "ovum/file.h"
 #include "ovum/os-embed.h"
 #include "ovum/os-file.h"
+#include "ovum/os-process.h"
 
 #include <windows.h>
+#include <psapi.h>
 
 namespace {
   using namespace egg::ovum::os::embed;
+  using namespace egg::ovum::os::memory;
 
   struct WindowsLockableResource : public LockableResource {
     HMODULE module;
@@ -62,11 +65,10 @@ namespace {
     }
     return narrow(wide);
   }
-  HANDLE beginUpdateResource(const std::string& executable, bool deleteExisting) {
-    auto wexecutable = widen(egg::ovum::os::file::denormalizePath(executable, false));
-    auto handle = ::BeginUpdateResource(wexecutable.c_str(), deleteExisting);
+  HANDLE beginUpdateResource(const std::filesystem::path& executable, bool deleteExisting) {
+    auto handle = ::BeginUpdateResource(executable.c_str(), deleteExisting);
     if (handle == NULL) {
-      throw std::runtime_error("Cannot open executable file for resource writing");
+      throw egg::ovum::Exception("Cannot open executable file for resource writing: '{path}'").with("path", executable.string());
     }
     return handle;
   }
@@ -75,17 +77,16 @@ namespace {
     auto wlabel = widen(label);
     WORD language = MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL);
     if (!::UpdateResource(handle, wtype.c_str(), wlabel.c_str(), language, LPVOID(data), DWORD(bytes))) {
-      throw std::runtime_error("Cannot update resource in executable file");
+      throw egg::ovum::Exception("Cannot update resource in executable file: '{type}/{label}'").with("type", type).with("label", label);
     }
   }
   void endUpdateResource(HANDLE handle, bool discard) {
     if (!::EndUpdateResource(handle, discard)) {
-      throw std::runtime_error("Cannot write resource changes to executable file");
+      throw egg::ovum::Exception("Cannot commit resource changes to executable file");
     }
   }
-  HMODULE loadLibrary(const std::string& executable) {
-    auto wexecutable = widen(egg::ovum::os::file::denormalizePath(executable, false));
-    return ::LoadLibraryEx(wexecutable.c_str(), NULL, LOAD_LIBRARY_AS_DATAFILE);
+  HMODULE loadLibrary(const std::filesystem::path& executable) {
+    return ::LoadLibraryEx(executable.c_str(), NULL, LOAD_LIBRARY_AS_DATAFILE);
   }
   BOOL enumResourceNamesCallback(HMODULE module, LPCWSTR type, LPWSTR label, LONG_PTR lparam) {
     auto handle = ::FindResourceW(module, label, type);
@@ -111,22 +112,48 @@ namespace {
     return resources;
   }
   std::shared_ptr<LockableResource> findResourceName(HMODULE module, const std::string& type, const std::string& label) {
-    auto wtype = widen(type);
-    auto wlabel = widen(label);
-    auto handle = ::FindResourceW(module, wlabel.c_str(), wtype.c_str());
-    if (handle == NULL) {
-      return nullptr;
+    if (module != NULL) {
+      auto wtype = widen(type);
+      auto wlabel = widen(label);
+      auto handle = ::FindResourceW(module, wlabel.c_str(), wtype.c_str());
+      if (handle != NULL) {
+        return std::make_shared<WindowsLockableResource>(module, type, label, handle);
+      }
     }
-    return std::make_shared<WindowsLockableResource>(module, type, label, handle);
+    return nullptr;
   }
   void freeLibrary(HMODULE module) {
     if (!::FreeLibrary(module)) {
-      throw std::runtime_error("Cannot free resource library executable file");
+      throw egg::ovum::Exception("Cannot free resource library handle");
     }
+  }
+  bool getProcessMemoryInfo(PROCESS_MEMORY_COUNTERS& pmc) {
+    return ::GetProcessMemoryInfo(::GetCurrentProcess(), &pmc, sizeof(pmc));
+  }
+  uint64_t getMicroseconds(const FILETIME& filetime) {
+    // FILETIME is quantized to 100 nanoseconds
+    uint64_t high = filetime.dwHighDateTime;
+    uint64_t low = filetime.dwLowDateTime;
+    return ((high << 32) + low + 5) / 10;
+  }
+  bool getProcessTimes(egg::ovum::os::process::Snapshot& snapshot) {
+    FILETIME creation, exit, kernel, user, now;
+    if (!::GetProcessTimes(::GetCurrentProcess(), &creation, &exit, &kernel, &user)) {
+      return false;
+    }
+    SYSTEMTIME system;
+    ::GetSystemTime(&system);
+    if (!::SystemTimeToFileTime(&system, &now)) {
+      return false;
+    }
+    snapshot.microsecondsUser = getMicroseconds(user);
+    snapshot.microsecondsSystem = getMicroseconds(kernel);
+    snapshot.microsecondsElapsed = getMicroseconds(now) - getMicroseconds(creation);
+    return true;
   }
 }
 
-void egg::ovum::os::embed::updateResourceFromMemory(const std::string& executable, const std::string& type, const std::string& label, const void* data, size_t bytes) {
+size_t egg::ovum::os::embed::updateResourceFromMemory(const std::filesystem::path& executable, const std::string& type, const std::string& label, const void* data, size_t bytes) {
   auto handle = beginUpdateResource(executable, false);
   try {
     updateResource(handle, type, label, data, bytes);
@@ -136,9 +163,10 @@ void egg::ovum::os::embed::updateResourceFromMemory(const std::string& executabl
     throw;
   }
   endUpdateResource(handle, false);
+  return bytes;
 }
 
-void egg::ovum::os::embed::updateResourceFromFile(const std::string& executable, const std::string& type, const std::string& label, const std::string& datapath) {
+uint64_t egg::ovum::os::embed::updateResourceFromFile(const std::filesystem::path& executable, const std::string& type, const std::string& label, const std::filesystem::path& datapath) {
   auto slurped = egg::ovum::File::slurp(datapath);
   auto data = slurped.empty() ? nullptr : slurped.data();
   auto bytes = slurped.size();
@@ -151,9 +179,10 @@ void egg::ovum::os::embed::updateResourceFromFile(const std::string& executable,
     throw;
   }
   endUpdateResource(handle, false);
+  return bytes;
 }
 
-std::vector<egg::ovum::os::embed::Resource> egg::ovum::os::embed::findResources(const std::string& executable) {
+std::vector<egg::ovum::os::embed::Resource> egg::ovum::os::embed::findResources(const std::filesystem::path& executable) {
   auto handle = loadLibrary(executable);
   try {
     auto resources = enumResourceTypes(handle);
@@ -166,7 +195,7 @@ std::vector<egg::ovum::os::embed::Resource> egg::ovum::os::embed::findResources(
   }
 }
 
-std::vector<egg::ovum::os::embed::Resource> egg::ovum::os::embed::findResourcesByType(const std::string& executable, const std::string& type) {
+std::vector<egg::ovum::os::embed::Resource> egg::ovum::os::embed::findResourcesByType(const std::filesystem::path& executable, const std::string& type) {
   auto handle = loadLibrary(executable);
   try {
     auto resources = enumResourceNames(handle, type);
@@ -179,8 +208,44 @@ std::vector<egg::ovum::os::embed::Resource> egg::ovum::os::embed::findResourcesB
   }
 }
 
-std::shared_ptr<egg::ovum::os::embed::LockableResource> egg::ovum::os::embed::findResourceByName(const std::string& executable, const std::string& type, const std::string& label) {
+std::shared_ptr<egg::ovum::os::embed::LockableResource> egg::ovum::os::embed::findResourceByName(const std::filesystem::path& executable, const std::string& type, const std::string& label) {
   // The library handle is freed by RAII in ~LockableResource()
   auto handle = loadLibrary(executable);
   return findResourceName(handle, type, label);
+}
+
+egg::ovum::os::memory::Snapshot egg::ovum::os::memory::snapshot() {
+  // See https://stackoverflow.com/a/33228050
+  PROCESS_MEMORY_COUNTERS pmc;
+  if (!getProcessMemoryInfo(pmc)) {
+    throw egg::ovum::Exception("Cannot get current process memory information");
+  }
+  Snapshot snapshot;
+  snapshot.currentBytesData = pmc.PagefileUsage;
+  snapshot.currentBytesTotal = pmc.WorkingSetSize;
+  snapshot.peakBytesData = pmc.PeakPagefileUsage;
+  snapshot.peakBytesTotal = pmc.PeakWorkingSetSize;
+  return snapshot;
+}
+
+egg::ovum::os::process::Snapshot egg::ovum::os::process::snapshot() {
+  Snapshot snapshot;
+  if (!getProcessTimes(snapshot)) {
+    throw egg::ovum::Exception("Cannot get current process memory information");
+  }
+  return snapshot;
+}
+
+std::string egg::ovum::os::process::format(const std::error_code& error) {
+  // See https://stackoverflow.com/q/73584099
+  auto text = error.message();
+  if (text == "unknown error") {
+    text.resize(65536, 0);
+    size_t length = ::FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, DWORD(error.value()), 0, text.data(), 0xFFFF, NULL);
+    while ((length > 0) && (text[length - 1] < ' ')) {
+      --length;
+    }
+    text.resize(length);
+  }
+  return text;
 }

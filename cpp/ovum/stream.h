@@ -1,20 +1,19 @@
 #include <deque>
 #include <fstream>
-#include <iomanip>
 
 namespace egg::ovum {
+  class IEggbox;
+  class IEggboxFileEntry;
+
   class FileStream : public std::fstream {
     FileStream(FileStream&) = delete;
     FileStream& operator=(FileStream&) = delete;
   public:
-    FileStream(const std::string& unresolved, const std::string& resolved, ios_base::openmode mode)
-      : std::fstream(resolved, mode) {
+    explicit FileStream(const std::filesystem::path& path, ios_base::openmode mode = ios_base::in | ios_base::binary)
+      : std::fstream(path, mode) {
       if (this->fail()) {
-        throw egg::ovum::Exception("Failed to open file for reading: '{path}'").with("path", unresolved);
+        throw egg::ovum::Exception("Failed to open file for reading: '{path}'").with("path", path.generic_string());
       }
-    }
-    explicit FileStream(const std::string& path, ios_base::openmode mode = ios_base::in | ios_base::binary)
-      : FileStream(path, File::resolvePath(path), mode) {
     }
   };
 
@@ -25,8 +24,8 @@ namespace egg::ovum {
     std::istream& stream;
     std::string resource;
   public:
-    ByteStream(std::istream& stream, const std::string& resource)
-      : stream(stream), resource(resource) {
+    ByteStream(std::istream& stream, const std::filesystem::path& resource)
+      : stream(stream), resource(resource.generic_string()) {
     }
     int get() {
       char ch;
@@ -47,13 +46,25 @@ namespace egg::ovum {
     }
   };
 
+  class EggboxByteStream : public ByteStream {
+    EggboxByteStream(EggboxByteStream&) = delete;
+    EggboxByteStream& operator=(EggboxByteStream&) = delete;
+  private:
+    std::shared_ptr<IEggboxFileEntry> entry;
+  public:
+    EggboxByteStream(IEggbox& eggbox, const std::string& subpath);
+    ~EggboxByteStream();
+  protected:
+    EggboxByteStream(const std::string& resource, std::shared_ptr<IEggboxFileEntry>&& entry);
+  };
+
   class FileByteStream : public ByteStream {
     FileByteStream(FileByteStream&) = delete;
     FileByteStream& operator=(FileByteStream&) = delete;
   private:
     FileStream fs;
   public:
-    explicit FileByteStream(const std::string& path)
+    explicit FileByteStream(const std::filesystem::path& path)
       : ByteStream(fs, path), fs(path) {
     }
   };
@@ -87,13 +98,24 @@ namespace egg::ovum {
     }
   };
 
+  class EggboxCharStream : public CharStream {
+    EggboxCharStream(EggboxCharStream&) = delete;
+    EggboxCharStream& operator=(EggboxCharStream&) = delete;
+  private:
+    EggboxByteStream ebs;
+  public:
+    EggboxCharStream(IEggbox& eggbox, const std::string& subpath, bool swallowBOM = true)
+      : CharStream(ebs, swallowBOM), ebs(eggbox, subpath) {
+    }
+  };
+
   class FileCharStream : public CharStream {
     FileCharStream(FileCharStream&) = delete;
     FileCharStream& operator=(FileCharStream&) = delete;
   private:
     FileByteStream fbs;
   public:
-    explicit FileCharStream(const std::string& path, bool swallowBOM = true)
+    explicit FileCharStream(const std::filesystem::path& path, bool swallowBOM = true)
       : CharStream(fbs, swallowBOM), fbs(path) {
     }
   };
@@ -147,13 +169,24 @@ namespace egg::ovum {
     bool ensure(size_t count);
   };
 
+  class EggboxTextStream : public TextStream {
+    EggboxTextStream(EggboxTextStream&) = delete;
+    EggboxTextStream& operator=(EggboxTextStream&) = delete;
+  private:
+    EggboxCharStream ecs;
+  public:
+    EggboxTextStream(IEggbox& eggbox, const std::string& subpath, bool swallowBOM = true)
+      : TextStream(ecs), ecs(eggbox, subpath, swallowBOM) {
+    }
+  };
+
   class FileTextStream : public TextStream {
     FileTextStream(FileTextStream&) = delete;
     FileTextStream& operator=(FileTextStream&) = delete;
   private:
     FileCharStream fcs;
   public:
-    explicit FileTextStream(const std::string& path, bool swallowBOM = true)
+    explicit FileTextStream(const std::filesystem::path& path, bool swallowBOM = true)
       : TextStream(fcs), fcs(path, swallowBOM) {
     }
   };

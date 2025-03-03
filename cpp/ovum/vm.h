@@ -289,7 +289,7 @@ namespace egg::ovum {
   class IVMProgramBuilder : public IVMUncollectable {
   public:
     virtual IVM& getVM() const = 0;
-    virtual bool addBuiltin(const String& symbol, const Type& type) = 0;
+    virtual void addBuiltin(const String& symbol, const Type& type) = 0;
     virtual void visitBuiltins(const std::function<void(const String& symbol, const Type& type)>& visitor) const = 0;
     virtual HardPtr<IVMModuleBuilder> createModuleBuilder(const String& resource) = 0;
     virtual HardPtr<IVMProgram> build() = 0;

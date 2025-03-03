@@ -1,5 +1,4 @@
 #include "ovum/ovum.h"
-#include "ovum/exception.h"
 #include "ovum/lexer.h"
 #include "ovum/egg-tokenizer.h"
 #include "ovum/egg-parser.h"
@@ -1270,7 +1269,7 @@ namespace {
             partial.tokensAfter += 2;
           } else {
             // TODO type(<parameters>)
-            return context.failed(partial.tokensAfter + 1, "Function type parameters not yet supported");
+            return context.failed(partial.tokensAfter + 1, "Function parameters not yet supported");
           }
         } else {
           break;

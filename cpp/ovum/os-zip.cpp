@@ -40,14 +40,14 @@ namespace {
     }
   };
 
-  class Zip : public IZip {
-    Zip(const Zip&) = delete;
-    Zip& operator=(const Zip&) = delete;
+  class ZipReader : public IZipReader {
+    ZipReader(const ZipReader&) = delete;
+    ZipReader& operator=(const ZipReader&) = delete;
   private:
     std::shared_ptr<miniz_cpp::zip_file> handle;
     std::vector<miniz_cpp::zip_info> info;
   public:
-    Zip()
+    ZipReader()
       : handle(nullptr),
         info() {
     }
@@ -59,14 +59,14 @@ namespace {
       assert(this->handle != nullptr);
       return this->info.size();
     }
-    virtual std::shared_ptr<IZipFileEntry> getFileEntryByIndex(size_t index) override {
+    virtual std::shared_ptr<IZipFileEntry> findFileEntryByIndex(size_t index) override {
       assert(this->handle != nullptr);
       if (index < this->info.size()) {
         return std::make_shared<ZipFileEntry>(this->handle, this->info[index]);
       }
       return nullptr;
     }
-    virtual std::shared_ptr<IZipFileEntry> getFileEntryByName(const std::string& subpath) override {
+    virtual std::shared_ptr<IZipFileEntry> findFileEntryBySubpath(const std::string& subpath) override {
       assert(this->handle != nullptr);
       try {
         return std::make_shared<ZipFileEntry>(this->handle, this->handle->getinfo(subpath));
@@ -78,49 +78,70 @@ namespace {
         throw;
       }
     }
-    void openFile(const std::filesystem::path& path) {
-      this->prepare(std::make_shared<miniz_cpp::zip_file>(path.string()));
-    }
-  private:
-    void prepare(const std::shared_ptr<miniz_cpp::zip_file>& zip) {
+    void loadFromFile(const std::filesystem::path& path) {
       assert(this->handle == nullptr);
-      this->handle = zip;
+      this->handle = std::make_shared<miniz_cpp::zip_file>(path.string());
+      assert(this->handle != nullptr);
+      this->info = this->handle->infolist();
+    }
+    void loadFromStream(std::istream& stream) {
+      assert(this->handle == nullptr);
+      this->handle = std::make_shared<miniz_cpp::zip_file>(stream);
       assert(this->handle != nullptr);
       this->info = this->handle->infolist();
     }
   };
 
-  class ZipFactory : public IZipFactory {
+  class ZipWriter : public IZipWriter {
+    ZipWriter(const ZipWriter&) = delete;
+    ZipWriter& operator=(const ZipWriter&) = delete;
+  private:
+    std::filesystem::path path;
+    std::shared_ptr<miniz_cpp::zip_file> handle;
+    std::vector<miniz_cpp::zip_info> info;
   public:
-    virtual std::string getVersion() const override {
-      return MZ_VERSION;
+    ZipWriter(const std::filesystem::path& path)
+      : path(path),
+        handle(std::make_shared<miniz_cpp::zip_file>()),
+        info() {
     }
-    virtual std::shared_ptr<IZip> openFile(const std::filesystem::path& zipfile) override {
-      auto zip = std::make_shared<Zip>();
-      try {
-        zip->openFile(zipfile);
-      }
-      catch (std::exception&) {
-        auto status = std::filesystem::status(zipfile);
-        if (std::filesystem::exists(status)) {
-          throw std::runtime_error("Invalid zip file: " + egg::ovum::os::file::normalizePath(zipfile.string(), false));
-        }
-        throw std::runtime_error("Zip file not found: " + egg::ovum::os::file::normalizePath(zipfile.string(), false));
-      }
-      return zip;
+    virtual void addFileEntry(const std::string& name, const std::string& content) {
+      assert(this->handle != nullptr);
+      this->handle->writestr(name, content);
+    }
+    virtual uint64_t commit() {
+      assert(this->handle != nullptr);
+      std::ofstream stream{ this->path, std::ios::binary };
+      this->handle->save(stream);
+      return uint64_t(stream.tellp());
     }
   };
 }
 
-egg::ovum::os::zip::IZipFileEntry::~IZipFileEntry() {
+std::string egg::ovum::os::zip::getVersion() {
+  return MZ_VERSION;
 }
 
-egg::ovum::os::zip::IZip::~IZip() {
+std::shared_ptr<IZipReader> egg::ovum::os::zip::openReadStream(std::istream& stream) {
+  auto zip = std::make_shared<ZipReader>();
+  zip->loadFromStream(stream);
+  return zip;
 }
 
-egg::ovum::os::zip::IZipFactory::~IZipFactory() {
+std::shared_ptr<IZipReader> egg::ovum::os::zip::openReadZipFile(const std::filesystem::path& zipfile) {
+  auto zip = std::make_shared<ZipReader>();
+  try {
+    zip->loadFromFile(zipfile);
+  } catch (std::exception&) {
+    auto status = std::filesystem::status(zipfile);
+    if (std::filesystem::exists(zipfile)) {
+      throw egg::ovum::Exception("Invalid zip file: '{path}'").with("path", zipfile.generic_string());
+    }
+    throw egg::ovum::Exception("Zip file not found: '{path}'").with("path", zipfile.generic_string());
+  }
+  return zip;
 }
 
-std::shared_ptr<egg::ovum::os::zip::IZipFactory> egg::ovum::os::zip::createFactory() {
-  return std::make_shared<ZipFactory>();
+std::shared_ptr<IZipWriter> egg::ovum::os::zip::openWriteZipFile(const std::filesystem::path& zipfile) {
+  return std::make_shared<ZipWriter>(zipfile);
 }

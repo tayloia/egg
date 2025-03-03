@@ -11,11 +11,16 @@ namespace egg::ovum {
       this->emplace(key, value);
       return *this;
     }
+    Exception& populate(const std::function<void(Exception&)>& populator) {
+      populator(*this);
+      return *this;
+    }
     const std::string& get(const std::string& key) const {
       auto found = this->find(key);
       if (found != this->end()) {
         return found->second;
       }
+      // Don't throw another egg::ovum exception!
       throw std::runtime_error("exception key not found: " + key);
     }
     std::string get(const std::string& key, const std::string& defval) const {
@@ -34,6 +39,11 @@ namespace egg::ovum {
       return false;
     }
     std::string format(const char* fmt) const;
+  };
+
+  class InternalException : public Exception {
+  public:
+    explicit InternalException(const std::string& reason, const std::source_location location = std::source_location::current());
   };
 
   class SyntaxException : public Exception {

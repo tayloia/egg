@@ -1,5 +1,4 @@
 #include "ovum/ovum.h"
-#include "ovum/exception.h"
 #include "ovum/file.h"
 #include "ovum/lexer.h"
 #include "ovum/stream.h"
@@ -371,7 +370,7 @@ namespace {
   private:
     FileTextStream stream;
   public:
-    FileLexer(const std::string& path, bool swallowBOM)
+    FileLexer(const std::filesystem::path& path, bool swallowBOM)
       : Lexer(stream), stream(path, swallowBOM) {
     }
   };
@@ -388,7 +387,7 @@ namespace {
   };
 }
 
-std::shared_ptr<egg::ovum::ILexer> egg::ovum::LexerFactory::createFromPath(const std::string& path, bool swallowBOM) {
+std::shared_ptr<egg::ovum::ILexer> egg::ovum::LexerFactory::createFromPath(const std::filesystem::path& path, bool swallowBOM) {
   return std::make_shared<FileLexer>(path, swallowBOM);
 }
 

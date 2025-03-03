@@ -14,7 +14,7 @@ namespace egg::ovum {
 
     // Usually constructed via IEggCompiler::compile, but these are useful for testing simple modules
     static HardPtr<IVMProgram> compileFromStream(IVM& vm, TextStream& script);
-    static HardPtr<IVMProgram> compileFromPath(IVM& vm, const std::string& script, bool swallowBOM = true);
-    static HardPtr<IVMProgram> compileFromText(IVM& vm, const std::string& text, const std::string& resource = std::string());
+    static HardPtr<IVMProgram> compileFromPath(IVM& vm, const std::filesystem::path& script, bool swallowBOM = true);
+    static HardPtr<IVMProgram> compileFromText(IVM& vm, const std::string& script, const std::string& resource = std::string());
   };
 }

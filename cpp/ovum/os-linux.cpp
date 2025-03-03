@@ -3,22 +3,25 @@
 #include "ovum/os-file.h"
 #include "ovum/os-process.h"
 
+#include <chrono>
 #include <fstream>
 #include <regex>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/times.h>
 
 namespace {
+  auto chronoStart = std::chrono::high_resolution_clock::now();
+  uint64_t clockTicksPerSecond = ::sysconf(_SC_CLK_TCK);
   void objcopy(const std::string& command) {
     auto exitcode = egg::ovum::os::process::plines(command, [&](const std::string&) {
       // Do nothing
     });
     fflush(stdout);
     if (exitcode != 0) {
-      throw std::runtime_error("Cannot spawn objcopy");
+      throw egg::ovum::Exception("Cannot spawn objcopy: '{command}'").with("command", command);
     }
   }
-
   struct ReadElf {
     // See https://github.com/lirongyuan/ELF-Reader-and-Loader/blob/master/elfinfo-mmap.c
     std::string name;
@@ -26,9 +29,10 @@ namespace {
     size_t address;
     size_t offset;
     size_t size;
-    static void foreach(const std::string& executable, std::function<void(const ReadElf&)> callback) {
+    static void foreach(const std::filesystem::path& executable, std::function<void(const ReadElf&)> callback) {
       std::regex pattern{ "\\s+\\[\\s*\\d+\\]\\s(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+(\\S+).*" };
-      auto exitcode = egg::ovum::os::process::plines("readelf -SW " + executable, [&](const std::string& line) {
+      auto command = "readelf -SW " + executable.string();
+      auto exitcode = egg::ovum::os::process::plines(command, [&](const std::string& line) {
         std::smatch match;
         if (std::regex_match(line, match, pattern)) {
           ReadElf elf;
@@ -40,8 +44,8 @@ namespace {
           callback(elf);
         }
         });
-      if (exitcode != 0) {
-        throw std::runtime_error("Cannot spawn readelf");
+      if (exitcode < 0) {
+        throw egg::ovum::Exception("Cannot spawn readelf: '{command}'").with("command", command);
       }
     }
     static size_t hex(const std::string& text) {
@@ -83,50 +87,62 @@ namespace {
       size_t pagesize = ::getpagesize();
       auto fd = ::open(this->path.c_str(), O_RDONLY);
       if (fd < 0) {
-        throw std::runtime_error("Cannot open ELF resource executable");
+        throw egg::ovum::Exception("Cannot open ELF resource executable: '{path}'").with("path", this->path);
       }
       align = this->offset % pagesize;
       auto* mapped = ::mmap(nullptr, this->bytes + align, PROT_READ, MAP_PRIVATE, fd, this->offset - align);
       ::close(fd);
       if (mapped == MAP_FAILED) {
-        throw std::runtime_error("Cannot map ELF resource");
+        throw egg::ovum::Exception("Cannot map ELF resource: '{path}'").with("path", this->path);
       }
       return mapped;
     }
     void unmap(void* mapped) const {
       if (::munmap(mapped, this->bytes)) {
-        throw std::runtime_error("Cannot unmap ELF resource");
+        throw egg::ovum::Exception("Cannot unmap ELF resource: '{path}'").with("path", this->path);
       }
     }
   };
-
-}
-
-void egg::ovum::os::embed::updateResourceFromMemory(const std::string& executable, const std::string& type, const std::string& label, const void* data, size_t bytes) {
-  if ((data == nullptr) || (bytes == 0)) {
-    objcopy("objcopy --remove-section " + label + " " + executable);
-  } else {
-    auto path = egg::ovum::os::file::createTemporaryFile("os-embed-", ".tmp", 100);
-    std::ofstream ofs{ path, std::ios::trunc | std::ios::binary };
-    if (data != nullptr) {
-      ofs.write(static_cast<const char*>(data), bytes);
+  void extractStatus(const std::string& line, const std::string& label, uint64_t& value, uint64_t scale) {
+    if (line.starts_with(label)) {
+      value = std::atoll(line.data() + label.size()) * scale;
     }
-    ofs.close();
-    egg::ovum::os::embed::updateResourceFromFile(executable, type, label, path);
+  }
+  uint64_t extractMicroseconds(clock_t clock) {
+    return (uint64_t(clock) * 1000000 + (clockTicksPerSecond / 2)) / clockTicksPerSecond;
+  }
+  void updateResource(const std::filesystem::path& executable, const std::string& type, const std::string& label, const std::filesystem::path& datapath) {
+    std::string option = "--add-section";
+    ReadElf::foreach(executable, [&](const ReadElf& elf) {
+      if ((elf.type == type) && (elf.name == label)) {
+        option = "--update-section";
+      }
+      });
+    objcopy("objcopy " + option + " " + label + "=" + datapath.string() + " --set-section-flags " + label + "=contents,noload,readonly " + executable.string());
   }
 }
 
-void egg::ovum::os::embed::updateResourceFromFile(const std::string& executable, const std::string& type, const std::string& label, const std::string& datapath) {
-  std::string option = "--add-section";
-  ReadElf::foreach(executable, [&](const ReadElf& elf) {
-    if ((elf.type == type) && (elf.name == label)) {
-      option = "--update-section";
-    }
-  });
-  objcopy("objcopy " + option + " " + label + "=" + datapath + " --set-section-flags " + label + "=contents,noload,readonly " + executable);
+uint64_t egg::ovum::os::embed::updateResourceFromMemory(const std::filesystem::path& executable, const std::string& type, const std::string& label, const void* data, size_t bytes) {
+  if ((data == nullptr) || (bytes == 0)) {
+    objcopy("objcopy --remove-section " + label + " " + executable.string());
+    return 0;
+  }
+  auto path = egg::ovum::os::file::createTemporaryFile("os-embed-", ".tmp", 100);
+  std::ofstream ofs{ path, std::ios::trunc | std::ios::binary };
+  if (data != nullptr) {
+    ofs.write(static_cast<const char*>(data), bytes);
+  }
+  ofs.close();
+  updateResource(executable, type, label, path);
+  return bytes;
 }
 
-std::vector<egg::ovum::os::embed::Resource> egg::ovum::os::embed::findResources(const std::string& executable) {
+uint64_t egg::ovum::os::embed::updateResourceFromFile(const std::filesystem::path& executable, const std::string& type, const std::string& label, const std::filesystem::path& datapath) {
+  updateResource(executable, type, label, datapath);
+  return uint64_t(std::filesystem::file_size(datapath));
+}
+
+std::vector<egg::ovum::os::embed::Resource> egg::ovum::os::embed::findResources(const std::filesystem::path& executable) {
   std::vector<Resource> resources;
   ReadElf::foreach(executable, [&](const ReadElf& elf) {
     resources.push_back({ elf.type, elf.name, elf.size });
@@ -134,7 +150,7 @@ std::vector<egg::ovum::os::embed::Resource> egg::ovum::os::embed::findResources(
   return resources;
 }
 
-std::vector<egg::ovum::os::embed::Resource> egg::ovum::os::embed::findResourcesByType(const std::string& executable, const std::string& type) {
+std::vector<egg::ovum::os::embed::Resource> egg::ovum::os::embed::findResourcesByType(const std::filesystem::path& executable, const std::string& type) {
   std::vector<Resource> resources;
   ReadElf::foreach(executable, [&](const ReadElf& elf) {
     if (elf.type == type) {
@@ -144,7 +160,7 @@ std::vector<egg::ovum::os::embed::Resource> egg::ovum::os::embed::findResourcesB
   return resources;
 }
 
-std::shared_ptr<egg::ovum::os::embed::LockableResource> egg::ovum::os::embed::findResourceByName(const std::string& executable, const std::string& type, const std::string& label) {
+std::shared_ptr<egg::ovum::os::embed::LockableResource> egg::ovum::os::embed::findResourceByName(const std::filesystem::path& executable, const std::string& type, const std::string& label) {
   std::shared_ptr<LockableResource> found = nullptr;
   ReadElf::foreach(executable, [&](const ReadElf& elf) {
     if ((elf.type == type) && (elf.name == label)) {
@@ -153,4 +169,34 @@ std::shared_ptr<egg::ovum::os::embed::LockableResource> egg::ovum::os::embed::fi
     }
   });
   return found;
+}
+
+egg::ovum::os::memory::Snapshot egg::ovum::os::memory::snapshot() {
+  // Try 'memusage /mnt/c/Project/egg/bin/wsl/gcc/release/egg-stub.exe --profile=memory'
+  // See https://stackoverflow.com/a/64166
+  Snapshot snapshot{ 0, 0, 0, 0 };
+  std::ifstream ifs{ "/proc/self/status" };
+  std::string line;
+  while (std::getline(ifs, line)) {
+    extractStatus(line, "VmPeak:", snapshot.peakBytesTotal, 1024);
+    extractStatus(line, "VmSize:", snapshot.currentBytesTotal, 1024);
+    extractStatus(line, "VmHWM:", snapshot.peakBytesData, 1024);
+    extractStatus(line, "VmRSS:", snapshot.currentBytesData, 1024);
+  }
+  return snapshot;
+}
+
+egg::ovum::os::process::Snapshot egg::ovum::os::process::snapshot() {
+  tms tms;
+  ::times(&tms);
+  Snapshot snapshot;
+  snapshot.microsecondsUser = extractMicroseconds(tms.tms_utime);
+  snapshot.microsecondsSystem = extractMicroseconds(tms.tms_stime);
+  auto chronoNow = std::chrono::high_resolution_clock::now();
+  snapshot.microsecondsElapsed = std::chrono::duration_cast<std::chrono::microseconds>(chronoNow - chronoStart).count();
+  return snapshot;
+}
+
+std::string egg::ovum::os::process::format(const std::error_code& error) {
+  return error.message();
 }

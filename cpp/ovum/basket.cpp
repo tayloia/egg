@@ -76,14 +76,14 @@ namespace {
         break;
       case ICollectable::SetBasketResult::Failed:
         // Transferred between baskets
-        throw std::logic_error("Soft pointer basket transfer violation (take)");
+        throw InternalException("Soft pointer basket transfer violation (take)");
       }
       auto* acquired = static_cast<ICollectable*>(collectable.hardAcquire());
       assert(acquired != nullptr);
       assert(acquired->softGetBasket() == this);
       if (!this->owned.insert(acquired).second) {
         // We were already known about, but shouldn't have been!
-        throw std::logic_error("Soft pointer basket ownership violation (take)");
+        throw InternalException("Soft pointer basket ownership violation (take)");
       }
       return acquired;
     }
@@ -91,10 +91,10 @@ namespace {
       // Remove from our list of owned collectables
       assert(collectable.softGetBasket() == this);
       if (this->owned.erase(&collectable) == 0) {
-        throw std::logic_error("Soft pointer basket ownership violation (drop)");
+        throw InternalException("Soft pointer basket ownership violation (drop)");
       }
       if (collectable.softSetBasket(nullptr) != ICollectable::SetBasketResult::Altered) {
-        throw std::logic_error("Soft pointer basket transfer violation (drop)");
+        throw InternalException("Soft pointer basket transfer violation (drop)");
       }
       collectable.hardRelease();
     }

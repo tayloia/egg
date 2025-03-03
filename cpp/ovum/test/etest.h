@@ -1,3 +1,7 @@
+namespace egg::ovum {
+  class IEggbox;
+}
+
 namespace egg::test {
   class Allocator final : public egg::ovum::AllocatorDefault {
     Allocator(const Allocator&) = delete;
@@ -8,9 +12,7 @@ namespace egg::test {
       NoAllocations,
       AtLeastOneAllocation
     };
-  private:
     Expectation expectation;
-  public:
     explicit Allocator(Expectation expectation = Expectation::AtLeastOneAllocation) : expectation(expectation) {}
     ~Allocator() {
       this->validate();
@@ -45,8 +47,10 @@ namespace egg::test {
   public:
     std::string resource;
     std::ostringstream logged;
+    std::map<Severity, size_t> counts;
     Logger() = default;
     virtual void log(Source source, Severity severity, const egg::ovum::String& message) override {
+      this->counts[severity]++;
       std::string buffer;
       switch (source) {
       case Source::Compiler:
@@ -147,6 +151,11 @@ namespace egg::test {
       }
       return true;
     }
+  };
+
+  class Eggbox {
+  public:
+    static std::shared_ptr<egg::ovum::IEggbox> createTest(const std::filesystem::path& subdir = "box");
   };
 
   inline ::testing::AssertionResult assertValueEQ(const char* lhs_expression, const char* rhs_expression, const egg::ovum::HardValue& lhs, const egg::ovum::HardValue& rhs) {

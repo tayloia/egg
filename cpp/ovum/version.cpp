@@ -21,6 +21,10 @@ egg::ovum::Version::Version()
   assert(this->commit != nullptr);
 }
 
+std::string egg::ovum::Version::semver() {
+  return std::to_string(VERSION_MAJOR) + '.' + std::to_string(VERSION_MINOR) + '.' + std::to_string(VERSION_PATCH);
+}
+
 std::ostream& egg::ovum::operator<<(std::ostream& stream, const egg::ovum::Version& version) {
-  return stream << "egg v" << version.major << '.' << version.minor << '.' << version.patch << " (" << version.timestamp << ") [" << version.commit << "]";
+  return stream << version.major << '.' << version.minor << '.' << version.patch << " (" << version.timestamp << ") [" << version.commit << "]";
 }

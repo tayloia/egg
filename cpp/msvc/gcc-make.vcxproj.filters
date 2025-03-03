@@ -14,7 +14,6 @@
     <None Include="$(EggRoot)\make\wsl.mak" />
     <None Include="$(EggRoot)\runtest.cmd" />
     <None Include="$(EggRoot)\runtest.sh" />
-    <None Include="$(EggRoot)\valgrind.sh" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="$(EggRoot)\build.cmd" />

@@ -1,4 +1,5 @@
 #include "ovum/test.h"
+#include "ovum/os-file.h"
 
 TEST(TestTesting, Empty) {
 }
@@ -64,8 +65,25 @@ TEST(TestTesting, EndsWithNegative) {
 }
 
 TEST(TestTesting, Throws) {
-  // This are our own addition to the assert macros
+  // This is our own addition to the assert macros
   ASSERT_THROW_E(throw std::runtime_error("reason"), std::runtime_error, ASSERT_STREQ("reason", e.what()));
+}
+
+TEST(TestTesting, Print) {
+  // This is our own addition to the assert macros
+  egg::test::Allocator allocator;
+  egg::ovum::HardValue inner{ egg::ovum::ValueFactory::createStringLiteral(allocator, "message") };
+  egg::ovum::HardValue outer{ egg::ovum::ValueFactory::createHardThrow(allocator, inner) };
+  ASSERT_PRINT("message", outer);
+}
+
+TEST(TestTesting, ResolvePath) {
+  auto resolved = egg::test::resolvePath("path/to/file").string();
+  if (egg::ovum::os::file::slash() == '\\') {
+    ASSERT_ENDSWITH(resolved, "\\path\\to\\file");
+  } else {
+    ASSERT_ENDSWITH(resolved, "/path/to/file");
+  }
 }
 
 TEST(TestTesting, Logger) {

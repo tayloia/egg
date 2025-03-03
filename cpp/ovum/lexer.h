@@ -38,7 +38,7 @@ namespace egg::ovum {
 
   class LexerFactory {
   public:
-    static std::shared_ptr<ILexer> createFromPath(const std::string& path, bool swallowBOM = true);
+    static std::shared_ptr<ILexer> createFromPath(const std::filesystem::path& path, bool swallowBOM = true);
     static std::shared_ptr<ILexer> createFromString(const std::string& text, const std::string& resource = std::string());
     static std::shared_ptr<ILexer> createFromTextStream(TextStream& stream);
   };

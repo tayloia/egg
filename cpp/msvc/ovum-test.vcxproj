@@ -61,6 +61,7 @@
     <ClCompile Include="..\ovum\test\test-value.cpp" />
     <ClCompile Include="..\ovum\test\test-version.cpp" />
     <ClCompile Include="..\ovum\test\test-vm.cpp" />
+    <ClCompile Include="..\ovum\test\test-eggbox.cpp" />
     <ClCompile Include="ovum-test.pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>

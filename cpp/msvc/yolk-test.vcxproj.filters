@@ -25,6 +25,15 @@
     <ClCompile Include="..\yolk\test\test-cli.cpp">
       <Filter>Test Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\yolk\test\test-stub.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\yolk\test\test-engine.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\yolk\test\test-options.cpp">
+      <Filter>Test Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ovum\test\etest.h">

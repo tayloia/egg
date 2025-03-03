@@ -1,0 +1,28 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{351ff443-d9dd-4ce8-bd41-a5fff04ca486}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="command">
+      <UniqueIdentifier>{2a14f634-266e-40ae-8b1c-e29d28e606e0}</UniqueIdentifier>
+      <Extensions>$(EggRoot)box\command\*.egg</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\stub\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="..\..\sandwich.cmd" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\box\command\debug.egg">
+      <Filter>command</Filter>
+    </None>
+    <None Include="..\..\box\command\smoke-test.egg">
+      <Filter>command</Filter>
+    </None>
+  </ItemGroup>
+</Project>

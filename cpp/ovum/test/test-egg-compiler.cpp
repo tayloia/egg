@@ -6,7 +6,7 @@
 
 TEST(TestEggCompiler, ExplicitSteps) {
   egg::test::VM vm;
-  auto lexer = egg::ovum::LexerFactory::createFromPath("~/cpp/yolk/test/scripts/test-0001.egg");
+  auto lexer = egg::ovum::LexerFactory::createFromPath(egg::test::resolvePath("cpp/yolk/test/scripts/test-0001.egg"));
   auto tokenizer = egg::ovum::EggTokenizerFactory::createFromLexer(vm->getAllocator(), lexer);
   auto parser = egg::ovum::EggParserFactory::createFromTokenizer(vm->getAllocator(), tokenizer);
   auto pbuilder = vm->createProgramBuilder();
@@ -21,7 +21,7 @@ TEST(TestEggCompiler, ExplicitSteps) {
 
 TEST(TestEggCompiler, Success) {
   egg::test::VM vm;
-  auto program = egg::ovum::EggCompilerFactory::compileFromPath(*vm, "~/cpp/yolk/test/scripts/test-0001.egg");
+  auto program = egg::ovum::EggCompilerFactory::compileFromPath(*vm, egg::test::resolvePath("cpp/yolk/test/scripts/test-0001.egg"));
   ASSERT_TRUE(program != nullptr);
   ASSERT_EQ(1u, program->getModuleCount());
   ASSERT_NE(nullptr, program->getModule(0));

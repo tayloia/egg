@@ -1,17 +1,16 @@
 #include "ovum/ovum.h"
-#include "ovum/exception.h"
-#include "ovum/file.h"
+#include "ovum/os-file.h"
 
 namespace {
   const std::string& formatWhat(const char* fmt, egg::ovum::Exception& exception) {
-    auto& value = exception["what"];
+    auto& value = exception[{}];
     if (value.empty()) {
       value = exception.format(fmt);
     }
     return value;
   }
-  std::string formatResource(const std::string& resource, size_t limit) {
-    auto path = egg::ovum::File::normalizePath(resource);
+  std::string formatResource(const std::string& resource, size_t limit = 3) {
+    auto path = egg::ovum::os::file::normalizePath(resource, false);
     if (limit > 0) {
       auto slash = path.rfind('/');
       while ((--limit > 0) && (slash != std::string::npos) && (slash > 0)) {
@@ -44,7 +43,7 @@ const char* egg::ovum::Exception::what() const noexcept {
 
 egg::ovum::Exception& egg::ovum::Exception::here(const std::source_location location) {
   // Limit the source path to three components
-  this->emplace("where", formatWhere(formatResource(location.file_name(), 3), location.line()));
+  this->emplace("where", formatWhere(formatResource(location.file_name()), location.line()));
   return *this;
 }
 
@@ -80,6 +79,12 @@ std::string egg::ovum::Exception::format(const char* fmt) const {
     }
   }
   return result;
+}
+
+egg::ovum::InternalException::InternalException(const std::string& reason, const std::source_location location)
+  : Exception("{where}: {reason}") {
+  this->emplace("reason", reason);
+  this->emplace("where", formatWhere(formatResource(location.file_name()), location.line()));
 }
 
 egg::ovum::SyntaxException::SyntaxException(const std::string& reason, const std::string& resource, const SourceLocation& location, const std::string& token)
