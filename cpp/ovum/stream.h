@@ -55,7 +55,7 @@ namespace egg::ovum {
     EggboxByteStream(IEggbox& eggbox, const std::string& subpath);
     ~EggboxByteStream();
   protected:
-    EggboxByteStream(const std::string& resource, std::shared_ptr<IEggboxFileEntry>&& entry); // WIBBLE
+    EggboxByteStream(const std::string& resource, std::shared_ptr<IEggboxFileEntry>&& entry);
   };
 
   class FileByteStream : public ByteStream {

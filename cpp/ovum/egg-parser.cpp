@@ -1269,7 +1269,7 @@ namespace {
             partial.tokensAfter += 2;
           } else {
             // TODO type(<parameters>)
-            return context.failed(partial.tokensAfter + 1, "Function type parameters not yet supported");
+            return context.failed(partial.tokensAfter + 1, "Function parameters not yet supported");
           }
         } else {
           break;
